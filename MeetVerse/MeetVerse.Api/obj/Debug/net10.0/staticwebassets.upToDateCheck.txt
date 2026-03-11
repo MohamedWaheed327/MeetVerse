@@ -1,0 +1,8 @@
+wwwroot\whiteboard.html
+wwwroot\whiteboard.js
+wwwroot\index.html
+wwwroot\audio-pipeline.js
+F:\MeetVerseBack\MeetVerse.Api\wwwroot\whiteboard.js
+F:\MeetVerseBack\MeetVerse.Api\wwwroot\whiteboard.html
+F:\MeetVerseBack\MeetVerse.Api\wwwroot\index.html
+F:\MeetVerseBack\MeetVerse.Api\wwwroot\audio-pipeline.js
