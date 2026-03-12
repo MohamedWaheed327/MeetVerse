@@ -10,7 +10,7 @@ namespace MeetVerse.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+// [Authorize]
 public class GroupsController : ControllerBase
 {
     private readonly MeetVerseDbContext _db;
