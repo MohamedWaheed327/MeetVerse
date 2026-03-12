@@ -14,8 +14,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-    ?? throw new InvalidOperationException("DefaultConnection string is missing.");
+// set this enviroment variable {MEETVERSE_GLOBAL_SERVER: your server name}
+var serverName = Environment.GetEnvironmentVariable("MEETVERSE_GLOBAL_SERVER");
+var baseConnection = builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionString = $"Server={serverName};{baseConnection}";
 
 builder.Services.AddDbContext<MeetVerseDbContext>(options =>
 {
