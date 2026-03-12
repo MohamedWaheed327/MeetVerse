@@ -8,7 +8,7 @@ using MeetVerse.Api.Hubs;
 using MeetVerse.Api.Services;
 using MeetVerse.Api.Models;
 using MeetVerse.Api.Services.Background;
-
+// TODO: uncomment autherization
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
