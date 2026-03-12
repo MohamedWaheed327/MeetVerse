@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MeetVerse.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0a1922a8c93268f8690ad60746407c9a18f0b3bc")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dae6f6c5f96c14762af26ae364d21e087ab09e28")]
 [assembly: System.Reflection.AssemblyProductAttribute("MeetVerse.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MeetVerse.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

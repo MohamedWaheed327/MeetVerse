@@ -3604,23 +3604,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Dell\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "C:\\Users\\Mohammed Waheed\\.nuget\\packages\\": {},
+    "D:\\programs\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "F:\\MeetVestDev2\\MeetVerse\\MeetVerse.Api\\MeetVerse.Api.csproj",
+      "projectUniqueName": "C:\\Users\\Mohammed Waheed\\Desktop\\MeetVerse\\MeetVerseBackend\\MeetVerse.Api\\MeetVerse.Api.csproj",
       "projectName": "MeetVerse.Api",
-      "projectPath": "F:\\MeetVestDev2\\MeetVerse\\MeetVerse.Api\\MeetVerse.Api.csproj",
-      "packagesPath": "C:\\Users\\Dell\\.nuget\\packages\\",
-      "outputPath": "F:\\MeetVestDev2\\MeetVerse\\MeetVerse.Api\\obj\\",
+      "projectPath": "C:\\Users\\Mohammed Waheed\\Desktop\\MeetVerse\\MeetVerseBackend\\MeetVerse.Api\\MeetVerse.Api.csproj",
+      "packagesPath": "C:\\Users\\Mohammed Waheed\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\Mohammed Waheed\\Desktop\\MeetVerse\\MeetVerseBackend\\MeetVerse.Api\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        "D:\\programs\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\Dell\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\Mohammed Waheed\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -3699,7 +3699,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.100/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.104/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.AspNetCore": "(,10.0.32767]",
           "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",
