@@ -183,7 +183,7 @@ public class GroupsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
-        if (!await CanManageGroup(id, userId.Value)) return Forbid("Only admins can add members to the group.");
+        if (!await CanManageGroup(id, userId.Value)) return Forbid();
 
         var newUser = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
         if (newUser is null) return NotFound("User with this email not found");
