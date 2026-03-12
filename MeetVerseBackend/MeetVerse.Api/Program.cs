@@ -2,12 +2,12 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using MeetVerse.Api.Background;
 using MeetVerse.Api.Configuration;
 using MeetVerse.Api.Data;
 using MeetVerse.Api.Hubs;
 using MeetVerse.Api.Services;
 using MeetVerse.Api.Models;
+using MeetVerse.Api.Services.Background;
 
 var builder = WebApplication.CreateBuilder(args);
 

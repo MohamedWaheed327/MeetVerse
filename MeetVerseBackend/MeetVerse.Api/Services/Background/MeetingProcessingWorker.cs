@@ -3,7 +3,7 @@ using MeetVerse.Api.Data;
 using MeetVerse.Api.Models;
 using MeetVerse.Api.Services;
 
-namespace MeetVerse.Api.Background;
+namespace MeetVerse.Api.Services.Background;
 
 public class MeetingProcessingWorker : BackgroundService
 {

@@ -4,6 +4,7 @@ using MeetVerse.Api.Data;
 using MeetVerse.Api.Dtos;
 using MeetVerse.Api.Models;
 using MeetVerse.Api.Services;
+using MeetVerse.Api.Services.Background;
 
 namespace MeetVerse.Api.Controllers;
 

@@ -1,6 +1,6 @@
 using MeetVerse.Api.Models;
 
-namespace MeetVerse.Api.Services;
+namespace MeetVerse.Api.Services.Background;
 
 /// <summary>
 /// Optional audio filtering (e.g. noise reduction, custom ML model) before transcription.

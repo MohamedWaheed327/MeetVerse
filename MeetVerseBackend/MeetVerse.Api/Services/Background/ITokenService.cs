@@ -1,6 +1,6 @@
 using MeetVerse.Api.Models;
 
-namespace MeetVerse.Api.Services;
+namespace MeetVerse.Api.Services.Background;
 
 public interface ITokenService
 {
