@@ -62,6 +62,17 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:5173")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        });
+});
 
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
@@ -70,6 +81,7 @@ builder.Services.AddScoped<IAudioFilterService, StubAudioFilterService>();
 builder.Services.AddScoped<IAudioTranscriptionService, StubAudioTranscriptionService>();
 builder.Services.AddScoped<IAudioSummarizationService, StubAudioSummarizationService>();
 builder.Services.AddHostedService<MeetingProcessingWorker>();
+
 
 var app = builder.Build();
 
@@ -90,6 +102,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseCors("AllowFrontend");
 
 app.MapControllers();
 app.MapHub<ChatHub>("/hubs/chat");
