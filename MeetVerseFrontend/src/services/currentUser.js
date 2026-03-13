@@ -1,18 +1,13 @@
 import api from "./api";
 
 /**
- * login new user
+ * getCurrent new user
  * @param {Object} data
- * @param {string} data.email
- * @param {string} data.password
  */
-export const loginUser = async (data) => {
+export const getCurrentUser = async (data) => {
     try {
-        const response = await api.post("/auth/login", {
-            email: data.email,
-            password: data.password,
+        const response = await api.post("/profile/me", {
         });
-
         return response.data;
     } catch (error) {
         if (error.response) {
