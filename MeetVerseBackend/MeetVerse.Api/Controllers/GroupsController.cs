@@ -5,12 +5,13 @@ using Microsoft.EntityFrameworkCore;
 using MeetVerse.Api.Data;
 using MeetVerse.Api.Dtos;
 using MeetVerse.Api.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace MeetVerse.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-// [Authorize]
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 public class GroupsController : ControllerBase
 {
     private readonly MeetVerseDbContext _db;
@@ -23,7 +24,6 @@ public class GroupsController : ControllerBase
     private Guid? GetCurrentUserId()
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        sub = _db.Users.FirstOrDefault().Id.ToString(); // TODO: remove this line
         return Guid.TryParse(sub, out var id) ? id : null;
     }
 

@@ -10,7 +10,7 @@ namespace MeetVerse.Api.Controllers;
 
 [ApiController]
 [Route("api/meetings/{meetingId:guid}/whiteboard")]
-// [Authorize]
+[Authorize]
 public class WhiteboardController : ControllerBase
 {
     private readonly MeetVerseDbContext _db;

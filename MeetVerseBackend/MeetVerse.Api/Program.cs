@@ -8,11 +8,28 @@ using MeetVerse.Api.Hubs;
 using MeetVerse.Api.Services;
 using MeetVerse.Api.Models;
 using MeetVerse.Api.Services.Background;
-// TODO: uncomment autherization
+using Microsoft.OpenApi;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
-builder.Services.AddSwaggerGen();
+// Source - https://stackoverflow.com/a/79835686
+// Posted by Nermin, modified by community. See post 'Timeline' for change history
+// Retrieved 2026-03-13, License - CC BY-SA 4.0
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "JWT Authorization header using the Bearer scheme."
+    });
+
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("bearer", document)] = []
+    });
+});
 
 // set this enviroment variable {MEETVERSE_GLOBAL_SERVER: your server name}
 var serverName = Environment.GetEnvironmentVariable("MEETVERSE_GLOBAL_SERVER");
