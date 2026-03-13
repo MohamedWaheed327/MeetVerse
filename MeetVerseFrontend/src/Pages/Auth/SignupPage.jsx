@@ -4,19 +4,40 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { UserPlus, Mail, Lock, User, ArrowRight } from "lucide-react";
+import { registerUser } from "../../services/register";
 
 export default function SignupPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("signup form submitted", { firstName, lastName, email, password });
+    setError(null);
     setLoading(true);
-    localStorage.setItem("userToken", "true");
-    setTimeout(() => {
-      setLoading(false);
+
+    try {
+      // build register payload (backend expects a single name string)
+      const name = `${firstName.trim()} ${lastName.trim()}`.trim();
+      const data = { email, password, name };
+
+      console.log("calling registerUser", data);
+      const response = await registerUser(data);
+      console.log("register response", response);
+      // save token and redirect
+      localStorage.setItem("token", response.token);
       navigate("/home");
-    }, 1500);
+    } catch (err) {
+      console.error("register failed", err);
+      // registerUser throws the api error object
+      setError(err.message || "Unable to register");
+      setLoading(false);
+    }
   };
 
   return (
@@ -56,6 +77,8 @@ export default function SignupPage() {
                   <input
                     type="text"
                     required
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                     placeholder="John"
                     className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl pl-12 pr-4 py-3.5 text-sm focus:border-blue-600 outline-none transition-all shadow-inner"
                   />
@@ -68,6 +91,8 @@ export default function SignupPage() {
                 <input
                   type="text"
                   required
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
                   placeholder="Doe"
                   className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-5 py-3.5 text-sm focus:border-blue-600 outline-none transition-all shadow-inner"
                 />
@@ -86,6 +111,8 @@ export default function SignupPage() {
                 <input
                   type="email"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl pl-12 pr-4 py-3.5 text-sm focus:border-blue-600 outline-none transition-all shadow-inner"
                 />
@@ -104,6 +131,8 @@ export default function SignupPage() {
                 <input
                   type="password"
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl pl-12 pr-4 py-3.5 text-sm focus:border-blue-600 outline-none transition-all shadow-inner"
                 />

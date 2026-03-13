@@ -62,6 +62,7 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+// TODO: add frontend host in appsetting.json
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",

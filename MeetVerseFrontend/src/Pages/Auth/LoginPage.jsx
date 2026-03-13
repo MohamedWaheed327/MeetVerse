@@ -4,19 +4,31 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { LogIn, Mail, Lock, ArrowRight, Github, Chrome } from "lucide-react";
+import { loginUser } from "../../services/login";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
-    localStorage.setItem("userToken", "true");
-    setTimeout(() => {
-      setLoading(false);
+
+    try {
+      const data = { email, password };
+      const response = await loginUser(data);
+      // save token and redirect
+      localStorage.setItem("token", response.token);
       navigate("/home");
-    }, 1200);
+    } catch (err) {
+      // loginUser throws the api error object
+      setError(err.message || "Unable to login");
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,6 +53,9 @@ export default function LoginPage() {
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {error && (
+              <p className="text-red-600 text-sm text-center">{error}</p>
+            )}
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">
                 Email Address
@@ -53,6 +68,8 @@ export default function LoginPage() {
                 <input
                   type="email"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl pl-12 pr-4 py-3.5 text-sm focus:border-blue-600 outline-none transition-all shadow-inner"
                 />
@@ -79,6 +96,8 @@ export default function LoginPage() {
                 <input
                   type="password"
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl pl-12 pr-4 py-3.5 text-sm focus:border-blue-600 outline-none transition-all shadow-inner"
                 />

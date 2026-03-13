@@ -9,7 +9,7 @@ export default function Navbar() {
   const location = useLocation();
 
   const isLanding = location.pathname === "/";
-  const isLoggedIn = localStorage.getItem("userToken");
+  const isLoggedIn = localStorage.getItem("token");
 
   const closeMobile = () => setMobileMenuOpen(false);
 
@@ -40,41 +40,37 @@ export default function Navbar() {
               <>
                 <a
                   href="#features"
-                  className={`${linkClasses} ${
-                    isActiveSection("#features")
+                  className={`${linkClasses} ${isActiveSection("#features")
                       ? activeClasses
                       : inactiveClasses
-                  }`}
+                    }`}
                 >
                   Features
                 </a>
                 <a
                   href="#how-it-works"
-                  className={`${linkClasses} ${
-                    isActiveSection("#how-it-works")
+                  className={`${linkClasses} ${isActiveSection("#how-it-works")
                       ? activeClasses
                       : inactiveClasses
-                  }`}
+                    }`}
                 >
                   How It Works
                 </a>
                 <a
                   href="#Overview"
-                  className={`${linkClasses} ${
-                    isActiveSection("#Overview")
+                  className={`${linkClasses} ${isActiveSection("#Overview")
                       ? activeClasses
                       : inactiveClasses
-                  }`}
+                    }`}
                 >
                   Overview
                 </a>
                 <a
                   href="#our-audience"
-                  className={`${linkClasses} ${
-                    isActiveSection("#our-audience")
+                  className={`${linkClasses} ${isActiveSection("#our-audience")
                       ? activeClasses
                       : inactiveClasses
-                  }`}
+                    }`}
                 >
                   Our Audience
                 </a>
@@ -86,8 +82,7 @@ export default function Navbar() {
                 <NavLink
                   to="/home"
                   className={({ isActive }) =>
-                    `${linkClasses} ${
-                      isActive ? activeClasses : inactiveClasses
+                    `${linkClasses} ${isActive ? activeClasses : inactiveClasses
                     }`
                   }
                 >
@@ -96,8 +91,7 @@ export default function Navbar() {
                 <NavLink
                   to="/meetings"
                   className={({ isActive }) =>
-                    `${linkClasses} ${
-                      isActive ? activeClasses : inactiveClasses
+                    `${linkClasses} ${isActive ? activeClasses : inactiveClasses
                     }`
                   }
                 >
@@ -106,8 +100,7 @@ export default function Navbar() {
                 <NavLink
                   to="/groups"
                   className={({ isActive }) =>
-                    `${linkClasses} ${
-                      isActive ? activeClasses : inactiveClasses
+                    `${linkClasses} ${isActive ? activeClasses : inactiveClasses
                     }`
                   }
                 >
@@ -116,8 +109,7 @@ export default function Navbar() {
                 <NavLink
                   to="/profile"
                   className={({ isActive }) =>
-                    `${linkClasses} ${
-                      isActive ? activeClasses : inactiveClasses
+                    `${linkClasses} ${isActive ? activeClasses : inactiveClasses
                     }`
                   }
                 >
@@ -145,7 +137,7 @@ export default function Navbar() {
               ) : (
                 <button
                   onClick={() => {
-                    localStorage.removeItem("userToken");
+                    localStorage.removeItem("token");
                     window.location.href = "/";
                   }}
                   className="text-red-500 font-bold text-sm"
@@ -180,11 +172,10 @@ export default function Navbar() {
                     key={hash}
                     href={hash}
                     onClick={closeMobile}
-                    className={`text-lg font-semibold ${
-                      isActiveSection(hash)
+                    className={`text-lg font-semibold ${isActiveSection(hash)
                         ? "text-blue-600"
                         : "text-gray-800 dark:text-[#F1F5F9]"
-                    }`}
+                      }`}
                   >
                     {hash.replace("#", "").toUpperCase()}
                   </a>
@@ -199,10 +190,9 @@ export default function Navbar() {
                 to={path}
                 onClick={closeMobile}
                 className={({ isActive }) =>
-                  `text-lg font-semibold ${
-                    isActive
-                      ? "text-blue-600"
-                      : "text-gray-800 dark:text-[#F1F5F9]"
+                  `text-lg font-semibold ${isActive
+                    ? "text-blue-600"
+                    : "text-gray-800 dark:text-[#F1F5F9]"
                   }`
                 }
               >

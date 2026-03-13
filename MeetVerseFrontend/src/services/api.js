@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // TODO: change the backend host
-const host = "localhost:5279";
+const host = "http://localhost:5279"; // include protocol to avoid relative path issues
 
 const api = axios.create({
     baseURL: host + "/api",
