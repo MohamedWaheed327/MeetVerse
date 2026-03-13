@@ -22,7 +22,7 @@ public class ProfileController : ControllerBase
         _db = db;
     }
 
-    [HttpGet("/me")]
+    [HttpGet("me")]
     public async Task<User> GetCurrentUser()
     {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier);

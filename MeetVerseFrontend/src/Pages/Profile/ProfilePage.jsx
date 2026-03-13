@@ -1,10 +1,26 @@
 /* eslint-disable no-unused-vars */
-import React from "react";
+import React, { useState, useEffect } from "react"; // 👈 added useState, useEffect
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
 import { User, Shield, Camera, Trash2, Save, Key } from "lucide-react";
+import { getCurrentUser } from "../../services/currentUser"; // 👈 import API
 
 export default function ProfilePage() {
+  const [user, setUser] = useState(null); // 👈 store user data
+
+  // 👇 Add this temporarily in ProfilePage to debug
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const data = await getCurrentUser();
+        setUser(data);
+      } catch (error) {
+        
+      }
+    };
+    fetchUser();
+  }, []);
+
   const fadeInUp = {
     initial: { opacity: 0, y: 20 },
     animate: { opacity: 1, y: 0 },
@@ -38,16 +54,19 @@ export default function ProfilePage() {
 
               <div className="relative inline-block group cursor-pointer">
                 <div className="w-32 h-32 rounded-[2.5rem] bg-gradient-to-tr from-blue-600 to-indigo-700 flex items-center justify-center text-5xl font-bold shadow-2xl mb-6 transform group-hover:scale-105 transition-transform duration-300 text-white">
-                  Y
+                  {/* 👇 first letter of full name */}
+                  {user?.name?.charAt(0).toUpperCase() ?? "?"}
                 </div>
                 <div className="absolute inset-0 bg-black/40 rounded-[2.5rem] opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300">
                   <Camera className="text-white w-8 h-8" />
                 </div>
               </div>
 
+              {/* 👇 only this line changed — shows full name from API */}
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                Your Name
+                {user?.name ?? "Loading..."}
               </h3>
+
               <p className="text-slate-500 dark:text-[#A8B0C2] text-sm mb-6">
                 you@example.com
               </p>
