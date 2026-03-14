@@ -3,3 +3,5 @@ obj
 .vs
 .vscode
 node_modules
+site
+deploy.bat
