@@ -31,11 +31,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// set this enviroment variable {MEETVERSE_GLOBAL_SERVER: your server name}
-var serverName = Environment.GetEnvironmentVariable("MEETVERSE_GLOBAL_SERVER");
-var baseConnection = builder.Configuration.GetConnectionString("DefaultConnection");
-var connectionString = $"Server={serverName};{baseConnection}";
-
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<MeetVerseDbContext>(options =>
 {
     options.UseSqlServer(connectionString);
@@ -109,7 +105,7 @@ using (var scope = app.Services.CreateScope())
     await seeder.SeedAsync();
 }
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || true)
 {
     app.MapOpenApi();
     app.UseSwagger();
@@ -126,5 +122,11 @@ app.MapControllers();
 app.MapHub<ChatHub>("/hubs/chat");
 app.MapHub<WhiteboardHub>("/hubs/whiteboard");
 app.MapHub<GroupChatHub>("/hubs/groupchat");
+
+app.MapGet("/", context =>
+{
+    context.Response.Redirect("/swagger");
+    return Task.CompletedTask;
+});
 
 app.Run();
