@@ -1,7 +1,7 @@
 import axios from "axios";
 
-// TODO: change the backend host
-const host = "http://localhost:5279"; // include protocol to avoid relative path issues
+// TODO: put host in json file
+const host = "http://meetverse-env.eba-qcpudpcc.us-east-1.elasticbeanstalk.com"; // include protocol to avoid relative path issues
 
 const api = axios.create({
     baseURL: host + "/api",
