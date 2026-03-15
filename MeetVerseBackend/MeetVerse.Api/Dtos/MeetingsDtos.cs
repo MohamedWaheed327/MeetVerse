@@ -12,6 +12,6 @@ public class CreateMeetingRequest
 
 public class JoinMeetingRequest
 {
-    public Guid Id { get; set; }
+    public Guid MeetingId { get; set; }
 }
 

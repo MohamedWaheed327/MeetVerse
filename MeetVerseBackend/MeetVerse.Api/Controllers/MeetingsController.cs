@@ -27,6 +27,25 @@ public class MeetingsController : ControllerBase
         return Guid.TryParse(sub, out var id) ? id : null;
     }
 
+    private async Task<bool> IsInGroupAsync(Guid groupId)
+    {
+        var userId = GetCurrentUserId();
+        var userGroup = await _db.UserGroups.FirstOrDefaultAsync(UserGroup => userId == UserGroup.UserId && groupId == UserGroup.GroupId);
+        return userGroup != null;
+    }
+
+
+
+    // public async Task<ICollection<Meeting>> GetLiveMeeting()
+    // {
+    //     var userId = GetCurrentUserId();
+    //     foreach (var group in _db.Groups.Where(group => group.Id))
+    //     {
+
+    //     }
+    //     var liveMeetings = _db.Meetings.Where(meeting => meeting)
+    // }
+
     public async Task<Meeting> CreateMeeting(CreateMeetingRequest creatMeetingRequest)
     {
         var userId = GetCurrentUserId();
@@ -49,12 +68,24 @@ public class MeetingsController : ControllerBase
         return meeting;
     }
 
-    public async Task<MeetingParticipant> JoinMeeting(JoinMeetingRequest joinMeetingRequest)
+    public async Task<ActionResult<MeetingParticipant>> JoinMeeting(JoinMeetingRequest joinMeetingRequest)
     {
         var userId = GetCurrentUserId();
-        var meetingId = joinMeetingRequest.Id;
+        var meetingId = joinMeetingRequest.MeetingId;
         var meeting = await _db.Meetings.FirstOrDefaultAsync(meeting => meeting.Id == meetingId);
+        var group = meeting!.Group;
+        if (!await IsInGroupAsync(group!.Id)) return NotFound();
 
-        return new MeetingParticipant();
+        var particpant = new MeetingParticipant
+        {
+            Id = Guid.NewGuid(),
+            MeetingId = meetingId,
+            Meeting = meeting,
+            UserId = userId!.Value,
+            Role = userId!.Value == meeting.HostId ? MeetingParticipantRole.Host : MeetingParticipantRole.Participant,
+            IsActive = true
+        };
+        _db.MeetingParticipants.Add(particpant);
+        return particpant;
     }
 }
