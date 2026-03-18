@@ -114,7 +114,7 @@ public class MeetingsController : ControllerBase
         await _db.SaveChangesAsync();
         return meeting;
     }
-
+    [HttpPost("join")]
     public async Task<ActionResult<MeetingParticipant>> JoinMeeting(JoinMeetingRequest joinMeetingRequest)
     {
         var userId = GetCurrentUserId();
