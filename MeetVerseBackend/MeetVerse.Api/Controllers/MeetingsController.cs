@@ -34,7 +34,52 @@ public class MeetingsController : ControllerBase
         return userGroup != null;
     }
 
+    private async Task<ActionResult<IEnumerable<GroupResponse>>> GetMyGroups()
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
 
+        var groups = await _db.UserGroups
+            .Where(ug => ug.UserId == userId)
+            .Select(ug => new GroupResponse
+            {
+                Id = ug.Group.Id,
+                Name = ug.Group.Name,
+                Description = ug.Group.Description,
+                CreatedById = ug.Group.CreatedById,
+                CreatedByName = ug.Group.CreatedBy.Name,
+                CreatedAt = ug.Group.CreatedAt,
+                MemberCount = ug.Group.UserGroups.Count,
+                CurrentUserRole = ug.Role.ToString()
+            })
+            .ToListAsync();
+        return groups;
+    }
+
+    private async Task<ActionResult<IEnumerable<object>>> GetGroupMeetings(Guid groupId)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+        if (!await IsInGroupAsync(groupId)) return NotFound();
+
+        var meetings = await _db.Meetings
+            .Where(m => m.GroupId == groupId)
+            .OrderByDescending(m => m.ScheduledStart)
+            .Select(m => new
+            {
+                m.Id,
+                m.Title,
+                m.Description,
+                m.ScheduledStart,
+                m.ScheduledEnd,
+                m.Status,
+                m.CreatedAt,
+                HostId = m.HostId,
+                HostName = m.Host.Name
+            })
+            .ToListAsync();
+        return Ok(meetings);
+    }
 
     // public async Task<ICollection<Meeting>> GetLiveMeeting()
     // {
@@ -46,9 +91,10 @@ public class MeetingsController : ControllerBase
     //     var liveMeetings = _db.Meetings.Where(meeting => meeting)
     // }
 
-    public async Task<Meeting> CreateMeeting(CreateMeetingRequest creatMeetingRequest)
+    public async Task<ActionResult<Meeting>> CreateMeeting(CreateMeetingRequest creatMeetingRequest)
     {
         var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
 
         Meeting meeting = new Meeting
         {
@@ -65,12 +111,15 @@ public class MeetingsController : ControllerBase
             ScheduledEnd = creatMeetingRequest.ScheduledEnd,
         };
         _db.Meetings.Add(meeting);
+        await _db.SaveChangesAsync();
         return meeting;
     }
 
     public async Task<ActionResult<MeetingParticipant>> JoinMeeting(JoinMeetingRequest joinMeetingRequest)
     {
         var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
         var meetingId = joinMeetingRequest.MeetingId;
         var meeting = await _db.Meetings.FirstOrDefaultAsync(meeting => meeting.Id == meetingId);
         var group = meeting!.Group;
@@ -85,7 +134,10 @@ public class MeetingsController : ControllerBase
             Role = userId!.Value == meeting.HostId ? MeetingParticipantRole.Host : MeetingParticipantRole.Participant,
             IsActive = true
         };
+
         _db.MeetingParticipants.Add(particpant);
+        await _db.SaveChangesAsync();
+
         return particpant;
     }
 }
