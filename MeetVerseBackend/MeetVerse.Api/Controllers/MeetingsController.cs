@@ -45,7 +45,7 @@ public class MeetingsController : ControllerBase
     //     }
     //     var liveMeetings = _db.Meetings.Where(meeting => meeting)
     // }
-
+    [HttpPost]
     public async Task<Meeting> CreateMeeting(CreateMeetingRequest creatMeetingRequest)
     {
         var userId = GetCurrentUserId();
@@ -67,7 +67,7 @@ public class MeetingsController : ControllerBase
         _db.Meetings.Add(meeting);
         return meeting;
     }
-
+    [HttpPost("join")]
     public async Task<ActionResult<MeetingParticipant>> JoinMeeting(JoinMeetingRequest joinMeetingRequest)
     {
         var userId = GetCurrentUserId();
