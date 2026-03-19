@@ -34,13 +34,11 @@ public class MeetingsController : ControllerBase
         return userGroup != null;
     }
 
-    private async Task<ActionResult<IEnumerable<GroupResponse>>> GetMyGroups()
+    private async Task<IEnumerable<GroupResponse>> GetMyGroups()
     {
         var userId = GetCurrentUserId();
-        if (userId is null) return Unauthorized();
-
         var groups = await _db.UserGroups
-            .Where(ug => ug.UserId == userId)
+            .Where(ug => ug.UserId == userId || ug.GroupId == new Guid("3fa85f64-5717-4562-b3fc-2c963f66afa6"))
             .Select(ug => new GroupResponse
             {
                 Id = ug.Group.Id,
@@ -56,17 +54,14 @@ public class MeetingsController : ControllerBase
         return groups;
     }
 
-    private async Task<ActionResult<IEnumerable<object>>> GetGroupMeetings(Guid groupId)
+    private async Task<IEnumerable<NewClass>> GetGroupMeetings(Guid groupId)
     {
         var userId = GetCurrentUserId();
-        if (userId is null) return Unauthorized();
-        if (!await IsInGroupAsync(groupId)) return NotFound();
 
         var meetings = await _db.Meetings
             .Where(m => m.GroupId == groupId)
             .OrderByDescending(m => m.ScheduledStart)
-            .Select(m => new
-            {
+            .Select(m => new NewClass(
                 m.Id,
                 m.Title,
                 m.Description,
@@ -74,37 +69,47 @@ public class MeetingsController : ControllerBase
                 m.ScheduledEnd,
                 m.Status,
                 m.CreatedAt,
-                HostId = m.HostId,
-                HostName = m.Host.Name
-            })
+                m.HostId,
+                m.Host.Name
+            ))
             .ToListAsync();
-        return Ok(meetings);
+        return meetings;
     }
 
-    // public async Task<ICollection<Meeting>> GetLiveMeeting()
-    // {
-    //     var userId = GetCurrentUserId();
-    //     foreach (var group in _db.Groups.Where(group => group.Id))
-    //     {
-
-    //     }
-    //     var liveMeetings = _db.Meetings.Where(meeting => meeting)
-    // }
-
-    public async Task<ActionResult<Meeting>> CreateMeeting(CreateMeetingRequest creatMeetingRequest)
+    [HttpGet("live-meeting")]
+    public async Task<ActionResult<ICollection<NewClass>>> GetLiveMeeting()
     {
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
 
+        List<NewClass> meetings = [];
+        foreach (var group in await GetMyGroups())
+        {
+            foreach (var meeting in await GetGroupMeetings(group.Id))
+            {
+                if (DateTime.UtcNow < meeting.ScheduledEnd)
+                {
+                    meetings.Add(meeting);
+                }
+            }
+        }
+
+        return meetings;
+    }
+
+    [HttpPost("create")]
+    public async Task<ActionResult> CreateMeeting(CreateMeetingRequest creatMeetingRequest)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        User x = (await _db.Users.FirstOrDefaultAsync(user => user.Id == userId!.Value))!;
         Meeting meeting = new Meeting
         {
             Id = Guid.NewGuid(),
             HostId = userId!.Value,
-            Host = (await _db.Users.FirstOrDefaultAsync(user => user.Id == userId))!,
-
+            Host = x,
             GroupId = creatMeetingRequest.GroupId,
-            Group = (await _db.Groups.FirstOrDefaultAsync(group => group.Id == creatMeetingRequest.GroupId))!,
-
             Title = creatMeetingRequest.Title,
             Description = creatMeetingRequest.Description,
             ScheduledStart = creatMeetingRequest.ScheduledStart,
@@ -112,18 +117,19 @@ public class MeetingsController : ControllerBase
         };
         _db.Meetings.Add(meeting);
         await _db.SaveChangesAsync();
-        return meeting;
+
+        return Ok();
     }
+
     [HttpPost("join")]
-    public async Task<ActionResult<MeetingParticipant>> JoinMeeting(JoinMeetingRequest joinMeetingRequest)
+    public async Task<ActionResult> JoinMeeting(JoinMeetingRequest joinMeetingRequest)
     {
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
 
         var meetingId = joinMeetingRequest.MeetingId;
         var meeting = await _db.Meetings.FirstOrDefaultAsync(meeting => meeting.Id == meetingId);
-        var group = meeting!.Group;
-        if (!await IsInGroupAsync(group!.Id)) return NotFound();
+        if (!await IsInGroupAsync(meeting.GroupId.Value)) return NotFound();
 
         var particpant = new MeetingParticipant
         {
@@ -137,7 +143,61 @@ public class MeetingsController : ControllerBase
 
         _db.MeetingParticipants.Add(particpant);
         await _db.SaveChangesAsync();
+        return Ok();
+    }
+}
 
-        return particpant;
+public class NewClass
+{
+    public Guid Id { get; }
+    public string Title { get; }
+    public string? Description { get; }
+    public DateTime ScheduledStart { get; }
+    public DateTime? ScheduledEnd { get; }
+    public MeetingStatus Status { get; }
+    public DateTime CreatedAt { get; }
+    public Guid HostId { get; }
+    public string? HostName { get; }
+
+    public NewClass(Guid id, string title, string? description, DateTime scheduledStart, DateTime? scheduledEnd, MeetingStatus status, DateTime createdAt, Guid hostId, string? hostName)
+    {
+        Id = id;
+        Title = title;
+        Description = description;
+        ScheduledStart = scheduledStart;
+        ScheduledEnd = scheduledEnd;
+        Status = status;
+        CreatedAt = createdAt;
+        HostId = hostId;
+        HostName = hostName;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is NewClass other &&
+               Id.Equals(other.Id) &&
+               Title == other.Title &&
+               Description == other.Description &&
+               ScheduledStart == other.ScheduledStart &&
+               ScheduledEnd == other.ScheduledEnd &&
+               Status == other.Status &&
+               CreatedAt == other.CreatedAt &&
+               HostId.Equals(other.HostId) &&
+               HostName == other.HostName;
+    }
+
+    public override int GetHashCode()
+    {
+        HashCode hash = new HashCode();
+        hash.Add(Id);
+        hash.Add(Title);
+        hash.Add(Description);
+        hash.Add(ScheduledStart);
+        hash.Add(ScheduledEnd);
+        hash.Add(Status);
+        hash.Add(CreatedAt);
+        hash.Add(HostId);
+        hash.Add(HostName);
+        return hash.ToHashCode();
     }
 }
