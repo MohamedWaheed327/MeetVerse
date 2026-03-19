@@ -119,7 +119,7 @@ app.UseAuthorization();
 app.UseCors("AllowFrontend");
 
 app.MapControllers();
-app.MapHub<ChatHub>("/hubs/chat");
+app.MapHub<MeetingChatHub>("/hubs/chat");
 app.MapHub<WhiteboardHub>("/hubs/whiteboard");
 app.MapHub<GroupChatHub>("/hubs/groupchat");
 

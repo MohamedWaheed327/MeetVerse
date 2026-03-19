@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.SignalR;
 namespace MeetVerse.Api.Hubs;
 
 [Authorize]
-public class ChatHub : Hub
+public class MeetingChatHub : Hub
 {
     public async Task SendMessage(Guid meetingId, string message)
     {
