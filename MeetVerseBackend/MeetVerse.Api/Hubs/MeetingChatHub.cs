@@ -1,24 +1,101 @@
+using System.Security.Claims;
+using MeetVerse.Api.Data;
+using MeetVerse.Api.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 
 namespace MeetVerse.Api.Hubs;
 
 [Authorize]
 public class MeetingChatHub : Hub
 {
-    public async Task SendMessage(Guid meetingId, string message)
+    private readonly MeetVerseDbContext _db;
+
+    public const string MeetingChatPrefix = "meeting_chat_";
+
+    public MeetingChatHub(MeetVerseDbContext db)
     {
-        await Clients.Group(meetingId.ToString()).SendAsync("ReceiveMessage", Context.UserIdentifier, message);
+        _db = db;
     }
 
-    public override async Task OnConnectedAsync()
+    private Guid? GetCurrentUserId()
     {
-        await base.OnConnectedAsync();
+        var sub = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(sub, out var id) ? id : null;
     }
 
-    public Task JoinMeetingGroup(Guid meetingId)
+    public async Task Subscribe(Guid meetingId)
     {
-        return Groups.AddToGroupAsync(Context.ConnectionId, meetingId.ToString());
+        var userId = GetCurrentUserId();
+        if (userId is null)
+        {
+            await Clients.Caller.SendAsync("Error", "Unauthorized");
+            return;
+        }
+        var isParticipants = true;
+        if (!isParticipants)
+        {
+            await Clients.Caller.SendAsync("Error", "Not a participant in this meeting");
+            return;
+        }
+        await Groups.AddToGroupAsync(Context.ConnectionId, MeetingChatPrefix + meetingId);
+        await Clients.Caller.SendAsync("Subscriped", meetingId);
+    }
+
+    public async Task UnSubscribe(Guid meetingId)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, MeetingChatPrefix + meetingId);
+        await Clients.Caller.SendAsync("UnSubscriped", meetingId);
+    }
+
+    public async Task SendMessage(Guid meetingId, string content)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+        {
+            await Clients.Caller.SendAsync("Error", "Unauthorized");
+            return;
+        }
+        var isParticipant = true;
+        if (!isParticipant)
+        {
+            await Clients.Caller.SendAsync("Error", "Not a participant in this meeting");
+            return;
+        }
+
+        content = (content ?? "").Trim();
+        if (string.IsNullOrEmpty(content))
+        {
+            await Clients.Caller.SendAsync("Error", "Message content is required");
+            return;
+        }
+
+        var sender = await _db.Users.FindAsync(userId.Value);
+        var msg = new ChatMessage
+        {
+            Id = Guid.NewGuid(),
+            MeetingId = meetingId,
+            SenderId = userId.Value,
+            Content = content
+        };
+
+        var payload = new
+        {
+            msg.Id,
+            msg.MeetingId,
+            msg.SenderId,
+            SenderName = sender?.Name,
+            SenderAvatarUrl = sender?.AvatarUrl,
+            msg.Content,
+            msg.SentAt,
+        };
+
+        await Clients.Group(MeetingChatPrefix + meetingId).SendAsync("MessageSent", payload);
+
+        // add to the database
+        _db.ChatMessages.Add(msg);
+        await _db.SaveChangesAsync();
     }
 }
 
