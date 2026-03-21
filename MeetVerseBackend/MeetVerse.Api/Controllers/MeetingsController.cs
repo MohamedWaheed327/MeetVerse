@@ -76,8 +76,8 @@ public class MeetingsController : ControllerBase
         return meetings;
     }
 
-    [HttpGet("live-meeting")]
-    public async Task<ActionResult<ICollection<NewClass>>> GetLiveMeeting()
+    [HttpGet("live-meetings")]
+    public async Task<ActionResult<ICollection<NewClass>>> GetLiveMeetings()
     {
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
@@ -144,6 +144,25 @@ public class MeetingsController : ControllerBase
         _db.MeetingParticipants.Add(particpant);
         await _db.SaveChangesAsync();
         return Ok();
+    }
+
+    [HttpGet("chat")]
+    public async Task<ActionResult<IEnumerable<ChatMessageResponse>>> GetChatMessages(Guid meetingId)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var chat = _db.ChatMessages.Where(msg => msg.MeetingId == meetingId).Select((chatMessage) => new ChatMessageResponse
+        {
+            Id = chatMessage.Id,
+            MeetingId = chatMessage.MeetingId,
+            SenderId = chatMessage.SenderId,
+            SenderName = chatMessage.Sender!.Name!,
+            Content = chatMessage.Content,
+            SentAt = chatMessage.SentAt
+        }).ToListAsync();
+
+        return Ok(chat);
     }
 }
 
