@@ -9,11 +9,7 @@ import api from "./api";
  */
 export const registerUser = async (data) => {
     try {
-        const response = await api.post("/auth/register", {
-            email: data.email,
-            password: data.password,
-            name: data.name,
-        });
+        const response = await api.post("/auth/register", JSON.stringify(data.email, data.password, data.name));
 
         return response.data;
     } catch (error) {
