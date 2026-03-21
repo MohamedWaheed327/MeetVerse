@@ -19,6 +19,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      alert("hi");
       const data = { email, password };
       const response = await loginUser(data);
       // save token and redirect
