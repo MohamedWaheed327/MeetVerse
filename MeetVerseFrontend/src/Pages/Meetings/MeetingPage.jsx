@@ -16,13 +16,26 @@ import {
   ShieldCheck,
   Type, // أيقونة الـ CC
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { sendChatMessage } from "../../services//hubs/sendMeetingMessage";
+import { onMeetingMessageSent } from "../../services/hubs/onMeetingMessageSent";
+import connection from "../../services/hubs/connections";
+import {
+  subscribeToMeeting,
+  unsubscribeFromMeeting,
+  onMessageReceived,
+  onError,
+} from "../../services/hubs/meetingChat";
 
 export default function MeetingPage() {
+  const meetingId = "CD2D7198-564E-4D0B-A69A-BC19A4CA0037";
+
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCaptionsOn, setIsCaptionsOn] = useState(false); // الحالة الخاصة بالترجمة (CC)
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
 
   const users = [
     {
@@ -54,6 +67,48 @@ export default function MeetingPage() {
       isSpeaking: false,
     },
   ];
+
+  useEffect(() => {
+    const start = async () => {
+      try {
+        if (connection.state === "Disconnected") {
+          await connection.start();
+        }
+
+        await subscribeToMeeting(meetingId);
+
+        onMessageReceived((payload) => {
+          setMessages((prev) => [...prev, payload]);
+        });
+
+        onError((err) => {
+          console.error("SignalR Error:", err);
+        });
+
+      } catch (err) {
+        console.error("Connection error:", err);
+      }
+    };
+
+    start();
+
+    return () => {
+      unsubscribeFromMeeting(meetingId);
+      connection.off("MessageSent");
+      connection.off("Error");
+    };
+  }, [meetingId]);
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) return;
+
+    try {
+      await sendChatMessage(meetingId, newMessage);
+      setNewMessage("");
+    } catch (err) {
+      console.error("Send failed:", err);
+    }
+  };
 
   return (
     <div className="h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300 flex flex-col overflow-hidden font-sans">
@@ -206,7 +261,7 @@ export default function MeetingPage() {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <div className="size-6 rounded-full bg-emerald-500 flex items-center justify-center text-[8px] font-bold text-white">
@@ -229,15 +284,59 @@ export default function MeetingPage() {
                     Great! Let's start the demo.
                   </div>
                 </div>
+              </div> */}
+
+
+              {/* <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {messages.map((msg, index) => (
+                  <div
+                    key={index}
+                    className={`space-y-2 ${msg.user === "You" ? "text-right" : ""
+                      }`}
+                  >
+                    <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
+                      {msg.user}
+                    </span>
+
+                    <div
+                      className={`p-4 rounded-[1.8rem] text-[13px] shadow-sm inline-block ${msg.user === "You"
+                        ? "bg-blue-600 text-white rounded-tr-none"
+                        : "bg-slate-100 dark:bg-[#0D0F16] rounded-tl-none"
+                        }`}
+                    >
+                      {msg.message}
+                    </div>
+                  </div>
+                ))}
+              </div> */}
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {messages.map((msg) => (
+                  <div key={msg.id} className="space-y-2">
+                    <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
+                      {msg.senderName}
+                    </span>
+
+                    <div className="bg-slate-100 dark:bg-[#0D0F16] p-4 rounded-[1.8rem] text-[13px] shadow-sm inline-block">
+                      {msg.content}
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="p-6 bg-slate-50 dark:bg-black/10 border-t border-slate-100 dark:border-white/5">
                 <div className="relative group">
                   <input
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
                     className="w-full bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl py-4 pl-5 pr-14 text-sm outline-none focus:border-blue-600 transition-all shadow-inner"
                     placeholder="Message team..."
                   />
-                  <button className="absolute right-2 top-2 p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg active:scale-90 transition-all">
+                  <button
+                    onClick={handleSendMessage}
+                    className="absolute right-2 top-2 p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg active:scale-90 transition-all"
+                  >
                     <Send size={16} />
                   </button>
                 </div>

@@ -67,7 +67,7 @@ builder.Services
             {
                 var accessToken = ctx.Request.Query["access_token"].FirstOrDefault();
                 var path = ctx.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(accessToken) && (path.StartsWithSegments("/hubs/chat") || path.StartsWithSegments("/hubs/whiteboard") || path.StartsWithSegments("/hubs/groupchat")))
+                if (!string.IsNullOrEmpty(accessToken) && (path.StartsWithSegments("/hubs/chat") || path.StartsWithSegments("/hubs/whiteboard") || path.StartsWithSegments("/hubs/groupchat") || path.StartsWithSegments("/hubs/meetingchat")))
                     ctx.Token = accessToken;
                 return Task.CompletedTask;
             }
@@ -114,14 +114,15 @@ if (app.Environment.IsDevelopment() || true)
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseCors("AllowFrontend");
 
 app.MapControllers();
 app.MapHub<MeetingChatHub>("/hubs/chat");
 app.MapHub<WhiteboardHub>("/hubs/whiteboard");
 app.MapHub<GroupChatHub>("/hubs/groupchat");
+app.MapHub<MeetingChatHub>("/hubs/meetingchat");
 
 app.MapGet("/", context =>
 {
