@@ -18,4 +18,6 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
+alert(api);
+
 export default api;
