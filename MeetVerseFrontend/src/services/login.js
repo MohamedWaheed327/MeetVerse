@@ -1,15 +1,8 @@
 import api from "./api";
 
-/**
- * login new user
- * @param {Object} data
- * @param {string} data.email
- * @param {string} data.password
- */
 export const loginUser = async (data) => {
     try {
-        const response = await api.post("/auth/login",  JSON.stringify({ email, password }));
-
+        const response = await api.post("/auth/login", data);
         return response.data;
     } catch (error) {
         if (error.response) {
