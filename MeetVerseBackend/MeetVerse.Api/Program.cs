@@ -81,7 +81,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173")
+            policy.WithOrigins("https://main.d7bk49c5b1s14.amplifyapp.com")
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
