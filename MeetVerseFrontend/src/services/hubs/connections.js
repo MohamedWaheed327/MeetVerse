@@ -1,7 +1,10 @@
 import * as signalR from "@microsoft/signalr";
 
+// TODO: put host in json file
+const host = "http://meetverse-env.eba-qcpudpcc.us-east-1.elasticbeanstalk.com"; // include protocol to avoid relative path issues
+
 const connection = new signalR.HubConnectionBuilder()
-    .withUrl("http://localhost:5279/hubs/meetingchat", {
+    .withUrl(host + "/hubs/meetingchat", {
         accessTokenFactory: () => localStorage.getItem("token"),
     })
     .withAutomaticReconnect()
