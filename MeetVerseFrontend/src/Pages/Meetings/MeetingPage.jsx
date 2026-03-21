@@ -37,6 +37,8 @@ export default function MeetingPage() {
   const [isCaptionsOn, setIsCaptionsOn] = useState(false); // الحالة الخاصة بالترجمة (CC)
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
 
   const users = [
     {
@@ -75,6 +77,7 @@ export default function MeetingPage() {
       setIsLoading(true);
       try {
         const history = await GetMeetingChat({ meetingId });
+        console.log("History:", history);
         setMessages(history);
       } catch (err) {
         console.error("Failed to load chat history:", err);

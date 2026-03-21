@@ -152,7 +152,7 @@ public class MeetingsController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
 
-        var chat = _db.ChatMessages.Where(msg => msg.MeetingId == meetingId).Select((chatMessage) => new ChatMessageResponse
+        var chat = await _db.ChatMessages.Where(msg => msg.MeetingId == meetingId).Select((chatMessage) => new ChatMessageResponse
         {
             Id = chatMessage.Id,
             MeetingId = chatMessage.MeetingId,
