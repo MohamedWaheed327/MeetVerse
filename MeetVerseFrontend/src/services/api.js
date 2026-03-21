@@ -6,6 +6,9 @@ const host = "https://d278p5zvdcqqh2.cloudfront.net"; // include protocol to avo
 
 const api = axios.create({
     baseURL: host + "/api",
+    headers: {
+        'Content-Type': 'application/json'
+    }
 });
 
 api.interceptors.request.use((config) => {
@@ -17,7 +20,5 @@ api.interceptors.request.use((config) => {
 
     return config;
 });
-
-alert(api);
 
 export default api;

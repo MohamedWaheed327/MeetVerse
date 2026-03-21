@@ -8,12 +8,10 @@ import api from "./api";
  */
 export const loginUser = async (data) => {
     try {
-        const response = await api.post("/auth/login", JSON.stringify({ email, password }),
-            {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+        const response = await api.post("/auth/login", {
+            email: data.email,
+            password: data.password,
+        });
 
         return response.data;
     } catch (error) {
