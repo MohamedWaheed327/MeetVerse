@@ -26,6 +26,7 @@ import {
   onMessageReceived,
   onError,
 } from "../../services/hubs/meetingChat";
+import { GetMeetingChat } from "../../services/meetingChatMessage";
 
 export default function MeetingPage() {
   const meetingId = "CD2D7198-564E-4D0B-A69A-BC19A4CA0037";
@@ -67,6 +68,25 @@ export default function MeetingPage() {
       isSpeaking: false,
     },
   ];
+  
+  // Load History
+  useEffect(() => {
+    const loadHistory = async () => {
+      setIsLoading(true);
+      try {
+        const history = await GetMeetingChat({ meetingId });
+        setMessages(history);
+      } catch (err) {
+        console.error("Failed to load chat history:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (meetingId) {
+      loadHistory();
+    }
+  }, [meetingId]);
 
   useEffect(() => {
     const start = async () => {
