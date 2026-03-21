@@ -1,7 +1,6 @@
 import axios from "axios";
 
 const host = import.meta.env.DEV ? import.meta.env.VITE_BACKEND_DEV : import.meta.env.VITE_BACKEND_PROD;
-alert(host);
 
 const api = axios.create({
     baseURL: host + "/api",
