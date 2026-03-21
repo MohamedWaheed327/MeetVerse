@@ -160,7 +160,7 @@ public class MeetingsController : ControllerBase
             SenderName = chatMessage.Sender!.Name!,
             Content = chatMessage.Content,
             SentAt = chatMessage.SentAt
-        }).ToListAsync();
+        }).OrderBy(cm => cm.SentAt).ToListAsync();
 
         return Ok(chat);
     }
