@@ -43,6 +43,8 @@ builder.Services.AddControllers();
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
+var ProductionSection = builder.Configuration.GetSection("Production");
+var DevelopmentSection = builder.Configuration.GetSection("Development");
 var keyBytes = Encoding.UTF8.GetBytes(jwtSection["Key"] ?? "DEVELOPMENT_SECRET_CHANGE_ME");
 var signingKey = new SymmetricSecurityKey(keyBytes);
 
@@ -75,13 +77,18 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
-// TODO: add frontend host in appsetting.json
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("https://main.d7bk49c5b1s14.amplifyapp.com")
+            string devFrontend = DevelopmentSection["Frontend"]!;
+            string prodFrontend = ProductionSection["Frontend"]!;
+
+            var frontendHost = builder.Environment.IsDevelopment() ? devFrontend : prodFrontend;
+
+            policy.WithOrigins(frontendHost)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
