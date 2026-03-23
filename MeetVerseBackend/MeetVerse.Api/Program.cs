@@ -96,13 +96,13 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
+builder.Services.AddScoped<ILiveKitTokenService, LiveKitTokenService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
 builder.Services.AddScoped<IAudioFilterService, StubAudioFilterService>();
 builder.Services.AddScoped<IAudioTranscriptionService, StubAudioTranscriptionService>();
 builder.Services.AddScoped<IAudioSummarizationService, StubAudioSummarizationService>();
 builder.Services.AddHostedService<MeetingProcessingWorker>();
-
 
 var app = builder.Build();
 
