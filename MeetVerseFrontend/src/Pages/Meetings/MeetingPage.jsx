@@ -54,7 +54,7 @@ export default function MeetingPage() {
     },
     {
       id: 2,
-      name: "Sarah • Lead Dev",
+      name: "Sarah • كوباية شاي للرجالة",
       initial: "S",
       color: "from-purple-600 to-pink-600",
       isSpeaking: true,
