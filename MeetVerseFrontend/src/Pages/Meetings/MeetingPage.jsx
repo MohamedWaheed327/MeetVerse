@@ -19,6 +19,7 @@ import {
 import { useState, useEffect } from "react";
 import { sendChatMessage } from "../../services//hubs/sendMeetingMessage";
 import { onMeetingMessageSent } from "../../services/hubs/onMeetingMessageSent";
+import api from "../../services/api";
 import connection from "../../services/hubs/connections";
 import {
   subscribeToMeeting,
@@ -27,11 +28,12 @@ import {
   onError,
 } from "../../services/hubs/meetingChat";
 import { GetMeetingChat } from "../../services/meetingChatMessage";
+import { Room } from "livekit-client";
 
 export default function MeetingPage() {
   const meetingId = "CD2D7198-564E-4D0B-A69A-BC19A4CA0037";
 
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted] = useState(true);
   const [cameraOff, setCameraOff] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCaptionsOn, setIsCaptionsOn] = useState(false); // الحالة الخاصة بالترجمة (CC)
@@ -39,6 +41,8 @@ export default function MeetingPage() {
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // const { id } = useParams(); // meeting ID from URL
+  const [room, setRoom] = useState(null);
 
   const users = [
     {
@@ -70,7 +74,7 @@ export default function MeetingPage() {
       isSpeaking: false,
     },
   ];
-  
+
   // Load History
   useEffect(() => {
     const loadHistory = async () => {
@@ -89,6 +93,55 @@ export default function MeetingPage() {
     if (meetingId) {
       loadHistory();
     }
+  }, [meetingId]);
+
+  useEffect(() => {
+    let activeRoom;
+
+    const joinRoom = async () => {
+      try {
+        const response = await api.get("/livekit/token", {
+          params: {
+            username: "user_" + Date.now(),
+            room: meetingId,
+          },
+        });
+
+        const token = response.data.token;
+
+        const newRoom = new Room();
+
+        await newRoom.connect("ws://localhost:7880", token);
+
+        // ✅ Start with microphone disabled (muted) for safety
+        await newRoom.localParticipant.setMicrophoneEnabled(false);
+        console.log("✅ Microphone disabled on connection (user starts muted)");
+
+        newRoom.on("trackSubscribed", (track) => {
+          if (track.kind === "audio") {
+            const audioElement = track.attach();
+            document.body.appendChild(audioElement);
+          }
+        });
+
+        setRoom(newRoom);
+
+        console.log("✅ Connected to meeting:", meetingId, {
+          micEnabled: newRoom.localParticipant.isMicrophoneEnabled,
+          audioTracks: newRoom.localParticipant.audioTracks.size,
+        });
+      } catch (err) {
+        console.error("❌ Failed to join meeting:", err);
+      }
+    };
+
+    joinRoom();
+
+    return () => {
+      if (activeRoom) {
+        activeRoom.disconnect();
+      }
+    };
   }, [meetingId]);
 
   useEffect(() => {
@@ -215,7 +268,40 @@ export default function MeetingPage() {
           <div className="bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] p-4 rounded-[2.5rem] shadow-2xl flex items-center justify-between gap-4 mx-auto w-fit md:w-full max-w-4xl backdrop-blur-md">
             <div className="flex items-center gap-2 md:gap-4">
               <button
-                onClick={() => setMuted(!muted)}
+                onClick={async () => {
+                  if (!room) {
+                    console.error("Room not connected yet");
+                    return;
+                  }
+
+                  try {
+                    const shouldMute = !muted;
+                    const localParticipant = room.localParticipant;
+
+                    console.log("🎤 Mute button clicked:", {
+                      currentMuted: muted,
+                      shouldMute,
+                      isMicEnabled: localParticipant?.isMicrophoneEnabled,
+                      audioTracksSize: localParticipant?.audioTracks?.size || 0,
+                    });
+
+                    if (!localParticipant) {
+                      console.error("❌ Local participant not available");
+                      return;
+                    }
+
+                    // Disable or enable the microphone
+                    await localParticipant.setMicrophoneEnabled(!shouldMute);
+
+                    // Verify the change
+                    const newMicState = localParticipant.isMicrophoneEnabled;
+                    console.log("🎤 Microphone state after change:", newMicState);
+
+                    setMuted(shouldMute);
+                  } catch (err) {
+                    console.error("❌ Failed to toggle microphone:", err);
+                  }
+                }}
                 className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${muted ? "bg-red-500 text-white shadow-red-500/20" : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"}`}
               >
                 {muted ? <MicOff size={22} /> : <Mic size={22} />}
