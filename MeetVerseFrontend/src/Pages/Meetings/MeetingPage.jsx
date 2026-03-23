@@ -111,7 +111,7 @@ export default function MeetingPage() {
 
         const newRoom = new Room();
 
-        await newRoom.connect("ws://localhost:7880", token);
+        await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
 
         // ✅ Start with microphone disabled (muted) for safety
         await newRoom.localParticipant.setMicrophoneEnabled(false);

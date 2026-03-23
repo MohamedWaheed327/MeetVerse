@@ -5,8 +5,8 @@ namespace MeetVerse.Api.Services;
 
 public class LiveKitTokenService : ILiveKitTokenService
 {
-    private const string ApiKey = "devkey";
-    private const string ApiSecret = "supersecretkey123456789123456789";
+    private const string ApiKey = "APIVDmR6TG3FFHy";
+    private const string ApiSecret = "ZSqPDDGXAVhsuqNuKfpsL8Og9TiahJt2A9rpJw67JJD";
 
     public string CreateToken(string username, string roomName)
     {
