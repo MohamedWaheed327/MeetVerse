@@ -17,6 +17,7 @@ import {
   Type, // أيقونة الـ CC
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { sendChatMessage } from "../../services//hubs/sendMeetingMessage";
 import { onMeetingMessageSent } from "../../services/hubs/onMeetingMessageSent";
 import api from "../../services/api";
@@ -31,8 +32,6 @@ import { GetMeetingChat } from "../../services/meetingChatMessage";
 import { Room } from "livekit-client";
 
 export default function MeetingPage() {
-  const meetingId = "CD2D7198-564E-4D0B-A69A-BC19A4CA0037";
-
   const [muted, setMuted] = useState(true);
   const [cameraOff, setCameraOff] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -41,7 +40,7 @@ export default function MeetingPage() {
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // const { id } = useParams(); // meeting ID from URL
+  const { meetingId } = useParams(); // meeting ID from URL
   const [room, setRoom] = useState(null);
 
   const users = [
