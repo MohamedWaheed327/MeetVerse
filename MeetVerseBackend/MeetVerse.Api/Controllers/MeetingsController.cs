@@ -150,7 +150,7 @@ public class MeetingsController : ControllerBase
 
         var meetingId = joinMeetingRequest.MeetingId;
         var meeting = await _db.Meetings.FirstOrDefaultAsync(meeting => meeting.Id == meetingId);
-        if (!await IsInGroupAsync(meeting.GroupId.Value)) return NotFound();
+        if (!await IsInGroupAsync(meeting!.GroupId!.Value)) return NotFound();
 
         var particpant = new MeetingParticipant
         {
@@ -162,8 +162,44 @@ public class MeetingsController : ControllerBase
             IsActive = true
         };
 
-        _db.MeetingParticipants.Add(particpant);
-        await _db.SaveChangesAsync();
+        using var transaction = await _db.Database.BeginTransactionAsync();
+        if (await _db.MeetingParticipants.AnyAsync(par => par.UserId == userId.Value && par.MeetingId == meetingId))
+        {
+            return BadRequest();
+        }
+        else
+        {
+            await _db.MeetingParticipants.AddAsync(particpant);
+            await _db.SaveChangesAsync();
+        }
+        await transaction.CommitAsync();
+        return Ok();
+    }
+
+    [HttpPost("leave")]
+    public async Task<ActionResult> LeaveMeeting(LeaveMeetingRequest leaveMeetingRequest)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var meetingId = leaveMeetingRequest.MeetingId;
+        if ((await _db.MeetingParticipants.Where(par => par.UserId == userId.Value).ToListAsync()).Count == 0)
+        {
+            return BadRequest();
+        }
+
+        var meeting = await _db.Meetings.FirstOrDefaultAsync(meeting => meeting.Id == meetingId);
+        if (!await IsInGroupAsync(meeting!.GroupId!.Value)) return NotFound();
+        try
+        {
+            var participants = await _db.MeetingParticipants.Where(p => p.MeetingId == meetingId && p.UserId == userId).ToListAsync();
+            _db.MeetingParticipants.RemoveRange(participants);
+            await _db.SaveChangesAsync();
+        }
+        catch
+        {
+
+        }
         return Ok();
     }
 
@@ -184,6 +220,24 @@ public class MeetingsController : ControllerBase
         }).OrderBy(cm => cm.SentAt).ToListAsync();
 
         return Ok(chat);
+    }
+
+    [HttpGet("participants")]
+    public async Task<ActionResult<IEnumerable<object>>> GetMeetingParticipants(Guid meetingId)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var participants = await _db.MeetingParticipants.Where(participant => participant.MeetingId == meetingId).Select((participant) => new
+        {
+            participant.Id,
+            participant.MeetingId,
+            participant.UserId,
+            participant.Role,
+            participant.User.Name
+        }).ToListAsync();
+
+        return Ok(participants);
     }
 }
 
