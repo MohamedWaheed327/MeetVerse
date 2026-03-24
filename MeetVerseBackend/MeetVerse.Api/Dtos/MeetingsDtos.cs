@@ -15,6 +15,11 @@ public class JoinMeetingRequest
     public Guid MeetingId { get; set; }
 }
 
+public class LeaveMeetingRequest
+{
+    public Guid MeetingId { get; set; }
+}
+
 public class ChatMessageResponse
 {
     public Guid Id { get; set; }

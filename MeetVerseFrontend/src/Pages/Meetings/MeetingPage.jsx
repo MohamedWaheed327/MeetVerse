@@ -16,7 +16,7 @@ import {
   ShieldCheck,
   Type, // أيقونة الـ CC
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { React, useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { sendChatMessage } from "../../services//hubs/sendMeetingMessage";
 import { onMeetingMessageSent } from "../../services/hubs/onMeetingMessageSent";
@@ -29,7 +29,10 @@ import {
   onError,
 } from "../../services/hubs/meetingChat";
 import { GetMeetingChat } from "../../services/meetingChatMessage";
+import { getParticipants } from "../../services/getParticipants";
 import { Room } from "livekit-client";
+import { joinMeeting } from "../../services/joinMeeting";
+import { leaveMeeting } from "../../services/leaveMeeting";
 
 export default function MeetingPage() {
   const [muted, setMuted] = useState(true);
@@ -39,42 +42,79 @@ export default function MeetingPage() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [joined, setJoined] = useState(false);
 
   const { meetingId } = useParams(); // meeting ID from URL
   const [room, setRoom] = useState(null);
 
-  const users = [
-    {
-      id: 1,
-      name: "You (Host)",
-      initial: "Y",
-      color: "from-blue-600 to-indigo-700",
-      isSpeaking: false,
-    },
-    {
-      id: 2,
-      name: "Sarah • بتعمل شاي للرجالة",
-      initial: "S",
-      color: "from-purple-600 to-pink-600",
-      isSpeaking: true,
-    },
-    {
-      id: 3,
-      name: "Omar • AI Eng",
-      initial: "O",
-      color: "from-emerald-600 to-teal-600",
-      isSpeaking: false,
-    },
-    {
-      id: 4,
-      name: "Dr. Ahmed",
-      initial: "A",
-      color: "from-orange-600 to-red-600",
-      isSpeaking: false,
-    },
-  ];
+  const [users, setUsers] = useState([]);
 
-  // Load History
+  const scrollRef = useRef(null);
+
+  const scrollToBottom = () => {
+    // Use "auto" for an instant jump
+    scrollRef.current?.scrollIntoView({ behavior: "auto" });
+  };
+
+  // const users = [
+  //   {
+  //     id: 1,
+  //     name: "You (Host)",
+  //     initial: "Y",
+  //     color: "from-blue-600 to-indigo-700",
+  //     isSpeaking: false,
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "Sarah • بتعمل شاي للرجالة",
+  //     initial: "S",
+  //     color: "from-purple-600 to-pink-600",
+  //     isSpeaking: true,
+  //   },
+  //   {
+  //     id: 3,
+  //     name: "Omar • AI Eng",
+  //     initial: "O",
+  //     color: "from-emerald-600 to-teal-600",
+  //     isSpeaking: false,
+  //   },
+  //   {
+  //     id: 4,
+  //     name: "Dr. Ahmed",
+  //     initial: "A",
+  //     color: "from-orange-600 to-red-600",
+  //     isSpeaking: false,
+  //   },
+  // ];
+
+  // Load participants
+  useEffect(() => {
+    const loadUsers = async () => {
+      setIsLoading(true);
+      try {
+        const users = await getParticipants({ meetingId });
+        console.log("users:", users);
+        setUsers(users);
+      } catch (err) {
+        console.error("Failed to load users:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (meetingId) {
+      loadUsers();
+    }
+  }, [meetingId]);
+
+  useEffect(() => {
+    joinMeeting({ meetingId });
+    return () => {
+      leaveMeeting({ meetingId });
+    };
+  }, []);
+
+  // Load meeting chat History
   useEffect(() => {
     const loadHistory = async () => {
       setIsLoading(true);
@@ -94,6 +134,14 @@ export default function MeetingPage() {
     }
   }, [meetingId]);
 
+  // scroll chat box to the bottom
+  useEffect(() => {
+    if (isChatOpen) {
+      scrollToBottom();
+    }
+  }, [messages, isChatOpen]);
+
+  // join room in livekit server
   useEffect(() => {
     let activeRoom;
 
@@ -143,6 +191,7 @@ export default function MeetingPage() {
     };
   }, [meetingId]);
 
+  // subscripe for signalR hub
   useEffect(() => {
     const start = async () => {
       try {
@@ -430,6 +479,7 @@ export default function MeetingPage() {
                     </div>
                   </div>
                 ))}
+                <div ref={scrollRef} />
               </div>
 
               <div className="p-6 bg-slate-50 dark:bg-black/10 border-t border-slate-100 dark:border-white/5">
