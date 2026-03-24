@@ -65,7 +65,7 @@ export default function App() {
         }
       />
       <Route
-        path="/meetings/:id"
+        path="/meetings/:meetingId"
         element={
           <ProtectedRoute>
             <MeetingPage />
