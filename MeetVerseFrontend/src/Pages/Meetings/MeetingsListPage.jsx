@@ -2,34 +2,58 @@
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
 import { Video, Plus, Search, Calendar, Clock, Tag } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getActiveMeetings } from "../../services/getActiveMeetings.js";
 
 export default function MeetingsListPage() {
-  const meetings = [
-    {
-      id: "M-101",
-      title: "Weekly Standup",
-      time: "Today • 10:00 AM",
-      duration: "30 min",
-      isLive: true,
-      type: "Team",
-    },
-    {
-      id: "M-205",
-      title: "Machine Learning Lecture",
-      time: "Today • 4:00 PM",
-      duration: "90 min",
-      isLive: false,
-      type: "Class",
-    },
-    {
-      id: "M-330",
-      title: "Design Review",
-      time: "Tomorrow • 2:30 PM",
-      duration: "50 min",
-      isLive: false,
-      type: "Workshop",
-    },
-  ];
+  // const meetings = [
+  //   {
+  //     id: "M-101",
+  //     title: "Weekly Standup",
+  //     scheduledStart: "Today • 10:00 AM",
+  //     scheduledEnd: "30 min",
+  //     isLive: true,
+  //     description: "Team",
+  //   },
+  //   {
+  //     id: "M-205",
+  //     title: "Machine Learning Lecture",
+  //     scheduledStart: "Today • 4:00 PM",
+  //     scheduledEnd: "90 min",
+  //     isLive: false,
+  //     description: "Class",
+  //   },
+  //   {
+  //     id: "M-330",
+  //     title: "Design Review",
+  //     scheduledStart: "Tomorrow • 2:30 PM",
+  //     scheduledEnd: "50 min",
+  //     isLive: false,
+  //     description: "Workshop",
+  //   },
+  // ];
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [meetings, SetMeetings] = useState([]);
+
+  // Load Meetings
+  useEffect(() => {
+    const loadMeetings = async () => {
+      setIsLoading(true);
+      try {
+        const meetings = await getActiveMeetings();
+        console.log("meetings:", meetings);
+        SetMeetings(meetings);
+      } catch (err) {
+        console.error("Failed to load meetings:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadMeetings();
+  }, []);
+
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300">
@@ -94,7 +118,7 @@ export default function MeetingsListPage() {
         <div className="grid gap-4">
           {meetings.map((m, idx) => (
             <motion.div
-              key={m.id}
+              key={m.meetingId}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: idx * 0.1 }}
@@ -118,16 +142,16 @@ export default function MeetingsListPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-4 text-slate-500 dark:text-[#A8B0C2] text-xs">
                     <span className="flex items-center gap-1.5">
-                      <Calendar size={14} /> {m.time}
+                      <Calendar size={14} /> {m.scheduledStart}
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <Clock size={14} /> {m.duration}
+                      <Clock size={14} /> {m.scheduledEnd}
                     </span>
                     <span className="flex items-center gap-1.5 font-mono bg-slate-100 dark:bg-[#2A2E3B] px-2 py-0.5 rounded text-blue-500">
-                      {m.id}
+                      {m.meetingId}
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <Tag size={14} /> {m.type}
+                      <Tag size={14} /> {m.description}
                     </span>
                   </div>
                 </div>
@@ -135,7 +159,7 @@ export default function MeetingsListPage() {
 
               <div className="w-full lg:w-auto">
                 <a
-                  href={`/meetings/${m.id}`}
+                  href={`/meetings/${m.meetingId}`}
                   className="block text-center px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-2xl transition-all shadow-lg shadow-blue-900/20 active:scale-95"
                 >
                   Join Meeting
