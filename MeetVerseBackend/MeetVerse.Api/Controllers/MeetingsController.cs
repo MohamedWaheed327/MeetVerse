@@ -87,6 +87,27 @@ public class MeetingsController : ControllerBase
         {
             foreach (var meeting in await GetGroupMeetings(group.Id))
             {
+                if (meeting.ScheduledStart <= DateTime.UtcNow && DateTime.UtcNow <= meeting.ScheduledEnd)
+                {
+                    meetings.Add(meeting);
+                }
+            }
+        }
+
+        return meetings;
+    }
+
+    [HttpGet("active-meetings")]
+    public async Task<ActionResult<ICollection<NewClass>>> GetActiveMeetings()
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        List<NewClass> meetings = [];
+        foreach (var group in await GetMyGroups())
+        {
+            foreach (var meeting in await GetGroupMeetings(group.Id))
+            {
                 if (DateTime.UtcNow < meeting.ScheduledEnd)
                 {
                     meetings.Add(meeting);
