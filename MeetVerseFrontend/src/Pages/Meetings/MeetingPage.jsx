@@ -14,12 +14,11 @@ import {
   X,
   Send,
   ShieldCheck,
-  Type, // أيقونة الـ CC
+  Type,
 } from "lucide-react";
 import { React, useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { sendChatMessage } from "../../services//hubs/sendMeetingMessage";
-import { onMeetingMessageSent } from "../../services/hubs/onMeetingMessageSent";
 import api from "../../services/api";
 import connection from "../../services/hubs/connections";
 import {
@@ -39,63 +38,31 @@ export default function MeetingPage() {
   const [muted, setMuted] = useState(true);
   const [cameraOff, setCameraOff] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isCaptionsOn, setIsCaptionsOn] = useState(false); // الحالة الخاصة بالترجمة (CC)
+  const [isCaptionsOn, setIsCaptionsOn] = useState(false);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [joined, setJoined] = useState(false);
-
-  const { meetingId } = useParams(); // meeting ID from URL
   const [room, setRoom] = useState(null);
-
   const [users, setUsers] = useState([]);
 
+  const { meetingId } = useParams();
+  const navigate = useNavigate();
+
   const scrollRef = useRef(null);
+  const audioElementsRef = useRef(new Map());
 
   const scrollToBottom = () => {
-    // Use "auto" for an instant jump
     scrollRef.current?.scrollIntoView({ behavior: "auto" });
   };
-
-  // const users = [
-  //   {
-  //     id: 1,
-  //     name: "You (Host)",
-  //     initial: "Y",
-  //     color: "from-blue-600 to-indigo-700",
-  //     isSpeaking: false,
-  //   },
-  //   {
-  //     id: 2,
-  //     name: "Sarah • بتعمل شاي للرجالة",
-  //     initial: "S",
-  //     color: "from-purple-600 to-pink-600",
-  //     isSpeaking: true,
-  //   },
-  //   {
-  //     id: 3,
-  //     name: "Omar • AI Eng",
-  //     initial: "O",
-  //     color: "from-emerald-600 to-teal-600",
-  //     isSpeaking: false,
-  //   },
-  //   {
-  //     id: 4,
-  //     name: "Dr. Ahmed",
-  //     initial: "A",
-  //     color: "from-orange-600 to-red-600",
-  //     isSpeaking: false,
-  //   },
-  // ];
 
   // Load participants
   useEffect(() => {
     const loadUsers = async () => {
       setIsLoading(true);
       try {
-        const users = await getParticipants({ meetingId });
-        console.log("users:", users);
-        setUsers(users);
+        const participants = await getParticipants({ meetingId });
+        console.log("users:", participants);
+        setUsers(participants);
       } catch (err) {
         console.error("Failed to load users:", err);
       } finally {
@@ -108,14 +75,18 @@ export default function MeetingPage() {
     }
   }, [meetingId]);
 
+  // Join / Leave meeting backend
   useEffect(() => {
+    if (!meetingId) return;
+
     joinMeeting({ meetingId });
+
     return () => {
       leaveMeeting({ meetingId });
     };
-  }, []);
+  }, [meetingId]);
 
-  // Load meeting chat History
+  // Load meeting chat history
   useEffect(() => {
     const loadHistory = async () => {
       setIsLoading(true);
@@ -135,72 +106,28 @@ export default function MeetingPage() {
     }
   }, [meetingId]);
 
-  // scroll chat box to the bottom
+  // Scroll chat to bottom
   useEffect(() => {
     if (isChatOpen) {
       scrollToBottom();
     }
   }, [messages, isChatOpen]);
 
-  // join room in livekit server
+  // Subscribe for SignalR chat
   useEffect(() => {
-    let activeRoom;
+    if (!meetingId) return;
 
-    const joinRoom = async () => {
-      try {
-        const response = await api.get("/livekit/token", {
-          params: {
-            username: "user_" + (await getCurrentUser()).id,
-            room: meetingId,
-          },
-        });
+    let isMounted = true;
 
-        const token = response.data.token;
-
-        const newRoom = new Room();
-        activeRoom = newRoom;
-
-        await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
-        newRoom.participants.forEach((participant) => {
-          participant.audioTracks.forEach((publication) => {
-            if (publication.track) {
-              const audioElement = publication.track.attach();
-              document.body.appendChild(audioElement);
-            }
-          });
-        });
-
-        // ✅ Start with microphone disabled (muted) for safety
-        await newRoom.localParticipant.setMicrophoneEnabled(false);
-        console.log("✅ Microphone disabled on connection (user starts muted)");
-
-        newRoom.on("trackSubscribed", (track) => {
-          if (track.kind === "audio") {
-            const audioElement = track.attach();
-            audioElement.autoplay = true;
-            audioElement.playsInline = true;
-            document.body.appendChild(audioElement);
-          }
-        });
-
-        setRoom(newRoom);
-
-      } catch (err) {
-        console.error("Failed to join livekit room");
-      }
+    const handleIncomingMessage = (payload) => {
+      if (!isMounted) return;
+      setMessages((prev) => [...prev, payload]);
     };
 
-    joinRoom();
-
-    return () => {
-      if (activeRoom) {
-        activeRoom.disconnect();
-      }
+    const handleHubError = (err) => {
+      console.error("SignalR Error:", err);
     };
-  }, [meetingId]);
 
-  // subscripe for signalR hub
-  useEffect(() => {
     const start = async () => {
       try {
         if (connection.state === "Disconnected") {
@@ -208,15 +135,8 @@ export default function MeetingPage() {
         }
 
         await subscribeToMeeting(meetingId);
-
-        onMessageReceived((payload) => {
-          setMessages((prev) => [...prev, payload]);
-        });
-
-        onError((err) => {
-          console.error("SignalR Error:", err);
-        });
-
+        onMessageReceived(handleIncomingMessage);
+        onError(handleHubError);
       } catch (err) {
         console.error("Connection error:", err);
       }
@@ -225,6 +145,7 @@ export default function MeetingPage() {
     start();
 
     return () => {
+      isMounted = false;
       unsubscribeFromMeeting(meetingId);
       connection.off("MessageSent");
       connection.off("Error");
@@ -239,6 +160,214 @@ export default function MeetingPage() {
       setNewMessage("");
     } catch (err) {
       console.error("Send failed:", err);
+    }
+  };
+
+  // Single stable LiveKit connection
+  useEffect(() => {
+    if (!meetingId) return;
+
+    let activeRoom = null;
+    let mounted = true;
+
+    const cleanupAudioElements = () => {
+      audioElementsRef.current.forEach((el) => {
+        try {
+          el.pause?.();
+          el.remove?.();
+        } catch (err) {
+          console.warn("Audio cleanup failed:", err);
+        }
+      });
+      audioElementsRef.current.clear();
+    };
+
+    const attachAudioTrack = async (track, publication) => {
+      try {
+        if (!track || track.kind !== "audio") return;
+
+        const trackId = publication?.trackSid || track.sid || Math.random().toString();
+
+        if (audioElementsRef.current.has(trackId)) return;
+
+        const audioElement = track.attach();
+        audioElement.autoplay = true;
+        audioElement.playsInline = true;
+        document.body.appendChild(audioElement);
+
+        try {
+          await audioElement.play();
+        } catch (err) {
+          console.warn("Autoplay blocked for audio track:", err);
+        }
+
+        audioElementsRef.current.set(trackId, audioElement);
+      } catch (err) {
+        console.error("Failed to attach audio track:", err);
+      }
+    };
+
+    const detachAudioTrack = (track, publication) => {
+      try {
+        if (!track || track.kind !== "audio") return;
+
+        const trackId = publication?.trackSid || track.sid;
+
+        const detached = track.detach();
+        detached.forEach((el) => {
+          try {
+            el.pause?.();
+            el.remove?.();
+          } catch (err) {
+            console.warn("Failed removing detached audio element:", err);
+          }
+        });
+
+        if (trackId && audioElementsRef.current.has(trackId)) {
+          const existingEl = audioElementsRef.current.get(trackId);
+          try {
+            existingEl.pause?.();
+            existingEl.remove?.();
+          } catch (err) {
+            console.warn("Failed removing tracked audio element:", err);
+          }
+          audioElementsRef.current.delete(trackId);
+        }
+      } catch (err) {
+        console.error("Failed to detach audio track:", err);
+      }
+    };
+
+    const joinRoom = async () => {
+      try {
+        const currentUser = await getCurrentUser();
+
+        const response = await api.get("/livekit/token", {
+          params: {
+            username: "user_" + currentUser.id,
+            room: meetingId,
+          },
+        });
+
+        const token = response.data.token;
+
+        const newRoom = new Room();
+        activeRoom = newRoom;
+
+        await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
+
+        // Start muted and camera off
+        await newRoom.localParticipant.setMicrophoneEnabled(false);
+        await newRoom.localParticipant.setCameraEnabled(false);
+
+        // Existing remote participants/tracks
+        newRoom.remoteParticipants.forEach((participant) => {
+          participant.trackPublications.forEach((publication) => {
+            const track = publication.track;
+            if (track && track.kind === "audio") {
+              attachAudioTrack(track, publication);
+            }
+          });
+        });
+
+        // Future subscribed tracks
+        newRoom.on("trackSubscribed", (track, publication) => {
+          if (track.kind === "audio") {
+            attachAudioTrack(track, publication);
+          }
+        });
+
+        newRoom.on("trackUnsubscribed", (track, publication) => {
+          if (track.kind === "audio") {
+            detachAudioTrack(track, publication);
+          }
+        });
+
+        // Helpful for autoplay restrictions in some browsers
+        try {
+          await newRoom.startAudio();
+        } catch (err) {
+          console.warn("room.startAudio() was blocked or unavailable:", err);
+        }
+
+        if (mounted) {
+          setRoom(newRoom);
+        }
+
+        console.log("✅ Connected to LiveKit room successfully");
+      } catch (err) {
+        console.error("❌ LiveKit connect failed:", err);
+      }
+    };
+
+    joinRoom();
+
+    return () => {
+      mounted = false;
+      cleanupAudioElements();
+
+      if (activeRoom) {
+        try {
+          activeRoom.disconnect();
+        } catch (err) {
+          console.warn("LiveKit disconnect error:", err);
+        }
+      }
+
+      setRoom(null);
+    };
+  }, [meetingId]);
+
+  const toggleMic = async () => {
+    if (!room) return;
+
+    try {
+      const nextMuted = !muted;
+      await room.localParticipant.setMicrophoneEnabled(!nextMuted);
+      setMuted(nextMuted);
+      console.log("🎤 Mic enabled:", !nextMuted);
+    } catch (err) {
+      console.error("❌ Failed to toggle microphone:", err);
+    }
+  };
+
+  const toggleCamera = async () => {
+    if (!room) {
+      setCameraOff((prev) => !prev);
+      return;
+    }
+
+    try {
+      const nextCameraOff = !cameraOff;
+      await room.localParticipant.setCameraEnabled(!nextCameraOff);
+      setCameraOff(nextCameraOff);
+      console.log("📷 Camera enabled:", !nextCameraOff);
+    } catch (err) {
+      console.error("❌ Failed to toggle camera:", err);
+    }
+  };
+
+  const handleLeave = async () => {
+    try {
+      if (room) {
+        room.disconnect();
+      }
+
+      await leaveMeeting({ meetingId });
+      navigate("/");
+    } catch (err) {
+      console.error("❌ Failed to leave meeting:", err);
+    }
+  };
+
+  const enableAudioPlayback = async () => {
+    try {
+      if (room) {
+        await room.startAudio();
+        console.log("🔊 Audio playback enabled");
+      }
+    } catch (err) {
+      console.error("❌ Failed to enable audio playback:", err);
     }
   };
 
@@ -268,7 +397,17 @@ export default function MeetingPage() {
             </div>
           </div>
 
-          {/* Video Grid - Fixed 2x2 Layout */}
+          {/* Optional audio unlock button for autoplay restrictions */}
+          <div className="px-2">
+            <button
+              onClick={enableAudioPlayback}
+              className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider shadow-md hover:bg-emerald-700 transition-all"
+            >
+              Enable Audio
+            </button>
+          </div>
+
+          {/* Video Grid */}
           <div className="flex-1 flex items-center justify-center p-2 min-h-0 overflow-hidden">
             <div className="grid grid-cols-2 gap-3 md:gap-5 w-full h-full max-w-[1000px] max-h-[700px]">
               {users.map((user) => (
@@ -276,10 +415,14 @@ export default function MeetingPage() {
                   key={user.id}
                   layout
                   className={`relative rounded-[2.5rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden
-                    ${user.isSpeaking ? "border-blue-500 ring-4 ring-blue-500/10" : "border-white dark:border-[#2A2E3B] bg-white dark:bg-[#181B26]"}`}
+                    ${user.isSpeaking
+                      ? "border-blue-500 ring-4 ring-blue-500/10"
+                      : "border-white dark:border-[#2A2E3B] bg-white dark:bg-[#181B26]"
+                    }`}
                 >
                   <div
-                    className={`w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br ${user.color} flex items-center justify-center text-3xl md:text-5xl font-black text-white shadow-2xl relative z-10 transition-transform duration-500 hover:rotate-12`}
+                    className={`w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br ${user.color
+                      } flex items-center justify-center text-3xl md:text-5xl font-black text-white shadow-2xl relative z-10 transition-transform duration-500 hover:rotate-12`}
                   >
                     {user.initial}
                     {user.isSpeaking && (
@@ -289,7 +432,10 @@ export default function MeetingPage() {
 
                   <div className="absolute bottom-6 left-6 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl flex items-center gap-3 border border-white/10 shadow-2xl z-20">
                     <div
-                      className={`w-2 h-2 rounded-full ${user.isSpeaking ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-slate-400"}`}
+                      className={`w-2 h-2 rounded-full ${user.isSpeaking
+                          ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                          : "bg-slate-400"
+                        }`}
                     />
                     <span className="text-[10px] font-black text-white uppercase tracking-wider">
                       {user.name}
@@ -324,60 +470,39 @@ export default function MeetingPage() {
           <div className="bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] p-4 rounded-[2.5rem] shadow-2xl flex items-center justify-between gap-4 mx-auto w-fit md:w-full max-w-4xl backdrop-blur-md">
             <div className="flex items-center gap-2 md:gap-4">
               <button
-                onClick={async () => {
-                  if (!room) {
-                    console.error("Room not connected yet");
-                    return;
-                  }
-
-                  try {
-                    const shouldMute = !muted;
-                    const localParticipant = room.localParticipant;
-
-                    console.log("🎤 Mute button clicked:", {
-                      currentMuted: muted,
-                      shouldMute,
-                      isMicEnabled: localParticipant?.isMicrophoneEnabled,
-                      audioTracksSize: localParticipant?.audioTracks?.size || 0,
-                    });
-
-                    if (!localParticipant) {
-                      console.error("❌ Local participant not available");
-                      return;
-                    }
-
-                    // Disable or enable the microphone
-                    await localParticipant.setMicrophoneEnabled(!shouldMute);
-
-                    // Verify the change
-                    const newMicState = localParticipant.isMicrophoneEnabled;
-                    console.log("🎤 Microphone state after change:", newMicState);
-
-                    setMuted(shouldMute);
-                  } catch (err) {
-                    console.error("❌ Failed to toggle microphone:", err);
-                  }
-                }}
-                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${muted ? "bg-red-500 text-white shadow-red-500/20" : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"}`}
+                onClick={toggleMic}
+                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${muted
+                    ? "bg-red-500 text-white shadow-red-500/20"
+                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                  }`}
               >
                 {muted ? <MicOff size={22} /> : <Mic size={22} />}
               </button>
+
               <button
-                onClick={() => setCameraOff(!cameraOff)}
-                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${cameraOff ? "bg-red-500 text-white shadow-red-500/20" : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"}`}
+                onClick={toggleCamera}
+                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${cameraOff
+                    ? "bg-red-500 text-white shadow-red-500/20"
+                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                  }`}
               >
                 {cameraOff ? <VideoOff size={22} /> : <Video size={22} />}
               </button>
+
               <button className="hidden sm:flex p-4 rounded-2xl bg-slate-100 dark:bg-[#2A2E3B] hover:bg-blue-600 hover:text-white transition-all shadow-md">
                 <MonitorUp size={22} />
               </button>
+
               <button className="hidden sm:flex p-4 rounded-2xl bg-slate-100 dark:bg-[#2A2E3B] hover:bg-emerald-600 hover:text-white transition-all shadow-md">
                 <Waves size={22} />
               </button>
-              {/* أيقونة الترجمة CC المضافة */}
+
               <button
                 onClick={() => setIsCaptionsOn(!isCaptionsOn)}
-                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${isCaptionsOn ? "bg-blue-600 text-white shadow-blue-600/30" : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"}`}
+                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${isCaptionsOn
+                    ? "bg-blue-600 text-white shadow-blue-600/30"
+                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                  }`}
                 title="Captions"
               >
                 <Type size={22} />
@@ -387,7 +512,10 @@ export default function MeetingPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsChatOpen(!isChatOpen)}
-                className={`p-4 rounded-2xl transition-all shadow-md flex items-center gap-2 ${isChatOpen ? "bg-blue-600 text-white shadow-blue-600/30" : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"}`}
+                className={`p-4 rounded-2xl transition-all shadow-md flex items-center gap-2 ${isChatOpen
+                    ? "bg-blue-600 text-white shadow-blue-600/30"
+                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                  }`}
               >
                 <MessageSquare size={22} />
                 <span className="hidden md:block text-xs font-bold uppercase tracking-widest">
@@ -395,7 +523,10 @@ export default function MeetingPage() {
                 </span>
               </button>
 
-              <button className="bg-red-600 hover:bg-red-700 px-6 md:px-8 py-4 rounded-2xl text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-red-900/30 flex items-center gap-3 active:scale-95 transition-all">
+              <button
+                onClick={handleLeave}
+                className="bg-red-600 hover:bg-red-700 px-6 md:px-8 py-4 rounded-2xl text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-red-900/30 flex items-center gap-3 active:scale-95 transition-all"
+              >
                 <PhoneOff size={22} />
                 <span className="hidden lg:block">Leave</span>
               </button>
@@ -415,8 +546,7 @@ export default function MeetingPage() {
             >
               <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50/50 dark:bg-white/5">
                 <h2 className="font-black text-sm flex items-center gap-2 uppercase tracking-tighter">
-                  <MessageSquare size={16} className="text-blue-600" /> Live
-                  Feed
+                  <MessageSquare size={16} className="text-blue-600" /> Live Feed
                 </h2>
                 <button
                   onClick={() => setIsChatOpen(false)}
@@ -426,60 +556,11 @@ export default function MeetingPage() {
                 </button>
               </div>
 
-              {/* <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-emerald-500 flex items-center justify-center text-[8px] font-bold text-white">
-                      O
-                    </div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                      Omar Eng
-                    </span>
-                  </div>
-                  <div className="bg-slate-100 dark:bg-[#0D0F16] p-4 rounded-[1.8rem] rounded-tl-none text-[13px] leading-relaxed shadow-sm">
-                    Hey team! The AI Noise suppression is working perfectly. 🚀
-                  </div>
-                </div>
-
-                <div className="space-y-2 text-right">
-                  <span className="text-[9px] font-black text-blue-600 uppercase mr-2 tracking-widest">
-                    You
-                  </span>
-                  <div className="bg-blue-600 text-white p-4 rounded-[1.8rem] rounded-tr-none text-[13px] shadow-xl shadow-blue-900/10 text-left inline-block">
-                    Great! Let's start the demo.
-                  </div>
-                </div>
-              </div> */}
-
-
-              {/* <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {messages.map((msg, index) => (
-                  <div
-                    key={index}
-                    className={`space-y-2 ${msg.user === "You" ? "text-right" : ""
-                      }`}
-                  >
-                    <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
-                      {msg.user}
-                    </span>
-
-                    <div
-                      className={`p-4 rounded-[1.8rem] text-[13px] shadow-sm inline-block ${msg.user === "You"
-                        ? "bg-blue-600 text-white rounded-tr-none"
-                        : "bg-slate-100 dark:bg-[#0D0F16] rounded-tl-none"
-                        }`}
-                    >
-                      {msg.message}
-                    </div>
-                  </div>
-                ))}
-              </div> */}
-
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {messages.map((msg) => (
-                  <div key={msg.id} className="space-y-2">
+                {messages.map((msg, index) => (
+                  <div key={msg.id || index} className="space-y-2">
                     <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
-                      {msg.senderName}
+                      {msg.senderName || "Unknown"}
                     </span>
 
                     <div className="bg-slate-100 dark:bg-[#0D0F16] p-4 rounded-[1.8rem] text-[13px] shadow-sm inline-block">
