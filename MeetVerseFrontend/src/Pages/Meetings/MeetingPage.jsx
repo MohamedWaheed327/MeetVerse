@@ -158,8 +158,17 @@ export default function MeetingPage() {
         const token = response.data.token;
 
         const newRoom = new Room();
+        activeRoom = newRoom;
 
         await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
+        newRoom.participants.forEach((participant) => {
+          participant.audioTracks.forEach((publication) => {
+            if (publication.track) {
+              const audioElement = publication.track.attach();
+              document.body.appendChild(audioElement);
+            }
+          });
+        });
 
         // ✅ Start with microphone disabled (muted) for safety
         await newRoom.localParticipant.setMicrophoneEnabled(false);
@@ -168,6 +177,8 @@ export default function MeetingPage() {
         newRoom.on("trackSubscribed", (track) => {
           if (track.kind === "audio") {
             const audioElement = track.attach();
+            audioElement.autoplay = true;
+            audioElement.playsInline = true;
             document.body.appendChild(audioElement);
           }
         });
