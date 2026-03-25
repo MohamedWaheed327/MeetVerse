@@ -203,6 +203,16 @@ export default function MeetingPage() {
         const newRoom = new Room();
         activeRoom = newRoom;
 
+        // ✅ Handle future tracks
+        newRoom.on("trackSubscribed", (track) => {
+          if (track.kind === "audio") {
+            const audioElement = track.attach();
+            audioElement.autoplay = true;
+            audioElement.playsInline = true;
+            document.body.appendChild(audioElement);
+          }
+        });
+
         await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
 
         // ✅ Handle existing participants safely
@@ -219,16 +229,6 @@ export default function MeetingPage() {
             });
           });
         }
-
-        // ✅ Handle future tracks
-        newRoom.on("trackSubscribed", (track) => {
-          if (track.kind === "audio") {
-            const audioElement = track.attach();
-            audioElement.autoplay = true;
-            audioElement.playsInline = true;
-            document.body.appendChild(audioElement);
-          }
-        });
 
         // ✅ Start muted
         await newRoom.localParticipant.setMicrophoneEnabled(false);
@@ -258,9 +258,7 @@ export default function MeetingPage() {
 
     try {
       const newMuted = !muted;
-
       await room.localParticipant.setMicrophoneEnabled(!newMuted);
-
       setMuted(newMuted);
 
       console.log("🎤 Mic state:", !newMuted);
