@@ -33,6 +33,7 @@ import { getParticipants } from "../../services/getParticipants";
 import { Room } from "livekit-client";
 import { joinMeeting } from "../../services/joinMeeting";
 import { leaveMeeting } from "../../services/leaveMeeting";
+import { getCurrentUser } from "../../services/currentUser";
 
 export default function MeetingPage() {
   const [muted, setMuted] = useState(true);
@@ -149,7 +150,7 @@ export default function MeetingPage() {
       try {
         const response = await api.get("/livekit/token", {
           params: {
-            username: "user_" + Date.now(),
+            username: "user_" + (await getCurrentUser()).id,
             room: meetingId,
           },
         });
@@ -173,12 +174,8 @@ export default function MeetingPage() {
 
         setRoom(newRoom);
 
-        console.log("✅ Connected to meeting:", meetingId, {
-          micEnabled: newRoom.localParticipant.isMicrophoneEnabled,
-          audioTracks: newRoom.localParticipant.audioTracks.size,
-        });
       } catch (err) {
-        console.error("❌ Failed to join meeting:", err);
+        console.error("Failed to join livekit room");
       }
     };
 
