@@ -87,6 +87,13 @@ export default function MeetingPage() {
   //     isSpeaking: false,
   //   },
   // ];
+  // // database participants edit
+  // useEffect(() => {
+  //   joinMeeting({ meetingId });
+  //   return () => {
+  //     leaveMeeting({ meetingId });
+  //   };
+  // }, []);
 
   // handle livekit server stuff
   useEffect(() => {
@@ -218,14 +225,6 @@ export default function MeetingPage() {
       }
     };
   }, [meetingId]);
-
-  // database participants edit
-  useEffect(() => {
-    joinMeeting({ meetingId });
-    return () => {
-      leaveMeeting({ meetingId });
-    };
-  }, []);
 
   // Load meeting-chat History
   useEffect(() => {
