@@ -37,8 +37,6 @@ public class LiveKitController : ControllerBase
     [HttpPost("webhook")]
     public async Task<IActionResult> ReceiveWebhook()
     {
-        CustomLogger.Log("Webhook endpoint hit");
-
         // 1. Get the 'Authorization' header sent by LiveKit Cloud
         var authHeader = Request.Headers["Authorization"].ToString();
 
@@ -57,12 +55,15 @@ public class LiveKitController : ControllerBase
             {
                 case "participant_joined":
                     // Logic: Mark user as "In Call" in your database
-                    CustomLogger.Log($"User {liveEvent.Participant.Identity} joined {liveEvent.Room.Name}");
+                    CustomLogger.Log($"{liveEvent.Participant.Name} ({liveEvent.Participant.Identity}) joined {liveEvent.Room.Name}");
                     break;
 
                 case "participant_left":
                     // Logic: Mark user as "Away" or update call duration
-                    CustomLogger.Log($"User {liveEvent.Participant.Identity} left");
+                    CustomLogger.Log($"{liveEvent.Participant.Name} ({liveEvent.Participant.Identity}) left {liveEvent.Room.Name}");
+                    break;
+                default:
+                    CustomLogger.Log("default is hit");
                     break;
             }
 
@@ -70,7 +71,6 @@ public class LiveKitController : ControllerBase
         }
         catch (Exception)
         {
-            // Verification failed (wrong secret or unauthorized sender)
             return Unauthorized();
         }
     }
