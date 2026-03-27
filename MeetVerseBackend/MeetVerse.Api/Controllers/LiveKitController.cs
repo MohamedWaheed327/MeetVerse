@@ -20,21 +20,6 @@ public class LiveKitController : ControllerBase
         _liveKitTokenService = liveKitTokenService;
     }
 
-    void log(string message)
-    {
-        string connectionString = "Server=meetversedb.csfgc24ignv3.us-east-1.rds.amazonaws.com,1433;Database=MeetVerseDb;User Id=admin;Password=^2^532Mxn4!%&3%B;TrustServerCertificate=True;Encrypt=True;";
-
-        using var connection = new SqlConnection(connectionString);
-        connection.Open();
-
-        string sql = "INSERT INTO logs (message) VALUES (@message)";
-
-        using var command = new SqlCommand(sql, connection);
-        command.Parameters.AddWithValue("@message", message);
-
-        command.ExecuteNonQuery();
-    }
-
     [HttpGet("token")]
     public IActionResult GetToken([FromQuery] string username, [FromQuery] string room, [FromQuery] string displayName, [FromQuery] string? avatarUrl)
     {
@@ -52,7 +37,7 @@ public class LiveKitController : ControllerBase
     [HttpPost("webhook")]
     public async Task<IActionResult> ReceiveWebhook()
     {
-        log("Webhook endpoint hit");
+        CustomLogger.Log("Webhook endpoint hit");
 
         // 1. Get the 'Authorization' header sent by LiveKit Cloud
         var authHeader = Request.Headers["Authorization"].ToString();
@@ -72,12 +57,12 @@ public class LiveKitController : ControllerBase
             {
                 case "participant_joined":
                     // Logic: Mark user as "In Call" in your database
-                    log($"User {liveEvent.Participant.Identity} joined {liveEvent.Room.Name}");
+                    CustomLogger.Log($"User {liveEvent.Participant.Identity} joined {liveEvent.Room.Name}");
                     break;
 
                 case "participant_left":
                     // Logic: Mark user as "Away" or update call duration
-                    log($"User {liveEvent.Participant.Identity} left");
+                    CustomLogger.Log($"User {liveEvent.Participant.Identity} left");
                     break;
             }
 

@@ -433,7 +433,10 @@ export default function MeetingPage() {
                 </span>
               </button>
 
-              <button className="bg-red-600 hover:bg-red-700 px-6 md:px-8 py-4 rounded-2xl text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-red-900/30 flex items-center gap-3 active:scale-95 transition-all">
+              <button
+                onClick={() => { }}
+                className="bg-red-600 hover:bg-red-700 px-6 md:px-8 py-4 rounded-2xl text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-red-900/30 flex items-center gap-3 active:scale-95 transition-all"
+              >
                 <PhoneOff size={22} />
                 <span className="hidden lg:block">Leave</span>
               </button>
