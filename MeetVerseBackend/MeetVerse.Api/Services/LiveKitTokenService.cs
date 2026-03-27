@@ -8,11 +8,11 @@ public class LiveKitTokenService : ILiveKitTokenService
     private const string ApiKey = "APIVDmR6TG3FFHy";
     private const string ApiSecret = "ZSqPDDGXAVhsuqNuKfpsL8Og9TiahJt2A9rpJw67JJD";
 
-    public string CreateToken(string username, string roomName, string displayName, string avatarUrl)
+    public string CreateToken(string username, string roomName, string displayName, string? avatarUrl)
     {
         var metadata = System.Text.Json.JsonSerializer.Serialize(new
         {
-            avatarUrl,
+            avatarUrl = avatarUrl ?? "",
         });
 
         var token = new AccessToken(ApiKey, ApiSecret)

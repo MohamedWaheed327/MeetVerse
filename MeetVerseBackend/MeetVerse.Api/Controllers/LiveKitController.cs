@@ -36,7 +36,7 @@ public class LiveKitController : ControllerBase
     }
 
     [HttpGet("token")]
-    public IActionResult GetToken([FromQuery] string username, [FromQuery] string room, [FromQuery] string displayName, [FromQuery] string avatarUrl)
+    public IActionResult GetToken([FromQuery] string username, [FromQuery] string room, [FromQuery] string displayName, [FromQuery] string? avatarUrl)
     {
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(room))
         {
