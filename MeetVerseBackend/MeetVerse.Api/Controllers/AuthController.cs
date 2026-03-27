@@ -26,6 +26,7 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
     {
+        CustomLogger.Log($"{request.Name} ({request.Email}) tried to register.");
         if (await _db.Users.AnyAsync(u => u.Email == request.Email))
         {
             return BadRequest("Email already in use");
@@ -39,7 +40,7 @@ public class AuthController : ControllerBase
             Name = request.Name,
             Roles = request.Role
         };
-
+        CustomLogger.Log($"{request.Name} ({request.Email}) registered.");
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
 
@@ -50,17 +51,21 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
     {
+        CustomLogger.Log($"{request.Email} tried to login.");
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
         if (user is null)
         {
+            CustomLogger.Log($"{request.Email} failed to login.");
             return Unauthorized();
         }
 
         if (!_passwordHasher.Verify(user.PasswordHash, request.Password))
         {
+            CustomLogger.Log($"{request.Email} failed to login.");
             return Unauthorized();
         }
 
+        CustomLogger.Log($"{user.Name} ({user.Email}) logined successfully.");
         var token = _tokenService.GenerateAccessToken(user);
         return new AuthResponse { Token = token };
     }
