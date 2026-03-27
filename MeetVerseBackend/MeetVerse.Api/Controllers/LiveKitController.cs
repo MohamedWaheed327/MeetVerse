@@ -36,6 +36,8 @@ public class LiveKitController : ControllerBase
     [HttpPost("webhook")]
     public async Task<IActionResult> ReceiveWebhook()
     {
+        Console.WriteLine("Webhook endpoint hit");
+
         // 1. Get the 'Authorization' header sent by LiveKit Cloud
         var authHeader = Request.Headers["Authorization"].ToString();
 
