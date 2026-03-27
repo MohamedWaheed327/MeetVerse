@@ -18,7 +18,7 @@ public class CustomLogger
     {
         using var connection = new SqlConnection(ConnectionString);
         connection.Open();
-        string sql = $"INSERT INTO logs (message, sent_at) VALUES (@message, {DateTime.UtcNow})";
+        string sql = $"INSERT INTO logs (message, sent_at) VALUES (@message, \'{DateTime.UtcNow}\')";
         using var command = new SqlCommand(sql, connection);
         command.Parameters.AddWithValue("@message", message);
         command.ExecuteNonQuery();
