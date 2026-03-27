@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using MeetVerse.Api.Services;
 using MeetVerse.Api.Services.Background;
 using Livekit.Server.Sdk.Dotnet;
+using Microsoft.Data.SqlClient;
 
 namespace MeetVerse.Api.Controllers;
 
@@ -17,6 +18,21 @@ public class LiveKitController : ControllerBase
     public LiveKitController(ILiveKitTokenService liveKitTokenService)
     {
         _liveKitTokenService = liveKitTokenService;
+    }
+
+    void log(string message)
+    {
+        string connectionString = "Server=meetversedb.csfgc24ignv3.us-east-1.rds.amazonaws.com,1433;Database=MeetVerseDb;User Id=admin;Password=^2^532Mxn4!%&3%B;TrustServerCertificate=True;Encrypt=True;";
+
+        using var connection = new SqlConnection(connectionString);
+        connection.Open();
+
+        string sql = "INSERT INTO logs (message) VALUES (@message)";
+
+        using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@message", message);
+
+        command.ExecuteNonQuery();
     }
 
     [HttpGet("token")]
@@ -36,7 +52,7 @@ public class LiveKitController : ControllerBase
     [HttpPost("webhook")]
     public async Task<IActionResult> ReceiveWebhook()
     {
-        Console.WriteLine("Webhook endpoint hit");
+        log("Webhook endpoint hit");
 
         // 1. Get the 'Authorization' header sent by LiveKit Cloud
         var authHeader = Request.Headers["Authorization"].ToString();
@@ -56,12 +72,12 @@ public class LiveKitController : ControllerBase
             {
                 case "participant_joined":
                     // Logic: Mark user as "In Call" in your database
-                    Console.WriteLine($"User {liveEvent.Participant.Identity} joined {liveEvent.Room.Name}");
+                    log($"User {liveEvent.Participant.Identity} joined {liveEvent.Room.Name}");
                     break;
 
                 case "participant_left":
                     // Logic: Mark user as "Away" or update call duration
-                    Console.WriteLine($"User {liveEvent.Participant.Identity} left");
+                    log($"User {liveEvent.Participant.Identity} left");
                     break;
             }
 
