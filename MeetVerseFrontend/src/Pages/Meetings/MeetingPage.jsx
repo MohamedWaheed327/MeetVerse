@@ -108,7 +108,7 @@ export default function MeetingPage() {
 
       const localUser = {
         id: localParticipant.identity,
-        name: `${localParticipant.identity} (You)`,
+        name: `${localParticipant.displayName} (You)`,
         initial: localParticipant.identity?.charAt(0)?.toUpperCase() || "Y",
         color: colorPool[0],
         isSpeaking: localParticipant.isSpeaking || false,
@@ -118,7 +118,7 @@ export default function MeetingPage() {
       const remoteUsers = Array.from(liveRoom.remoteParticipants.values()).map(
         (participant, index) => ({
           id: participant.identity,
-          name: participant.identity,
+          name: participant.displayName,
           initial: participant.identity?.charAt(0)?.toUpperCase() || "U",
           color: colorPool[(index + 1) % colorPool.length],
           isSpeaking: participant.isSpeaking || false,
@@ -142,6 +142,8 @@ export default function MeetingPage() {
           params: {
             username: "user_" + currentUser.id,
             room: meetingId,
+            displayName: currentUser.name,
+            avatar: currentUser.avatarUrl
           },
         });
 
