@@ -88,24 +88,162 @@ export default function MeetingPage() {
   //   },
   // ];
 
-  // Load participants
+  const buildParticipantsList = (liveRoom) => {
+    if (!liveRoom) return [];
+
+    const localUser = {
+      id: liveRoom.localParticipant.identity,
+      name: `${liveRoom.localParticipant.identity} (You)`,
+      initial: liveRoom.localParticipant.identity?.charAt(0)?.toUpperCase() || "Y",
+      color: "from-blue-600 to-indigo-700",
+      isSpeaking: liveRoom.localParticipant.isSpeaking || false,
+      isLocal: true,
+    };
+
+    const remoteUsers = Array.from(liveRoom.remoteParticipants.values()).map(
+      (participant, index) => ({
+        id: participant.identity,
+        name: participant.identity,
+        initial: participant.identity?.charAt(0)?.toUpperCase() || "U",
+        color: [
+          "from-purple-600 to-pink-600",
+          "from-emerald-600 to-teal-600",
+          "from-orange-600 to-red-600",
+          "from-cyan-600 to-blue-600",
+        ][index % 4],
+        isSpeaking: participant.isSpeaking || false,
+        isLocal: false,
+      })
+    );
+
+    return [localUser, ...remoteUsers];
+  };
   useEffect(() => {
-    const loadUsers = async () => {
-      setIsLoading(true);
+    let activeRoom;
+
+    const buildParticipantsList = (liveRoom) => {
+      if (!liveRoom) return [];
+
+      const colorPool = [
+        "from-blue-600 to-indigo-700",
+        "from-purple-600 to-pink-600",
+        "from-emerald-600 to-teal-600",
+        "from-orange-600 to-red-600",
+        "from-cyan-600 to-blue-600",
+        "from-fuchsia-600 to-rose-600",
+      ];
+
+      const localParticipant = liveRoom.localParticipant;
+
+      const localUser = {
+        id: localParticipant.identity,
+        name: `${localParticipant.identity} (You)`,
+        initial: localParticipant.identity?.charAt(0)?.toUpperCase() || "Y",
+        color: colorPool[0],
+        isSpeaking: localParticipant.isSpeaking || false,
+        isLocal: true,
+      };
+
+      const remoteUsers = Array.from(liveRoom.remoteParticipants.values()).map(
+        (participant, index) => ({
+          id: participant.identity,
+          name: participant.identity,
+          initial: participant.identity?.charAt(0)?.toUpperCase() || "U",
+          color: colorPool[(index + 1) % colorPool.length],
+          isSpeaking: participant.isSpeaking || false,
+          isLocal: false,
+        })
+      );
+
+      return [localUser, ...remoteUsers];
+    };
+
+    const syncParticipants = (liveRoom) => {
+      const updatedUsers = buildParticipantsList(liveRoom);
+      setUsers(updatedUsers);
+    };
+
+    const joinRoom = async () => {
       try {
-        const users = await getParticipants({ meetingId });
-        console.log("users:", users);
-        setUsers(users);
+        const currentUser = await getCurrentUser();
+
+        const response = await api.get("/livekit/token", {
+          params: {
+            username: "user_" + currentUser.id,
+            room: meetingId,
+          },
+        });
+
+        const token = response.data.token;
+
+        const newRoom = new Room();
+        activeRoom = newRoom;
+
+        newRoom.on("trackSubscribed", (track) => {
+          if (track.kind === "audio") {
+            const audioElement = track.attach();
+            audioElement.autoplay = true;
+            audioElement.playsInline = true;
+            document.body.appendChild(audioElement);
+          }
+        });
+
+        newRoom.on("participantConnected", (participant) => {
+          console.log("participantConnected:", participant.identity);
+          syncParticipants(newRoom);
+        });
+
+        newRoom.on("participantDisconnected", (participant) => {
+          console.log("participantDisconnected:", participant.identity);
+          syncParticipants(newRoom);
+        });
+
+        newRoom.on("activeSpeakersChanged", () => {
+          syncParticipants(newRoom);
+        });
+
+        newRoom.on("localTrackPublished", () => {
+          syncParticipants(newRoom);
+        });
+
+        newRoom.on("localTrackUnpublished", () => {
+          syncParticipants(newRoom);
+        });
+
+        await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
+
+        if (newRoom.remoteParticipants) {
+          newRoom.remoteParticipants.forEach((participant) => {
+            participant.trackPublications.forEach((publication) => {
+              const track = publication.track;
+              if (track && track.kind === "audio") {
+                const audioElement = track.attach();
+                audioElement.autoplay = true;
+                audioElement.playsInline = true;
+                document.body.appendChild(audioElement);
+              }
+            });
+          });
+        }
+
+        await newRoom.localParticipant.setMicrophoneEnabled(false);
+
+        setRoom(newRoom);
+        syncParticipants(newRoom);
+
+        console.log("✅ Connected to LiveKit room successfully");
       } catch (err) {
-        console.error("Failed to load users:", err);
-      } finally {
-        setIsLoading(false);
+        console.error("❌ LiveKit connect failed:", err);
       }
     };
 
-    if (meetingId) {
-      loadUsers();
-    }
+    joinRoom();
+
+    return () => {
+      if (activeRoom) {
+        activeRoom.disconnect();
+      }
+    };
   }, [meetingId]);
 
   useEffect(() => {
@@ -186,70 +324,70 @@ export default function MeetingPage() {
   };
 
   // ✅ CLEAN + STABLE LiveKit joinRoom implementation
-  useEffect(() => {
-    let activeRoom;
+  // useEffect(() => {
+  //   let activeRoom;
 
-    const joinRoom = async () => {
-      try {
-        const response = await api.get("/livekit/token", {
-          params: {
-            username: "user_" + (await getCurrentUser()).id,
-            room: meetingId,
-          },
-        });
+  //   const joinRoom = async () => {
+  //     try {
+  //       const response = await api.get("/livekit/token", {
+  //         params: {
+  //           username: "user_" + (await getCurrentUser()).id,
+  //           room: meetingId,
+  //         },
+  //       });
 
-        const token = response.data.token;
+  //       const token = response.data.token;
 
-        const newRoom = new Room();
-        activeRoom = newRoom;
+  //       const newRoom = new Room();
+  //       activeRoom = newRoom;
 
-        // ✅ Handle future tracks
-        newRoom.on("trackSubscribed", (track) => {
-          if (track.kind === "audio") {
-            const audioElement = track.attach();
-            audioElement.autoplay = true;
-            audioElement.playsInline = true;
-            document.body.appendChild(audioElement);
-          }
-        });
+  //       // ✅ Handle future tracks
+  //       newRoom.on("trackSubscribed", (track) => {
+  //         if (track.kind === "audio") {
+  //           const audioElement = track.attach();
+  //           audioElement.autoplay = true;
+  //           audioElement.playsInline = true;
+  //           document.body.appendChild(audioElement);
+  //         }
+  //       });
 
-        await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
+  //       await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
 
-        // ✅ Handle existing participants safely
-        if (newRoom.participants) {
-          newRoom.participants.forEach((participant) => {
-            participant.tracks.forEach((publication) => {
-              const track = publication.track;
-              if (track && track.kind === "audio") {
-                const audioElement = track.attach();
-                audioElement.autoplay = true;
-                audioElement.playsInline = true;
-                document.body.appendChild(audioElement);
-              }
-            });
-          });
-        }
+  //       // ✅ Handle existing participants safely
+  //       if (newRoom.participants) {
+  //         newRoom.participants.forEach((participant) => {
+  //           participant.tracks.forEach((publication) => {
+  //             const track = publication.track;
+  //             if (track && track.kind === "audio") {
+  //               const audioElement = track.attach();
+  //               audioElement.autoplay = true;
+  //               audioElement.playsInline = true;
+  //               document.body.appendChild(audioElement);
+  //             }
+  //           });
+  //         });
+  //       }
 
-        // ✅ Start muted
-        await newRoom.localParticipant.setMicrophoneEnabled(false);
+  //       // ✅ Start muted
+  //       await newRoom.localParticipant.setMicrophoneEnabled(false);
 
-        setRoom(newRoom);
+  //       setRoom(newRoom);
 
-        console.log("✅ Connected to LiveKit room successfully");
+  //       console.log("✅ Connected to LiveKit room successfully");
 
-      } catch (err) {
-        console.error("❌ LiveKit connect failed:", err);
-      }
-    };
+  //     } catch (err) {
+  //       console.error("❌ LiveKit connect failed:", err);
+  //     }
+  //   };
 
-    joinRoom();
+  //   joinRoom();
 
-    return () => {
-      if (activeRoom) {
-        activeRoom.disconnect();
-      }
-    };
-  }, [meetingId]);
+  //   return () => {
+  //     if (activeRoom) {
+  //       activeRoom.disconnect();
+  //     }
+  //   };
+  // }, [meetingId]);
 
 
   // ✅ FIXED microphone toggle (clean + correct)
