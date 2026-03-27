@@ -14,7 +14,8 @@ import {
   X,
   Send,
   ShieldCheck,
-  Type, // أيقونة الـ CC
+  Type,
+  IdCard, // أيقونة الـ CC
 } from "lucide-react";
 import { React, useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
@@ -53,7 +54,6 @@ export default function MeetingPage() {
   const scrollRef = useRef(null);
 
   const scrollToBottom = () => {
-    // Use "auto" for an instant jump
     scrollRef.current?.scrollIntoView({ behavior: "auto" });
   };
 
@@ -88,36 +88,7 @@ export default function MeetingPage() {
   //   },
   // ];
 
-  const buildParticipantsList = (liveRoom) => {
-    if (!liveRoom) return [];
-
-    const localUser = {
-      id: liveRoom.localParticipant.identity,
-      name: `${liveRoom.localParticipant.identity} (You)`,
-      initial: liveRoom.localParticipant.identity?.charAt(0)?.toUpperCase() || "Y",
-      color: "from-blue-600 to-indigo-700",
-      isSpeaking: liveRoom.localParticipant.isSpeaking || false,
-      isLocal: true,
-    };
-
-    const remoteUsers = Array.from(liveRoom.remoteParticipants.values()).map(
-      (participant, index) => ({
-        id: participant.identity,
-        name: participant.identity,
-        initial: participant.identity?.charAt(0)?.toUpperCase() || "U",
-        color: [
-          "from-purple-600 to-pink-600",
-          "from-emerald-600 to-teal-600",
-          "from-orange-600 to-red-600",
-          "from-cyan-600 to-blue-600",
-        ][index % 4],
-        isSpeaking: participant.isSpeaking || false,
-        isLocal: false,
-      })
-    );
-
-    return [localUser, ...remoteUsers];
-  };
+  // handle livekit server stuff
   useEffect(() => {
     let activeRoom;
 
@@ -246,6 +217,7 @@ export default function MeetingPage() {
     };
   }, [meetingId]);
 
+  // database participants edit
   useEffect(() => {
     joinMeeting({ meetingId });
     return () => {
@@ -253,7 +225,7 @@ export default function MeetingPage() {
     };
   }, []);
 
-  // Load meeting chat History
+  // Load meeting-chat History
   useEffect(() => {
     const loadHistory = async () => {
       setIsLoading(true);
@@ -323,74 +295,6 @@ export default function MeetingPage() {
     }
   };
 
-  // ✅ CLEAN + STABLE LiveKit joinRoom implementation
-  // useEffect(() => {
-  //   let activeRoom;
-
-  //   const joinRoom = async () => {
-  //     try {
-  //       const response = await api.get("/livekit/token", {
-  //         params: {
-  //           username: "user_" + (await getCurrentUser()).id,
-  //           room: meetingId,
-  //         },
-  //       });
-
-  //       const token = response.data.token;
-
-  //       const newRoom = new Room();
-  //       activeRoom = newRoom;
-
-  //       // ✅ Handle future tracks
-  //       newRoom.on("trackSubscribed", (track) => {
-  //         if (track.kind === "audio") {
-  //           const audioElement = track.attach();
-  //           audioElement.autoplay = true;
-  //           audioElement.playsInline = true;
-  //           document.body.appendChild(audioElement);
-  //         }
-  //       });
-
-  //       await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
-
-  //       // ✅ Handle existing participants safely
-  //       if (newRoom.participants) {
-  //         newRoom.participants.forEach((participant) => {
-  //           participant.tracks.forEach((publication) => {
-  //             const track = publication.track;
-  //             if (track && track.kind === "audio") {
-  //               const audioElement = track.attach();
-  //               audioElement.autoplay = true;
-  //               audioElement.playsInline = true;
-  //               document.body.appendChild(audioElement);
-  //             }
-  //           });
-  //         });
-  //       }
-
-  //       // ✅ Start muted
-  //       await newRoom.localParticipant.setMicrophoneEnabled(false);
-
-  //       setRoom(newRoom);
-
-  //       console.log("✅ Connected to LiveKit room successfully");
-
-  //     } catch (err) {
-  //       console.error("❌ LiveKit connect failed:", err);
-  //     }
-  //   };
-
-  //   joinRoom();
-
-  //   return () => {
-  //     if (activeRoom) {
-  //       activeRoom.disconnect();
-  //     }
-  //   };
-  // }, [meetingId]);
-
-
-  // ✅ FIXED microphone toggle (clean + correct)
   const toggleMic = async () => {
     if (!room) return;
 
