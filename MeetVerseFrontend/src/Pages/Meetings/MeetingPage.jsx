@@ -35,6 +35,7 @@ import { Room } from "livekit-client";
 import { joinMeeting } from "../../services/joinMeeting";
 import { leaveMeeting } from "../../services/leaveMeeting";
 import { getCurrentUser } from "../../services/currentUser";
+import { useNavigate } from "react-router-dom";
 
 export default function MeetingPage() {
   const [muted, setMuted] = useState(true);
@@ -51,10 +52,97 @@ export default function MeetingPage() {
 
   const [users, setUsers] = useState([]);
 
-  const scrollRef = useRef(null);
+  const navigate = useNavigate();
 
+  const scrollRef = useRef(null);
   const scrollToBottom = () => {
     scrollRef.current?.scrollIntoView({ behavior: "auto" });
+  };
+
+  const videoRefs = useRef({});
+  const attachTrackToElement = (track, participantId, kind) => {
+    const container = videoRefs.current[participantId];
+    if (!container) return;
+
+    // remove old attached elements of same kind
+    const existingElements = container.querySelectorAll(track.kind);
+    existingElements.forEach((el) => el.remove());
+
+    const element = track.attach();
+    element.autoplay = true;
+    element.playsInline = true;
+
+    if (track.kind === "video") {
+      element.className = "w-full h-full object-cover rounded-[2.5rem]";
+    }
+
+    if (track.kind === "audio") {
+      element.style.display = "none";
+    }
+
+    container.appendChild(element);
+  };
+
+  const detachTrack = (track) => {
+    track.detach().forEach((el) => el.remove());
+  };
+
+  const removeVideoElement = (participantId) => {
+    const container = videoRefs.current[participantId];
+    if (!container) return;
+
+    const videos = container.querySelectorAll("video");
+    videos.forEach((video) => video.remove());
+  };
+
+  const hasVideoTrack = (participant) => {
+    return Array.from(participant.trackPublications.values()).some(
+      (pub) => pub.kind === "video" && pub.track && !pub.isMuted
+    );
+  };
+
+  const buildParticipantsList = (liveRoom) => {
+    if (!liveRoom) return [];
+
+    const colorPool = [
+      "from-blue-600 to-indigo-700",
+      "from-purple-600 to-pink-600",
+      "from-emerald-600 to-teal-600",
+      "from-orange-600 to-red-600",
+      "from-cyan-600 to-blue-600",
+      "from-fuchsia-600 to-rose-600",
+    ];
+
+    const localParticipant = liveRoom.localParticipant;
+
+    const localUser = {
+      id: localParticipant.identity,
+      name: `${localParticipant.name} (You)`,
+      initial: localParticipant.name?.charAt(0)?.toUpperCase() || "Y",
+      color: colorPool[0],
+      isSpeaking: localParticipant.isSpeaking || false,
+      isLocal: true,
+      hasVideo: hasVideoTrack(localParticipant),
+    };
+
+    const remoteUsers = Array.from(liveRoom.remoteParticipants.values()).map(
+      (participant, index) => ({
+        id: participant.identity,
+        name: participant.name,
+        initial: participant.name?.charAt(0)?.toUpperCase() || "U",
+        color: colorPool[(index + 1) % colorPool.length],
+        isSpeaking: participant.isSpeaking || false,
+        isLocal: false,
+        hasVideo: hasVideoTrack(participant),
+      })
+    );
+
+    return [localUser, ...remoteUsers];
+  };
+
+  const syncParticipants = (liveRoom) => {
+    const updatedUsers = buildParticipantsList(liveRoom);
+    setUsers(updatedUsers);
   };
 
   // const users = [
@@ -99,48 +187,6 @@ export default function MeetingPage() {
   useEffect(() => {
     let activeRoom;
 
-    const buildParticipantsList = (liveRoom) => {
-      if (!liveRoom) return [];
-
-      const colorPool = [
-        "from-blue-600 to-indigo-700",
-        "from-purple-600 to-pink-600",
-        "from-emerald-600 to-teal-600",
-        "from-orange-600 to-red-600",
-        "from-cyan-600 to-blue-600",
-        "from-fuchsia-600 to-rose-600",
-      ];
-
-      const localParticipant = liveRoom.localParticipant;
-
-      const localUser = {
-        id: localParticipant.identity,
-        name: `${localParticipant.name} (You)`,
-        initial: localParticipant.name?.charAt(0)?.toUpperCase() || "Y",
-        color: colorPool[0],
-        isSpeaking: localParticipant.isSpeaking || false,
-        isLocal: true,
-      };
-
-      const remoteUsers = Array.from(liveRoom.remoteParticipants.values()).map(
-        (participant, index) => ({
-          id: participant.identity,
-          name: participant.name,
-          initial: participant.name?.charAt(0)?.toUpperCase() || "U",
-          color: colorPool[(index + 1) % colorPool.length],
-          isSpeaking: participant.isSpeaking || false,
-          isLocal: false,
-        })
-      );
-
-      return [localUser, ...remoteUsers];
-    };
-
-    const syncParticipants = (liveRoom) => {
-      const updatedUsers = buildParticipantsList(liveRoom);
-      setUsers(updatedUsers);
-    };
-
     const joinRoom = async () => {
       try {
         const currentUser = await getCurrentUser();
@@ -159,13 +205,28 @@ export default function MeetingPage() {
         const newRoom = new Room();
         activeRoom = newRoom;
 
-        newRoom.on("trackSubscribed", (track) => {
+        newRoom.on("trackSubscribed", (track, publication, participant) => {
           if (track.kind === "audio") {
             const audioElement = track.attach();
             audioElement.autoplay = true;
             audioElement.playsInline = true;
+            audioElement.style.display = "none";
             document.body.appendChild(audioElement);
           }
+
+          if (track.kind === "video") {
+            attachTrackToElement(track, participant.identity, "video");
+          }
+
+          syncParticipants(newRoom);
+        });
+
+        newRoom.on("trackUnsubscribed", (track, publication, participant) => {
+          if (track.kind === "video") {
+            removeVideoElement(participant.identity);
+          }
+          detachTrack(track);
+          syncParticipants(newRoom);
         });
 
         newRoom.on("participantConnected", (participant) => {
@@ -186,27 +247,40 @@ export default function MeetingPage() {
           syncParticipants(newRoom);
         });
 
-        newRoom.on("localTrackUnpublished", () => {
+        newRoom.on("localTrackUnpublished", (publication) => {
+          if (publication.track?.kind === "video" || publication.kind === "video") {
+            removeVideoElement(newRoom.localParticipant.identity);
+          }
           syncParticipants(newRoom);
         });
 
         await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
 
         if (newRoom.remoteParticipants) {
+          // Attach already subscribed remote tracks
           newRoom.remoteParticipants.forEach((participant) => {
             participant.trackPublications.forEach((publication) => {
               const track = publication.track;
-              if (track && track.kind === "audio") {
-                const audioElement = track.attach();
-                audioElement.autoplay = true;
-                audioElement.playsInline = true;
-                document.body.appendChild(audioElement);
+
+              if (track) {
+                if (track.kind === "audio") {
+                  const audioElement = track.attach();
+                  audioElement.autoplay = true;
+                  audioElement.playsInline = true;
+                  audioElement.style.display = "none";
+                  document.body.appendChild(audioElement);
+                }
+
+                if (track.kind === "video") {
+                  attachTrackToElement(track, participant.identity, "video");
+                }
               }
             });
           });
         }
 
         await newRoom.localParticipant.setMicrophoneEnabled(false);
+        await newRoom.localParticipant.setCameraEnabled(false);
 
         setRoom(newRoom);
         syncParticipants(newRoom);
@@ -296,6 +370,36 @@ export default function MeetingPage() {
     }
   };
 
+  const toggleCamera = async () => {
+    if (!room) return;
+
+    try {
+      const newcameraOff = !cameraOff;
+      await room.localParticipant.setCameraEnabled(!newcameraOff);
+      setCameraOff(newcameraOff);
+
+      if (!newcameraOff) {
+        // camera ON
+        setTimeout(() => {
+          room.localParticipant.videoTrackPublications.forEach((pub) => {
+            if (pub.track) {
+              attachTrackToElement(pub.track, room.localParticipant.identity, "video");
+            }
+          });
+          syncParticipants(room);
+        }, 300);
+      } else {
+        // camera OFF
+        removeVideoElement(room.localParticipant.identity);
+        syncParticipants(room);
+      }
+
+      console.log("📷 camera state:", !newcameraOff);
+    } catch (err) {
+      console.error("❌ Failed to toggle camera:", err);
+    }
+  };
+
   const toggleMic = async () => {
     if (!room) return;
 
@@ -347,11 +451,20 @@ export default function MeetingPage() {
                     ${user.isSpeaking ? "border-blue-500 ring-4 ring-blue-500/10" : "border-white dark:border-[#2A2E3B] bg-white dark:bg-[#181B26]"}`}
                 >
                   <div
-                    className={`w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br ${user.color} flex items-center justify-center text-3xl md:text-5xl font-black text-white shadow-2xl relative z-10 transition-transform duration-500 hover:rotate-12`}
+                    ref={(el) => {
+                      if (el) videoRefs.current[user.id] = el;
+                    }}
+                    className="absolute inset-0 w-full h-full"
                   >
-                    {user.initial}
-                    {user.isSpeaking && (
-                      <span className="absolute -inset-3 rounded-full border-2 border-blue-500/40 animate-ping" />
+                    {!user.hasVideo && (
+                      <div
+                        className={`w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br ${user.color} flex items-center justify-center text-3xl md:text-5xl font-black text-white shadow-2xl absolute inset-0 m-auto z-10`}
+                      >
+                        {user.initial}
+                        {user.isSpeaking && (
+                          <span className="absolute -inset-3 rounded-full border-2 border-blue-500/40 animate-ping" />
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -362,7 +475,7 @@ export default function MeetingPage() {
                     <span className="text-[10px] font-black text-white uppercase tracking-wider">
                       {user.name}
                     </span>
-                    {user.id === 1 && muted && (
+                    {user.isLocal && muted && (
                       <MicOff size={14} className="text-red-400" />
                     )}
                   </div>
@@ -400,7 +513,7 @@ export default function MeetingPage() {
                 {muted ? <MicOff size={22} /> : <Mic size={22} />}
               </button>
               <button
-                onClick={() => setCameraOff(!cameraOff)}
+                onClick={() => toggleCamera()}
                 className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${cameraOff ? "bg-red-500 text-white shadow-red-500/20" : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"}`}
               >
                 {cameraOff ? <VideoOff size={22} /> : <Video size={22} />}
@@ -433,7 +546,7 @@ export default function MeetingPage() {
               </button>
 
               <button
-                onClick={() => { }}
+                onClick={() => { navigate("/meetings"); }}
                 className="bg-red-600 hover:bg-red-700 px-6 md:px-8 py-4 rounded-2xl text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-red-900/30 flex items-center gap-3 active:scale-95 transition-all"
               >
                 <PhoneOff size={22} />
