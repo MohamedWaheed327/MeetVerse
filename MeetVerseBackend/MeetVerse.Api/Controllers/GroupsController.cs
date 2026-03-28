@@ -206,7 +206,7 @@ public class GroupsController : ControllerBase
         }
         catch (Exception ex)
         {
-            return Ok(ex);
+            return Ok(ex.Message);
             System.Console.WriteLine(ex);
         }
         return NoContent();
