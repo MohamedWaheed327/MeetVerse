@@ -181,34 +181,27 @@ public class GroupsController : ControllerBase
     [HttpPost("{id:guid}/members")]
     public async Task<IActionResult> AddMember(Guid id, [FromBody] AddGroupMemberRequest request)
     {
-        try
-        {
-            var userId = GetCurrentUserId();
-            if (userId is null) return Unauthorized();
-            // if (!await CanManageGroup(id, userId.Value)) return Forbid();
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+        if (!await CanManageGroup(id, userId.Value)) return Forbid();
 
-            var newUser = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
-            if (newUser is null) return NotFound("User with this email not found");
-            if (await _db.UserGroups.AnyAsync(ug => ug.GroupId == id && ug.UserId == newUser.Id))
-                return BadRequest("User is already a member");
+        var newUser = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+        if (newUser is null) return NotFound("User with this email not found");
+        if (await _db.UserGroups.AnyAsync(ug => ug.GroupId == id && ug.UserId == newUser.Id))
+            return BadRequest("User is already a member");
 
-            var role = request.Role?.ToLowerInvariant() == "admin"
-                ? GroupMemberRole.Admin
-                : GroupMemberRole.Member;
-            _db.UserGroups.Add(new UserGroup
-            {
-                UserId = newUser.Id,
-                GroupId = id,
-                Role = role,
-                JoinedAt = DateTime.UtcNow
-            });
-            await _db.SaveChangesAsync();
-        }
-        catch (Exception ex)
+        var role = request.Role?.ToLowerInvariant() == "admin"
+            ? GroupMemberRole.Admin
+            : GroupMemberRole.Member;
+        _db.UserGroups.Add(new UserGroup
         {
-            return Ok(ex.Message);
-            System.Console.WriteLine(ex);
-        }
+            UserId = newUser.Id,
+            GroupId = id,
+            Role = role,
+            JoinedAt = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync();
+
         return NoContent();
     }
 
