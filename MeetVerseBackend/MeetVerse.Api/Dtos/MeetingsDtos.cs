@@ -7,7 +7,7 @@ public class CreateMeetingRequest
     public string? Description { get; set; }
     public DateTime ScheduledStart { get; set; }
     public DateTime? ScheduledEnd { get; set; }
-    public Guid? GroupId { get; set; } = new Guid("A6612E28-2D94-49E0-9486-CFAB4A141D0C");
+    public Guid? GroupId { get; set; } = new Guid("00000000-0000-0000-0000-000000000000");
 }
 
 public class JoinMeetingRequest
