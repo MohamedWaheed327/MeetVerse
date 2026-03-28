@@ -12,6 +12,18 @@ namespace MeetVerse.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
+    private void JoinGlobalGroup(Guid newUserId)
+    {
+        const string GlobalGroupId = "11111111-1111-1111-1111-111111111111";
+        _db.UserGroups.Add(new UserGroup
+        {
+            UserId = newUserId,
+            GroupId = new Guid(GlobalGroupId),
+            Role = GroupMemberRole.Member,
+            JoinedAt = DateTime.UtcNow
+        });
+    }
+
     private readonly MeetVerseDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
@@ -42,6 +54,7 @@ public class AuthController : ControllerBase
         };
         CustomLogger.Log($"{request.Name} ({request.Email}) registered.");
         _db.Users.Add(user);
+        JoinGlobalGroup(user.Id);
         await _db.SaveChangesAsync();
 
         var token = _tokenService.GenerateAccessToken(user);
