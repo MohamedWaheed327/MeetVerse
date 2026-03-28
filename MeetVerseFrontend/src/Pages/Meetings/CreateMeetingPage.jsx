@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import React from "react";
+import React, { useState } from "react";
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
 import {
@@ -12,12 +12,47 @@ import {
   Save,
   Zap,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { createMeeting } from "../../services/createMeeting"
 
 export default function CreateMeetingPage() {
   const fadeInUp = {
     initial: { opacity: 0, y: 20 },
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.5 },
+  };
+  
+  const navigate = useNavigate();
+
+  const [formData, setFormData] = useState({
+    title: "",
+    date: "",
+    time: "",
+    aiNoiseCancellation: true,
+    liveTranscription: true,
+    aiMeetingSummary: true,
+    securePassword: false,
+  });
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleScheduleSession = (data) => {
+    const processedData = {
+      ...data,
+      scheduledStart: `${data.date}T${data.time}:00`,
+    };
+    createMeeting(processedData);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    handleScheduleSession(formData);
   };
 
   return (
@@ -28,7 +63,6 @@ export default function CreateMeetingPage() {
           {...fadeInUp}
           className="bg-white/80 dark:bg-[#181B26]/80 backdrop-blur-xl border border-slate-200 dark:border-[#2A2E3B] rounded-[3.5rem] p-8 md:p-12 shadow-2xl overflow-hidden relative"
         >
-          {/* Animated Header Ornament */}
           <div className="absolute top-0 right-0 p-8 opacity-10">
             <Zap size={120} className="text-blue-600" />
           </div>
@@ -45,7 +79,7 @@ export default function CreateMeetingPage() {
             </p>
           </div>
 
-          <form className="space-y-10">
+          <form className="space-y-10" onSubmit={handleSubmit}>
             {/* Section 1: Basic Info */}
             <div className="space-y-6">
               <div className="space-y-2">
@@ -54,6 +88,9 @@ export default function CreateMeetingPage() {
                 </label>
                 <input
                   type="text"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleChange}
                   placeholder="e.g., Q1 Strategy Planning"
                   className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-6 py-4 text-sm focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none"
                 />
@@ -66,6 +103,9 @@ export default function CreateMeetingPage() {
                   </label>
                   <input
                     type="date"
+                    name="date"
+                    value={formData.date}
+                    onChange={handleChange}
                     className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-6 py-4 text-sm focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none"
                   />
                 </div>
@@ -75,6 +115,9 @@ export default function CreateMeetingPage() {
                   </label>
                   <input
                     type="time"
+                    name="time"
+                    value={formData.time}
+                    onChange={handleChange}
                     className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-6 py-4 text-sm focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none"
                   />
                 </div>
@@ -95,22 +138,22 @@ export default function CreateMeetingPage() {
                   {
                     label: "AI Noise Cancellation",
                     icon: <Waves size={14} />,
-                    default: true,
+                    name: "aiNoiseCancellation",
                   },
                   {
                     label: "Live Transcription",
                     icon: <FileText size={14} />,
-                    default: true,
+                    name: "liveTranscription",
                   },
                   {
-                    label: "AI Meeting Summary", // الخيار الجديد المضاف
+                    label: "AI Meeting Summary",
                     icon: <Zap size={14} />,
-                    default: true,
+                    name: "aiMeetingSummary",
                   },
                   {
                     label: "Secure Password",
                     icon: <Shield size={14} />,
-                    default: false,
+                    name: "securePassword",
                   },
                 ].map((feature, i) => (
                   <label
@@ -126,7 +169,9 @@ export default function CreateMeetingPage() {
                     <div className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
-                        defaultChecked={feature.default}
+                        name={feature.name}
+                        checked={formData[feature.name]}
+                        onChange={handleChange}
                         className="sr-only peer"
                       />
                       <div className="w-10 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
@@ -139,12 +184,14 @@ export default function CreateMeetingPage() {
             <div className="pt-4 flex flex-col sm:flex-row gap-4">
               <button
                 type="submit"
+                onClick={() => navigate("/meetings")}
                 className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-[1.5rem] font-bold text-sm shadow-xl shadow-blue-900/20 transition-all active:scale-95"
               >
                 <Save size={18} /> Schedule Session
               </button>
               <button
                 type="button"
+                onClick={() => navigate("/meetings")}
                 className="sm:px-10 py-5 bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] rounded-[1.5rem] text-sm font-bold hover:bg-slate-50 dark:hover:bg-[#232734] transition-all"
               >
                 Cancel

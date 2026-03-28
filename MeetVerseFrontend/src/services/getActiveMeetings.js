@@ -6,8 +6,8 @@ export const getActiveMeetings = async () => {
         const now = new Date(); // Current time
         const processedData = response.data.map(meeting => ({
             ...meeting,
-            isLive: new Date(meeting.scheduledStart) <= now && new Date(meeting.scheduledEnd) >= now,
-            meetingId: meeting.id            
+            isLive: new Date(meeting.scheduledStart) <= now && (meeting.scheduledEnd == null || new Date(meeting.scheduledEnd) >= now),
+            meetingId: meeting.id
         }));
 
         return processedData;

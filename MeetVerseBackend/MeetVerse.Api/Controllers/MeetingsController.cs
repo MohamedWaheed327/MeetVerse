@@ -108,7 +108,7 @@ public class MeetingsController : ControllerBase
         {
             foreach (var meeting in await GetGroupMeetings(group.Id))
             {
-                if (DateTime.UtcNow < meeting.ScheduledEnd)
+                if (meeting.ScheduledEnd.HasValue == false || DateTime.UtcNow < meeting.ScheduledEnd)
                 {
                     meetings.Add(meeting);
                 }
@@ -121,6 +121,7 @@ public class MeetingsController : ControllerBase
     [HttpPost("create")]
     public async Task<ActionResult> CreateMeeting(CreateMeetingRequest creatMeetingRequest)
     {
+        System.Console.WriteLine("hiiiiii");
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
 
