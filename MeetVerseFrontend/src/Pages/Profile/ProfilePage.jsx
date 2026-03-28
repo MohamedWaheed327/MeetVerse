@@ -15,7 +15,7 @@ export default function ProfilePage() {
         const data = await getCurrentUser();
         setUser(data);
       } catch (error) {
-        
+
       }
     };
     fetchUser();
@@ -98,7 +98,9 @@ export default function ProfilePage() {
                 Permanently delete your account and all associated data. This
                 action cannot be undone.
               </p>
-              <button className="w-full bg-red-100 dark:bg-red-500/10 hover:bg-red-600 dark:hover:bg-red-500 hover:text-white border border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-500 py-3 rounded-2xl transition-all text-xs font-bold">
+              <button
+                onClick={() => { localStorage.removeItem(token); }}
+                className="w-full bg-red-100 dark:bg-red-500/10 hover:bg-red-600 dark:hover:bg-red-500 hover:text-white border border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-500 py-3 rounded-2xl transition-all text-xs font-bold">
                 Delete MeetVerse Account
               </button>
             </div>
