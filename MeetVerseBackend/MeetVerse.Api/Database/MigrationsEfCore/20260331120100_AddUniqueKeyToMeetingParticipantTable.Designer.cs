@@ -4,6 +4,7 @@ using MeetVerse.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MeetVerse.Api.Database.MigrationsEfCore
 {
     [DbContext(typeof(MeetVerseDbContext))]
-    partial class MeetVerseDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260331120100_AddUniqueKeyToMeetingParticipantTable")]
+    partial class AddUniqueKeyToMeetingParticipantTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
