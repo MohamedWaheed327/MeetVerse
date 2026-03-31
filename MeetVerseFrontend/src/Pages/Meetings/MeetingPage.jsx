@@ -38,6 +38,9 @@ import { getCurrentUser } from "../../services/currentUser";
 import { useNavigate } from "react-router-dom";
 
 export default function MeetingPage() {
+  const { meetingId } = useParams(); // meeting ID from URL
+  const navigate = useNavigate();
+
   const [muted, setMuted] = useState(true);
   const [cameraOff, setCameraOff] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -46,13 +49,8 @@ export default function MeetingPage() {
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [joined, setJoined] = useState(false);
-
-  const { meetingId } = useParams(); // meeting ID from URL
   const [room, setRoom] = useState(null);
-
   const [users, setUsers] = useState([]);
-
-  const navigate = useNavigate();
 
   const scrollRef = useRef(null);
   const scrollToBottom = () => {
@@ -60,6 +58,7 @@ export default function MeetingPage() {
   };
 
   const videoRefs = useRef({});
+
   const attachTrackToElement = (track, participantId, kind) => {
     const container = videoRefs.current[participantId];
     if (!container) return;
@@ -69,6 +68,7 @@ export default function MeetingPage() {
     existingElements.forEach((el) => el.remove());
 
     const element = track.attach();
+    element.id = "video player " + participantId;
     element.autoplay = true;
     element.playsInline = true;
 
@@ -145,44 +145,6 @@ export default function MeetingPage() {
     setUsers(updatedUsers);
   };
 
-  // const users = [
-  //   {
-  //     id: 1,
-  //     name: "You (Host)",
-  //     initial: "Y",
-  //     color: "from-blue-600 to-indigo-700",
-  //     isSpeaking: false,
-  //   },
-  //   {
-  //     id: 2,
-  //     name: "Sarah • بتعمل شاي للرجالة",
-  //     initial: "S",
-  //     color: "from-purple-600 to-pink-600",
-  //     isSpeaking: true,
-  //   },
-  //   {
-  //     id: 3,
-  //     name: "Omar • AI Eng",
-  //     initial: "O",
-  //     color: "from-emerald-600 to-teal-600",
-  //     isSpeaking: false,
-  //   },
-  //   {
-  //     id: 4,
-  //     name: "Dr. Ahmed",
-  //     initial: "A",
-  //     color: "from-orange-600 to-red-600",
-  //     isSpeaking: false,
-  //   },
-  // ];
-  // // database participants edit
-  // useEffect(() => {
-  //   joinMeeting({ meetingId });
-  //   return () => {
-  //     leaveMeeting({ meetingId });
-  //   };
-  // }, []);
-
   // handle livekit server stuff
   useEffect(() => {
     let activeRoom;
@@ -206,6 +168,7 @@ export default function MeetingPage() {
         activeRoom = newRoom;
 
         newRoom.on("trackSubscribed", (track, publication, participant) => {
+          console.log("trackSubscribed");
           if (track.kind === "audio") {
             const audioElement = track.attach();
             audioElement.autoplay = true;
@@ -222,6 +185,7 @@ export default function MeetingPage() {
         });
 
         newRoom.on("trackUnsubscribed", (track, publication, participant) => {
+          console.log("trackUnsubscribed");
           if (track.kind === "video") {
             removeVideoElement(participant.identity);
           }
@@ -243,11 +207,16 @@ export default function MeetingPage() {
           syncParticipants(newRoom);
         });
 
-        newRoom.on("localTrackPublished", () => {
+        newRoom.on("localTrackPublished", (publication) => {
+          console.log("✅ localTrackpublished");
+          if (publication.track?.kind === "video" || publication.kind === "video") {
+            attachTrackToElement(publication.track, newRoom.localParticipant.identity, "video");
+          }
           syncParticipants(newRoom);
         });
 
         newRoom.on("localTrackUnpublished", (publication) => {
+          console.log("✅ localTrackUnpublished");
           if (publication.track?.kind === "video" || publication.kind === "video") {
             removeVideoElement(newRoom.localParticipant.identity);
           }
@@ -579,55 +548,6 @@ export default function MeetingPage() {
                 </button>
               </div>
 
-              {/* <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-emerald-500 flex items-center justify-center text-[8px] font-bold text-white">
-                      O
-                    </div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                      Omar Eng
-                    </span>
-                  </div>
-                  <div className="bg-slate-100 dark:bg-[#0D0F16] p-4 rounded-[1.8rem] rounded-tl-none text-[13px] leading-relaxed shadow-sm">
-                    Hey team! The AI Noise suppression is working perfectly. 🚀
-                  </div>
-                </div>
-
-                <div className="space-y-2 text-right">
-                  <span className="text-[9px] font-black text-blue-600 uppercase mr-2 tracking-widest">
-                    You
-                  </span>
-                  <div className="bg-blue-600 text-white p-4 rounded-[1.8rem] rounded-tr-none text-[13px] shadow-xl shadow-blue-900/10 text-left inline-block">
-                    Great! Let's start the demo.
-                  </div>
-                </div>
-              </div> */}
-
-
-              {/* <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {messages.map((msg, index) => (
-                  <div
-                    key={index}
-                    className={`space-y-2 ${msg.user === "You" ? "text-right" : ""
-                      }`}
-                  >
-                    <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
-                      {msg.user}
-                    </span>
-
-                    <div
-                      className={`p-4 rounded-[1.8rem] text-[13px] shadow-sm inline-block ${msg.user === "You"
-                        ? "bg-blue-600 text-white rounded-tr-none"
-                        : "bg-slate-100 dark:bg-[#0D0F16] rounded-tl-none"
-                        }`}
-                    >
-                      {msg.message}
-                    </div>
-                  </div>
-                ))}
-              </div> */}
-
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {messages.map((msg) => (
                   <div key={msg.id} className="space-y-2">
@@ -667,3 +587,95 @@ export default function MeetingPage() {
     </div>
   );
 }
+
+
+
+// const users = [
+//   {
+//     id: 1,
+//     name: "You (Host)",
+//     initial: "Y",
+//     color: "from-blue-600 to-indigo-700",
+//     isSpeaking: false,
+//   },
+//   {
+//     id: 2,
+//     name: "Sarah • بتعمل شاي للرجالة",
+//     initial: "S",
+//     color: "from-purple-600 to-pink-600",
+//     isSpeaking: true,
+//   },
+//   {
+//     id: 3,
+//     name: "Omar • AI Eng",
+//     initial: "O",
+//     color: "from-emerald-600 to-teal-600",
+//     isSpeaking: false,
+//   },
+//   {
+//     id: 4,
+//     name: "Dr. Ahmed",
+//     initial: "A",
+//     color: "from-orange-600 to-red-600",
+//     isSpeaking: false,
+//   },
+// ];
+// // database participants edit
+// useEffect(() => {
+//   joinMeeting({ meetingId });
+//   return () => {
+//     leaveMeeting({ meetingId });
+//   };
+// }, []);
+
+
+
+
+{/* <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="size-6 rounded-full bg-emerald-500 flex items-center justify-center text-[8px] font-bold text-white">
+                      O
+                    </div>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                      Omar Eng
+                    </span>
+                  </div>
+                  <div className="bg-slate-100 dark:bg-[#0D0F16] p-4 rounded-[1.8rem] rounded-tl-none text-[13px] leading-relaxed shadow-sm">
+                    Hey team! The AI Noise suppression is working perfectly. 🚀
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-right">
+                  <span className="text-[9px] font-black text-blue-600 uppercase mr-2 tracking-widest">
+                    You
+                  </span>
+                  <div className="bg-blue-600 text-white p-4 rounded-[1.8rem] rounded-tr-none text-[13px] shadow-xl shadow-blue-900/10 text-left inline-block">
+                    Great! Let's start the demo.
+                  </div>
+                </div>
+              </div> */}
+
+
+{/* <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {messages.map((msg, index) => (
+                  <div
+                    key={index}
+                    className={`space-y-2 ${msg.user === "You" ? "text-right" : ""
+                      }`}
+                  >
+                    <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
+                      {msg.user}
+                    </span>
+
+                    <div
+                      className={`p-4 rounded-[1.8rem] text-[13px] shadow-sm inline-block ${msg.user === "You"
+                        ? "bg-blue-600 text-white rounded-tr-none"
+                        : "bg-slate-100 dark:bg-[#0D0F16] rounded-tl-none"
+                        }`}
+                    >
+                      {msg.message}
+                    </div>
+                  </div>
+                ))}
+              </div> */}
