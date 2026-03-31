@@ -25,7 +25,7 @@ public class MeetingProcessingWorker : BackgroundService
             var summarization = scope.ServiceProvider.GetRequiredService<IAudioSummarizationService>();
 
             var pendingRecordings = await db.Recordings
-                .Where(r => r.Status == "Finished" && !db.Transcripts.Any(t => t.RecordingId == r.Id))
+                .Where(r => !db.Transcripts.Any(t => t.RecordingId == r.Id))
                 .ToListAsync(stoppingToken);
 
             foreach (var recording in pendingRecordings)

@@ -14,7 +14,6 @@ public class Recording
     public bool IsNoiseCleaned { get; set; }
 
     public double? AverageNoiseLevel { get; set; }
-    public string Status { get; set; } = "Pending"; // Pending / Finished
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
