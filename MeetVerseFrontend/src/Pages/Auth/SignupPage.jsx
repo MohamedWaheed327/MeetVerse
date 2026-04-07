@@ -31,6 +31,8 @@ export default function SignupPage() {
       console.log("register response", response);
       // save token and redirect
       localStorage.setItem("token", response.token);
+      localStorage.setItem("username", name);
+
       navigate("/home");
     } catch (err) {
       console.error("register failed", err);

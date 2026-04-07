@@ -5,6 +5,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { LogIn, Mail, Lock, ArrowRight, Github, Chrome } from "lucide-react";
 import { loginUser } from "../../services/login";
+import { getCurrentUser } from "../../services/currentUser";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -23,6 +24,8 @@ export default function LoginPage() {
       const response = await loginUser(data);
       // save token and redirect
       localStorage.setItem("token", response.token);
+      var user = await getCurrentUser();
+      localStorage.setItem("username", user.name);
       navigate("/home");
     } catch (err) {
       // loginUser throws the api error object

@@ -137,7 +137,8 @@ export default function Navbar() {
               ) : (
                 <button
                   onClick={() => {
-                    localStorage.removeItem("token");
+                      localStorage.removeItem("token");
+                      localStorage.removeItem("username");
                     window.location.href = "/";
                   }}
                   className="text-red-500 font-bold text-sm"
