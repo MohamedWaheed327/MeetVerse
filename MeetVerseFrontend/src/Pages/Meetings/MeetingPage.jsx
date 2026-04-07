@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -9,19 +8,18 @@ import {
   MonitorUp,
   PhoneOff,
   MessageSquare,
-  Users,
   Waves,
   X,
   Send,
   ShieldCheck,
   Type,
-  IdCard, // أيقونة الـ CC
 } from "lucide-react";
-import { React, useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
-import { sendChatMessage } from "../../services//hubs/sendMeetingMessage";
-import { onMeetingMessageSent } from "../../services/hubs/onMeetingMessageSent";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
+import { Room } from "livekit-client";
+import { getCurrentUser } from "../../services/currentUser";
+import { sendChatMessage } from "../../services//hubs/sendMeetingMessage";
 import connection from "../../services/hubs/connections";
 import {
   subscribeToMeeting,
@@ -30,75 +28,149 @@ import {
   onError,
 } from "../../services/hubs/meetingChat";
 import { GetMeetingChat } from "../../services/meetingChatMessage";
-import { getParticipants } from "../../services/getParticipants";
-import { Room } from "livekit-client";
-import { joinMeeting } from "../../services/joinMeeting";
-import { leaveMeeting } from "../../services/leaveMeeting";
-import { getCurrentUser } from "../../services/currentUser";
-import { useNavigate } from "react-router-dom";
 
 export default function MeetingPage() {
-  const { meetingId } = useParams(); // meeting ID from URL
+  const { meetingId } = useParams();
   const navigate = useNavigate();
 
   const [muted, setMuted] = useState(true);
   const [cameraOff, setCameraOff] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isCaptionsOn, setIsCaptionsOn] = useState(false); // الحالة الخاصة بالترجمة (CC)
+  const [isCaptionsOn, setIsCaptionsOn] = useState(false);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [joined, setJoined] = useState(false);
   const [room, setRoom] = useState(null);
   const [users, setUsers] = useState([]);
 
   const scrollRef = useRef(null);
+  const roomRef = useRef(null);
+  const videoRefs = useRef({});
+  const audioRefs = useRef({});
+  const mountedRef = useRef(false);
+  const isTogglingCameraRef = useRef(false);
+  const isTogglingMicRef = useRef(false);
+  const rafRefs = useRef({ first: null, second: null });
+
   const scrollToBottom = () => {
     scrollRef.current?.scrollIntoView({ behavior: "auto" });
   };
 
-  const videoRefs = useRef({});
-
-  const attachTrackToElement = (track, participantId, kind) => {
-    const container = videoRefs.current[participantId];
-    if (!container) return;
-
-    // remove old attached elements of same kind
-    const existingElements = container.querySelectorAll(track.kind);
-    existingElements.forEach((el) => el.remove());
-
-    const element = track.attach();
-    element.id = "video player " + participantId;
-    element.autoplay = true;
-    element.playsInline = true;
-
-    if (track.kind === "video") {
-      element.className = "w-full h-full object-cover rounded-[2.5rem]";
+  const clearScheduledRenderSync = () => {
+    if (rafRefs.current.first) {
+      cancelAnimationFrame(rafRefs.current.first);
     }
-
-    if (track.kind === "audio") {
-      element.style.display = "none";
+    if (rafRefs.current.second) {
+      cancelAnimationFrame(rafRefs.current.second);
     }
-
-    container.appendChild(element);
+    rafRefs.current = { first: null, second: null };
   };
 
-  const detachTrack = (track) => {
-    track.detach().forEach((el) => el.remove());
+  const runAfterRender = (cb) => {
+    clearScheduledRenderSync();
+
+    rafRefs.current.first = requestAnimationFrame(() => {
+      rafRefs.current.second = requestAnimationFrame(() => {
+        cb();
+        rafRefs.current = { first: null, second: null };
+      });
+    });
+  };
+
+  const getVideoPublications = (participant) =>
+    Array.from(participant?.videoTrackPublications?.values?.() || []);
+
+  const getAudioPublications = (participant) =>
+    Array.from(participant?.audioTrackPublications?.values?.() || []);
+
+  const hasEnabledVideoTrack = (participant) =>
+    getVideoPublications(participant).some((pub) => pub.track && !pub.isMuted);
+
+  const hasEnabledAudioTrack = (participant) =>
+    getAudioPublications(participant).some((pub) => pub.track && !pub.isMuted);
+
+  const getPreferredVideoPublication = (participant) => {
+    const pubs = getVideoPublications(participant);
+
+    return (
+      pubs.find((pub) => pub.track && !pub.isMuted && pub.source === "camera") ||
+      pubs.find((pub) => pub.track && !pub.isMuted) ||
+      null
+    );
+  };
+
+  const attachTrackToElement = (track, participantId) => {
+    const container = videoRefs.current[participantId];
+    if (!container || track.kind !== "video") return;
+
+    // remove old video in that card
+    container.querySelectorAll("video").forEach((el) => {
+      try {
+        el.srcObject = null;
+      } catch { }
+      el.remove();
+    });
+
+    const element = track.attach();
+    element.id = `video-player-${participantId}`;
+    element.autoplay = true;
+    element.playsInline = true;
+    element.muted =
+      participantId === roomRef.current?.localParticipant?.identity;
+
+    element.className =
+      "absolute inset-0 w-full h-full object-cover rounded-[2.5rem]";
+
+    container.appendChild(element);
   };
 
   const removeVideoElement = (participantId) => {
     const container = videoRefs.current[participantId];
     if (!container) return;
 
-    const videos = container.querySelectorAll("video");
-    videos.forEach((video) => video.remove());
+    container.querySelectorAll("video").forEach((video) => {
+      try {
+        video.srcObject = null;
+      } catch { }
+      video.remove();
+    });
   };
 
-  const hasVideoTrack = (participant) => {
-    return Array.from(participant.trackPublications.values()).some(
-      (pub) => pub.kind === "video" && pub.track && !pub.isMuted
-    );
+  const attachAudioTrack = (track, participantId) => {
+    if (track.kind !== "audio") return;
+
+    removeAudioElement(participantId);
+
+    const audioElement = track.attach();
+    audioElement.autoplay = true;
+    audioElement.playsInline = true;
+    audioElement.style.display = "none";
+    audioElement.setAttribute("data-participant-id", participantId);
+
+    document.body.appendChild(audioElement);
+    audioRefs.current[participantId] = audioElement;
+  };
+
+  const removeAudioElement = (participantId) => {
+    const audioElement = audioRefs.current[participantId];
+    if (!audioElement) return;
+
+    try {
+      audioElement.srcObject = null;
+    } catch { }
+
+    audioElement.remove();
+    delete audioRefs.current[participantId];
+  };
+
+  const detachTrack = (track) => {
+    if (!track) return;
+    track.detach().forEach((el) => {
+      try {
+        el.srcObject = null;
+      } catch { }
+      el.remove();
+    });
   };
 
   const buildParticipantsList = (liveRoom) => {
@@ -117,23 +189,23 @@ export default function MeetingPage() {
 
     const localUser = {
       id: localParticipant.identity,
-      name: `${localParticipant.name} (You)`,
+      name: `${localParticipant.name || "You"} (You)`,
       initial: localParticipant.name?.charAt(0)?.toUpperCase() || "Y",
       color: colorPool[0],
       isSpeaking: localParticipant.isSpeaking || false,
       isLocal: true,
-      hasVideo: hasVideoTrack(localParticipant),
+      hasVideo: hasEnabledVideoTrack(localParticipant),
     };
 
     const remoteUsers = Array.from(liveRoom.remoteParticipants.values()).map(
       (participant, index) => ({
         id: participant.identity,
-        name: participant.name,
+        name: participant.name || "User",
         initial: participant.name?.charAt(0)?.toUpperCase() || "U",
         color: colorPool[(index + 1) % colorPool.length],
         isSpeaking: participant.isSpeaking || false,
         isLocal: false,
-        hasVideo: hasVideoTrack(participant),
+        hasVideo: hasEnabledVideoTrack(participant),
       })
     );
 
@@ -141,117 +213,202 @@ export default function MeetingPage() {
   };
 
   const syncParticipants = (liveRoom) => {
+    if (!liveRoom || !mountedRef.current) return;
+
     const updatedUsers = buildParticipantsList(liveRoom);
+
     setUsers(updatedUsers);
+    setCameraOff(!hasEnabledVideoTrack(liveRoom.localParticipant));
+    setMuted(!hasEnabledAudioTrack(liveRoom.localParticipant));
+
+    runAfterRender(() => {
+      if (!mountedRef.current || !liveRoom) return;
+
+      const allParticipants = [
+        liveRoom.localParticipant,
+        ...Array.from(liveRoom.remoteParticipants.values()),
+      ];
+
+      const activeIds = new Set(allParticipants.map((p) => p.identity));
+
+      allParticipants.forEach((participant) => {
+        const preferredVideoPub = getPreferredVideoPublication(participant);
+
+        if (!preferredVideoPub?.track) {
+          removeVideoElement(participant.identity);
+          return;
+        }
+
+        attachTrackToElement(preferredVideoPub.track, participant.identity);
+      });
+
+      // cleanup stale video refs for participants who left
+      Object.keys(videoRefs.current).forEach((participantId) => {
+        if (!activeIds.has(participantId)) {
+          removeVideoElement(participantId);
+        }
+      });
+    });
   };
 
-  // handle livekit server stuff
+  const cleanupMediaElements = () => {
+    Object.keys(videoRefs.current).forEach((participantId) => {
+      removeVideoElement(participantId);
+    });
+
+    Object.keys(audioRefs.current).forEach((participantId) => {
+      removeAudioElement(participantId);
+    });
+  };
+
   useEffect(() => {
-    let activeRoom;
+    mountedRef.current = true;
+
+    let activeRoom = null;
+    let cancelled = false;
 
     const joinRoom = async () => {
       try {
         const currentUser = await getCurrentUser();
+        if (cancelled) return;
 
         const response = await api.get("/livekit/token", {
           params: {
-            username: "user_" + currentUser.id,
+            username: `user_${currentUser.id}`,
             room: meetingId,
             displayName: currentUser.name,
-            avatar: currentUser.avatarUrl
+            avatar: currentUser.avatarUrl,
           },
         });
 
+        if (cancelled) return;
+
         const token = response.data.token;
 
-        const newRoom = new Room();
+        const newRoom = new Room({
+          adaptiveStream: true,
+          dynacast: true,
+        });
+
         activeRoom = newRoom;
+        roomRef.current = newRoom;
+        setRoom(newRoom);
 
-        newRoom.on("trackSubscribed", (track, publication, participant) => {
-          console.log("trackSubscribed");
+        const handleTrackSubscribed = (track, publication, participant) => {
+          console.log("trackSubscribed:", participant.identity, track.kind);
+
           if (track.kind === "audio") {
-            const audioElement = track.attach();
-            audioElement.autoplay = true;
-            audioElement.playsInline = true;
-            audioElement.style.display = "none";
-            document.body.appendChild(audioElement);
-          }
-
-          if (track.kind === "video") {
-            attachTrackToElement(track, participant.identity, "video");
+            attachAudioTrack(track, participant.identity);
           }
 
           syncParticipants(newRoom);
-        });
+        };
 
-        newRoom.on("trackUnsubscribed", (track, publication, participant) => {
-          console.log("trackUnsubscribed");
+        const handleTrackUnsubscribed = (track, publication, participant) => {
+          console.log("trackUnsubscribed:", participant.identity, track.kind);
+
+          if (track.kind === "audio") {
+            removeAudioElement(participant.identity);
+          }
+
           if (track.kind === "video") {
             removeVideoElement(participant.identity);
           }
+
           detachTrack(track);
           syncParticipants(newRoom);
-        });
+        };
 
-        newRoom.on("participantConnected", (participant) => {
+        const handleParticipantConnected = (participant) => {
           console.log("participantConnected:", participant.identity);
           syncParticipants(newRoom);
-        });
+        };
 
-        newRoom.on("participantDisconnected", (participant) => {
+        const handleParticipantDisconnected = (participant) => {
           console.log("participantDisconnected:", participant.identity);
+          removeVideoElement(participant.identity);
+          removeAudioElement(participant.identity);
           syncParticipants(newRoom);
-        });
+        };
 
-        newRoom.on("activeSpeakersChanged", () => {
+        const handleTrackPublished = (publication, participant) => {
+          console.log(
+            "trackPublished:",
+            participant.identity,
+            publication.kind
+          );
           syncParticipants(newRoom);
-        });
+        };
 
-        newRoom.on("localTrackPublished", (publication) => {
-          console.log("✅ localTrackpublished");
-          if (publication.track?.kind === "video" || publication.kind === "video") {
-            attachTrackToElement(publication.track, newRoom.localParticipant.identity, "video");
+        const handleTrackUnpublished = (publication, participant) => {
+          console.log(
+            "trackUnpublished:",
+            participant.identity,
+            publication.kind
+          );
+
+          if (publication.kind === "video") {
+            removeVideoElement(participant.identity);
           }
-          syncParticipants(newRoom);
-        });
 
-        newRoom.on("localTrackUnpublished", (publication) => {
-          console.log("✅ localTrackUnpublished");
-          if (publication.track?.kind === "video" || publication.kind === "video") {
+          syncParticipants(newRoom);
+        };
+
+        const handleTrackMuted = (publication, participant) => {
+          console.log("trackMuted:", participant.identity, publication.kind);
+
+          if (publication.kind === "video") {
+            removeVideoElement(participant.identity);
+          }
+
+          syncParticipants(newRoom);
+        };
+
+        const handleTrackUnmuted = (publication, participant) => {
+          console.log("trackUnmuted:", participant.identity, publication.kind);
+          syncParticipants(newRoom);
+        };
+
+        const handleActiveSpeakersChanged = () => {
+          syncParticipants(newRoom);
+        };
+
+        const handleLocalTrackPublished = (publication) => {
+          console.log("localTrackPublished:", publication.kind);
+          syncParticipants(newRoom);
+        };
+
+        const handleLocalTrackUnpublished = (publication) => {
+          console.log("localTrackUnpublished:", publication.kind);
+
+          if (publication.kind === "video") {
             removeVideoElement(newRoom.localParticipant.identity);
           }
+
           syncParticipants(newRoom);
-        });
+        };
 
-        await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
+        newRoom.on("trackSubscribed", handleTrackSubscribed);
+        newRoom.on("trackUnsubscribed", handleTrackUnsubscribed);
+        newRoom.on("participantConnected", handleParticipantConnected);
+        newRoom.on("participantDisconnected", handleParticipantDisconnected);
+        newRoom.on("trackPublished", handleTrackPublished);
+        newRoom.on("trackUnpublished", handleTrackUnpublished);
+        newRoom.on("trackMuted", handleTrackMuted);
+        newRoom.on("trackUnmuted", handleTrackUnmuted);
+        newRoom.on("activeSpeakersChanged", handleActiveSpeakersChanged);
+        newRoom.on("localTrackPublished", handleLocalTrackPublished);
+        newRoom.on("localTrackUnpublished", handleLocalTrackUnpublished);
 
-        if (newRoom.remoteParticipants) {
-          // Attach already subscribed remote tracks
-          newRoom.remoteParticipants.forEach((participant) => {
-            participant.trackPublications.forEach((publication) => {
-              const track = publication.track;
+        await newRoom.connect(
+          "wss://meetverse-tn25w775.livekit.cloud",
+          token
+        );
 
-              if (track) {
-                if (track.kind === "audio") {
-                  const audioElement = track.attach();
-                  audioElement.autoplay = true;
-                  audioElement.playsInline = true;
-                  audioElement.style.display = "none";
-                  document.body.appendChild(audioElement);
-                }
-
-                if (track.kind === "video") {
-                  attachTrackToElement(track, participant.identity, "video");
-                }
-              }
-            });
-          });
-        }
-
+        // default states when entering
         await newRoom.localParticipant.setMicrophoneEnabled(false);
         await newRoom.localParticipant.setCameraEnabled(false);
 
-        setRoom(newRoom);
         syncParticipants(newRoom);
 
         console.log("✅ Connected to LiveKit room successfully");
@@ -263,20 +420,30 @@ export default function MeetingPage() {
     joinRoom();
 
     return () => {
+      cancelled = true;
+      mountedRef.current = false;
+      clearScheduledRenderSync();
+
       if (activeRoom) {
-        activeRoom.disconnect();
+        try {
+          activeRoom.disconnect();
+        } catch (err) {
+          console.error("Room disconnect error:", err);
+        }
       }
+
+      cleanupMediaElements();
+      roomRef.current = null;
+      setRoom(null);
     };
   }, [meetingId]);
 
-  // Load meeting-chat History
   useEffect(() => {
     const loadHistory = async () => {
       setIsLoading(true);
       try {
         const history = await GetMeetingChat({ meetingId });
-        console.log("History:", history);
-        setMessages(history);
+        setMessages(history || []);
       } catch (err) {
         console.error("Failed to load chat history:", err);
       } finally {
@@ -289,14 +456,12 @@ export default function MeetingPage() {
     }
   }, [meetingId]);
 
-  // scroll chat box to the bottom
   useEffect(() => {
     if (isChatOpen) {
       scrollToBottom();
     }
   }, [messages, isChatOpen]);
 
-  // subscripe for signalR hub
   useEffect(() => {
     const start = async () => {
       try {
@@ -313,7 +478,6 @@ export default function MeetingPage() {
         onError((err) => {
           console.error("SignalR Error:", err);
         });
-
       } catch (err) {
         console.error("Connection error:", err);
       }
@@ -332,7 +496,7 @@ export default function MeetingPage() {
     if (!newMessage.trim()) return;
 
     try {
-      await sendChatMessage(meetingId, newMessage);
+      await sendChatMessage(meetingId, newMessage.trim());
       setNewMessage("");
     } catch (err) {
       console.error("Send failed:", err);
@@ -340,46 +504,56 @@ export default function MeetingPage() {
   };
 
   const toggleCamera = async () => {
-    if (!room) return;
+    const liveRoom = roomRef.current;
+    if (!liveRoom || isTogglingCameraRef.current) return;
+
+    isTogglingCameraRef.current = true;
 
     try {
-      const newcameraOff = !cameraOff;
-      await room.localParticipant.setCameraEnabled(!newcameraOff);
-      setCameraOff(newcameraOff);
+      const shouldEnable = !hasEnabledVideoTrack(liveRoom.localParticipant);
 
-      if (!newcameraOff) {
-        // camera ON
-        setTimeout(() => {
-          room.localParticipant.videoTrackPublications.forEach((pub) => {
-            if (pub.track) {
-              attachTrackToElement(pub.track, room.localParticipant.identity, "video");
-            }
-          });
-          syncParticipants(room);
-        }, 300);
-      } else {
-        // camera OFF
-        removeVideoElement(room.localParticipant.identity);
-        syncParticipants(room);
-      }
+      await liveRoom.localParticipant.setCameraEnabled(shouldEnable);
 
-      console.log("📷 camera state:", !newcameraOff);
+      // optimistic UI update, real sync follows from room events
+      setCameraOff(!shouldEnable);
+
+      console.log("📷 camera state:", shouldEnable);
     } catch (err) {
       console.error("❌ Failed to toggle camera:", err);
+    } finally {
+      isTogglingCameraRef.current = false;
     }
   };
 
   const toggleMic = async () => {
-    if (!room) return;
+    const liveRoom = roomRef.current;
+    if (!liveRoom || isTogglingMicRef.current) return;
+
+    isTogglingMicRef.current = true;
 
     try {
-      const newMuted = !muted;
-      await room.localParticipant.setMicrophoneEnabled(!newMuted);
-      setMuted(newMuted);
+      const shouldEnable = !hasEnabledAudioTrack(liveRoom.localParticipant);
 
-      console.log("🎤 Mic state:", !newMuted);
+      await liveRoom.localParticipant.setMicrophoneEnabled(shouldEnable);
+
+      setMuted(!shouldEnable);
+
+      console.log("🎤 mic state:", shouldEnable);
     } catch (err) {
       console.error("❌ Failed to toggle microphone:", err);
+    } finally {
+      isTogglingMicRef.current = false;
+    }
+  };
+
+  const handleLeaveMeeting = () => {
+    try {
+      roomRef.current?.disconnect();
+    } catch (err) {
+      console.error("Leave meeting disconnect error:", err);
+    } finally {
+      cleanupMediaElements();
+      navigate("/meetings");
     }
   };
 
@@ -416,30 +590,41 @@ export default function MeetingPage() {
                 <motion.div
                   key={user.id}
                   layout
-                  className={`relative rounded-[2.5rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden
-                    ${user.isSpeaking ? "border-blue-500 ring-4 ring-blue-500/10" : "border-white dark:border-[#2A2E3B] bg-white dark:bg-[#181B26]"}`}
+                  className={`relative rounded-[2.5rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden ${user.isSpeaking
+                      ? "border-blue-500 ring-4 ring-blue-500/10"
+                      : "border-white dark:border-[#2A2E3B]"
+                    } ${user.hasVideo ? "bg-black" : "bg-white dark:bg-[#181B26]"}`}
                 >
                   <div
                     ref={(el) => {
-                      if (el) videoRefs.current[user.id] = el;
+                      if (el) {
+                        videoRefs.current[user.id] = el;
+                      } else {
+                        delete videoRefs.current[user.id];
+                      }
                     }}
                     className="absolute inset-0 w-full h-full"
-                  >
-                    {!user.hasVideo && (
+                  />
+
+                  {!user.hasVideo && (
+                    <div className="absolute inset-0 flex items-center justify-center z-10">
                       <div
-                        className={`w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br ${user.color} flex items-center justify-center text-3xl md:text-5xl font-black text-white shadow-2xl absolute inset-0 m-auto z-10`}
+                        className={`w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br ${user.color} flex items-center justify-center text-3xl md:text-5xl font-black text-white shadow-2xl relative`}
                       >
                         {user.initial}
                         {user.isSpeaking && (
                           <span className="absolute -inset-3 rounded-full border-2 border-blue-500/40 animate-ping" />
                         )}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   <div className="absolute bottom-6 left-6 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl flex items-center gap-3 border border-white/10 shadow-2xl z-20">
                     <div
-                      className={`w-2 h-2 rounded-full ${user.isSpeaking ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-slate-400"}`}
+                      className={`w-2 h-2 rounded-full ${user.isSpeaking
+                          ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                          : "bg-slate-400"
+                        }`}
                     />
                     <span className="text-[10px] font-black text-white uppercase tracking-wider">
                       {user.name}
@@ -450,7 +635,7 @@ export default function MeetingPage() {
                   </div>
 
                   {user.isSpeaking && (
-                    <div className="absolute top-8 right-8 flex items-end gap-1 h-4">
+                    <div className="absolute top-8 right-8 flex items-end gap-1 h-4 z-20">
                       {[1, 2, 3, 4].map((i) => (
                         <motion.div
                           key={i}
@@ -474,29 +659,39 @@ export default function MeetingPage() {
           <div className="bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] p-4 rounded-[2.5rem] shadow-2xl flex items-center justify-between gap-4 mx-auto w-fit md:w-full max-w-4xl backdrop-blur-md">
             <div className="flex items-center gap-2 md:gap-4">
               <button
-                onClick={async () => {
-                  toggleMic();
-                }}
-                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${muted ? "bg-red-500 text-white shadow-red-500/20" : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"}`}
+                onClick={toggleMic}
+                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${muted
+                    ? "bg-red-500 text-white shadow-red-500/20"
+                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                  }`}
               >
                 {muted ? <MicOff size={22} /> : <Mic size={22} />}
               </button>
+
               <button
-                onClick={() => toggleCamera()}
-                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${cameraOff ? "bg-red-500 text-white shadow-red-500/20" : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"}`}
+                onClick={toggleCamera}
+                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${cameraOff
+                    ? "bg-red-500 text-white shadow-red-500/20"
+                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                  }`}
               >
                 {cameraOff ? <VideoOff size={22} /> : <Video size={22} />}
               </button>
+
               <button className="hidden sm:flex p-4 rounded-2xl bg-slate-100 dark:bg-[#2A2E3B] hover:bg-blue-600 hover:text-white transition-all shadow-md">
                 <MonitorUp size={22} />
               </button>
+
               <button className="hidden sm:flex p-4 rounded-2xl bg-slate-100 dark:bg-[#2A2E3B] hover:bg-emerald-600 hover:text-white transition-all shadow-md">
                 <Waves size={22} />
               </button>
-              {/* أيقونة الترجمة CC المضافة */}
+
               <button
-                onClick={() => setIsCaptionsOn(!isCaptionsOn)}
-                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${isCaptionsOn ? "bg-blue-600 text-white shadow-blue-600/30" : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"}`}
+                onClick={() => setIsCaptionsOn((prev) => !prev)}
+                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${isCaptionsOn
+                    ? "bg-blue-600 text-white shadow-blue-600/30"
+                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                  }`}
                 title="Captions"
               >
                 <Type size={22} />
@@ -505,8 +700,11 @@ export default function MeetingPage() {
 
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setIsChatOpen(!isChatOpen)}
-                className={`p-4 rounded-2xl transition-all shadow-md flex items-center gap-2 ${isChatOpen ? "bg-blue-600 text-white shadow-blue-600/30" : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"}`}
+                onClick={() => setIsChatOpen((prev) => !prev)}
+                className={`p-4 rounded-2xl transition-all shadow-md flex items-center gap-2 ${isChatOpen
+                    ? "bg-blue-600 text-white shadow-blue-600/30"
+                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                  }`}
               >
                 <MessageSquare size={22} />
                 <span className="hidden md:block text-xs font-bold uppercase tracking-widest">
@@ -515,7 +713,7 @@ export default function MeetingPage() {
               </button>
 
               <button
-                onClick={() => { navigate("/meetings"); }}
+                onClick={handleLeaveMeeting}
                 className="bg-red-600 hover:bg-red-700 px-6 md:px-8 py-4 rounded-2xl text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-red-900/30 flex items-center gap-3 active:scale-95 transition-all"
               >
                 <PhoneOff size={22} />
@@ -525,7 +723,7 @@ export default function MeetingPage() {
           </div>
         </div>
 
-        {/* Right Sidebar */}
+        {/* Chat Sidebar */}
         <AnimatePresence>
           {isChatOpen && (
             <motion.aside
@@ -537,8 +735,8 @@ export default function MeetingPage() {
             >
               <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50/50 dark:bg-white/5">
                 <h2 className="font-black text-sm flex items-center gap-2 uppercase tracking-tighter">
-                  <MessageSquare size={16} className="text-blue-600" /> Live
-                  Feed
+                  <MessageSquare size={16} className="text-blue-600" />
+                  Live Feed
                 </h2>
                 <button
                   onClick={() => setIsChatOpen(false)}
@@ -549,17 +747,30 @@ export default function MeetingPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {messages.map((msg) => (
-                  <div key={msg.id} className="space-y-2">
-                    <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
-                      {msg.senderName}
-                    </span>
-
-                    <div className="bg-slate-100 dark:bg-[#0D0F16] p-4 rounded-[1.8rem] text-[13px] shadow-sm inline-block">
-                      {msg.content}
-                    </div>
+                {isLoading && messages.length === 0 ? (
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    Loading chat...
                   </div>
-                ))}
+                ) : messages.length === 0 ? (
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    No messages yet.
+                  </div>
+                ) : (
+                  messages.map((msg, index) => (
+                    <div
+                      key={msg.id ?? `${msg.senderName}-${index}`}
+                      className="space-y-2"
+                    >
+                      <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
+                        {msg.senderName}
+                      </span>
+
+                      <div className="bg-slate-100 dark:bg-[#0D0F16] p-4 rounded-[1.8rem] text-[13px] shadow-sm inline-block">
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))
+                )}
                 <div ref={scrollRef} />
               </div>
 
@@ -568,7 +779,11 @@ export default function MeetingPage() {
                   <input
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleSendMessage();
+                      }
+                    }}
                     className="w-full bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl py-4 pl-5 pr-14 text-sm outline-none focus:border-blue-600 transition-all shadow-inner"
                     placeholder="Message team..."
                   />
@@ -587,95 +802,3 @@ export default function MeetingPage() {
     </div>
   );
 }
-
-
-
-// const users = [
-//   {
-//     id: 1,
-//     name: "You (Host)",
-//     initial: "Y",
-//     color: "from-blue-600 to-indigo-700",
-//     isSpeaking: false,
-//   },
-//   {
-//     id: 2,
-//     name: "Sarah • بتعمل شاي للرجالة",
-//     initial: "S",
-//     color: "from-purple-600 to-pink-600",
-//     isSpeaking: true,
-//   },
-//   {
-//     id: 3,
-//     name: "Omar • AI Eng",
-//     initial: "O",
-//     color: "from-emerald-600 to-teal-600",
-//     isSpeaking: false,
-//   },
-//   {
-//     id: 4,
-//     name: "Dr. Ahmed",
-//     initial: "A",
-//     color: "from-orange-600 to-red-600",
-//     isSpeaking: false,
-//   },
-// ];
-// // database participants edit
-// useEffect(() => {
-//   joinMeeting({ meetingId });
-//   return () => {
-//     leaveMeeting({ meetingId });
-//   };
-// }, []);
-
-
-
-
-{/* <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="size-6 rounded-full bg-emerald-500 flex items-center justify-center text-[8px] font-bold text-white">
-                      O
-                    </div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                      Omar Eng
-                    </span>
-                  </div>
-                  <div className="bg-slate-100 dark:bg-[#0D0F16] p-4 rounded-[1.8rem] rounded-tl-none text-[13px] leading-relaxed shadow-sm">
-                    Hey team! The AI Noise suppression is working perfectly. 🚀
-                  </div>
-                </div>
-
-                <div className="space-y-2 text-right">
-                  <span className="text-[9px] font-black text-blue-600 uppercase mr-2 tracking-widest">
-                    You
-                  </span>
-                  <div className="bg-blue-600 text-white p-4 rounded-[1.8rem] rounded-tr-none text-[13px] shadow-xl shadow-blue-900/10 text-left inline-block">
-                    Great! Let's start the demo.
-                  </div>
-                </div>
-              </div> */}
-
-
-{/* <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {messages.map((msg, index) => (
-                  <div
-                    key={index}
-                    className={`space-y-2 ${msg.user === "You" ? "text-right" : ""
-                      }`}
-                  >
-                    <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
-                      {msg.user}
-                    </span>
-
-                    <div
-                      className={`p-4 rounded-[1.8rem] text-[13px] shadow-sm inline-block ${msg.user === "You"
-                        ? "bg-blue-600 text-white rounded-tr-none"
-                        : "bg-slate-100 dark:bg-[#0D0F16] rounded-tl-none"
-                        }`}
-                    >
-                      {msg.message}
-                    </div>
-                  </div>
-                ))}
-              </div> */}
