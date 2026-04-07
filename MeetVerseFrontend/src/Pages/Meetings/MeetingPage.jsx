@@ -36,6 +36,7 @@ export default function MeetingPage() {
 
   const [muted, setMuted] = useState(state?.muteMic ?? true);
   const [cameraOff, setCameraOff] = useState(state?.cameraOff ?? true);
+  const [ScreenShareOff, setScreenShareOff] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCaptionsOn, setIsCaptionsOn] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -51,7 +52,10 @@ export default function MeetingPage() {
   const mountedRef = useRef(false);
   const isTogglingCameraRef = useRef(false);
   const isTogglingMicRef = useRef(false);
+  const isTogglingScreenShareRef = useRef(false);
   const rafRefs = useRef({ first: null, second: null });
+
+  const isScreenShared = false;
 
   const scrollToBottom = () => {
     scrollRef.current?.scrollIntoView({ behavior: "auto" });
@@ -78,11 +82,17 @@ export default function MeetingPage() {
     });
   };
 
+  const getScreenSharePublications = (participant) =>
+    Array.from(participant?.screenShareTrackPublications?.values?.() || []);
+
   const getVideoPublications = (participant) =>
     Array.from(participant?.videoTrackPublications?.values?.() || []);
 
   const getAudioPublications = (participant) =>
     Array.from(participant?.audioTrackPublications?.values?.() || []);
+
+  const hasEnabledScreenShareTrack = (participant) =>
+    getScreenSharePublications(participant).some((pub) => pub.track && !pub.isMuted);
 
   const hasEnabledVideoTrack = (participant) =>
     getVideoPublications(participant).some((pub) => pub.track && !pub.isMuted);
@@ -501,6 +511,28 @@ export default function MeetingPage() {
     }
   };
 
+  const toggleScreenShare = async () => {
+    const liveRoom = roomRef.current;
+    if (!liveRoom || isTogglingScreenShareRef.current) return;
+
+    isTogglingScreenShareRef.current = true;
+
+    try {
+      const shouldEnable = !hasEnabledScreenShareTrack(liveRoom.localParticipant);
+
+      await liveRoom.localParticipant.setScreenShareEnabled(shouldEnable);
+
+      // optimistic UI update, real sync follows from room events
+      setScreenShareOff(!shouldEnable);
+
+      console.log("📷 ScreenShare state:", shouldEnable);
+    } catch (err) {
+      console.error("❌ Failed to toggle ScreenShare:", err);
+    } finally {
+      isTogglingScreenShareRef.current = false;
+    }
+  };
+
   const toggleCamera = async () => {
     const liveRoom = roomRef.current;
     if (!liveRoom || isTogglingCameraRef.current) return;
@@ -581,76 +613,173 @@ export default function MeetingPage() {
             </div>
           </div>
 
-          {/* Video Grid - Fixed 2x2 Layout */}
-          <div className="flex-1 flex items-center justify-center p-2 min-h-0 overflow-hidden">
-            <div className="grid grid-cols-2 gap-3 md:gap-5 w-full h-full max-w-[1000px] max-h-[700px]">
-              {users.map((user) => (
-                <motion.div
-                  key={user.id}
-                  layout
-                  className={`relative rounded-[2.5rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden ${user.isSpeaking
-                    ? "border-blue-500 ring-4 ring-blue-500/10"
-                    : "border-white dark:border-[#2A2E3B]"
-                    } ${user.hasVideo ? "bg-black" : "bg-white dark:bg-[#181B26]"}`}
-                >
-                  <div
-                    ref={(el) => {
-                      if (el) {
-                        videoRefs.current[user.id] = el;
-                      } else {
-                        delete videoRefs.current[user.id];
-                      }
-                    }}
-                    className="absolute inset-0 w-full h-full"
-                  />
-
-                  {!user.hasVideo && (
-                    <div className="absolute inset-0 flex items-center justify-center z-10">
-                      <div
-                        className={`w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br ${user.color} flex items-center justify-center text-3xl md:text-5xl font-black text-white shadow-2xl relative`}
-                      >
-                        {user.initial}
-                        {user.isSpeaking && (
-                          <span className="absolute -inset-3 rounded-full border-2 border-blue-500/40 animate-ping" />
-                        )}
-                      </div>
+          {/* Video / Screen Share Layout */}
+          <div className="flex-1 p-2 min-h-0 overflow-hidden">
+            {isScreenShared ? (
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 w-full h-full">
+                {/* Screen share area */}
+                <div className="relative rounded-[2.5rem] border-2 border-white dark:border-[#2A2E3B] bg-black overflow-hidden shadow-xl min-h-[300px]">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center px-6">
+                      <MonitorUp size={42} className="mx-auto mb-4 text-blue-500" />
+                      <h2 className="text-white text-lg md:text-xl font-black uppercase tracking-wide">
+                        Screen Sharing Area
+                      </h2>
+                      <p className="text-white/60 text-sm mt-2">
+                        Reserved because <code>isScreenShared = true</code>
+                      </p>
                     </div>
-                  )}
-
-                  <div className="absolute bottom-6 left-6 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl flex items-center gap-3 border border-white/10 shadow-2xl z-20">
-                    <div
-                      className={`w-2 h-2 rounded-full ${user.isSpeaking
-                        ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
-                        : "bg-slate-400"
-                        }`}
-                    />
-                    <span className="text-[10px] font-black text-white uppercase tracking-wider">
-                      {user.name}
-                    </span>
-                    {user.isLocal && muted && (
-                      <MicOff size={14} className="text-red-400" />
-                    )}
                   </div>
 
-                  {user.isSpeaking && (
-                    <div className="absolute top-8 right-8 flex items-end gap-1 h-4 z-20">
-                      {[1, 2, 3, 4].map((i) => (
-                        <motion.div
-                          key={i}
-                          animate={{ height: [4, 16, 4] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 0.5,
-                            delay: i * 0.1,
-                          }}
-                          className="w-1 bg-blue-500 rounded-full"
+                  <div className="absolute top-5 left-5 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/10 z-20">
+                    <span className="text-[10px] font-black text-white uppercase tracking-wider">
+                      Presenting Screen
+                    </span>
+                  </div>
+                </div>
+
+                {/* Participants sidebar */}
+                <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-1 gap-3 h-full overflow-hidden">
+                  {users.map((user) => (
+                    <motion.div
+                      key={user.id}
+                      layout
+                      className={`relative rounded-[2rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden min-h-[180px] ${user.isSpeaking
+                        ? "border-blue-500 ring-4 ring-blue-500/10"
+                        : "border-white dark:border-[#2A2E3B]"
+                        } ${user.hasVideo ? "bg-black" : "bg-white dark:bg-[#181B26]"}`}
+                    >
+                      <div
+                        ref={(el) => {
+                          if (el) {
+                            videoRefs.current[user.id] = el;
+                          } else {
+                            delete videoRefs.current[user.id];
+                          }
+                        }}
+                        className="absolute inset-0 w-full h-full"
+                      />
+
+                      {!user.hasVideo && (
+                        <div className="absolute inset-0 flex items-center justify-center z-10">
+                          <div
+                            className={`w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br ${user.color} flex items-center justify-center text-2xl md:text-4xl font-black text-white shadow-2xl relative`}
+                          >
+                            {user.initial}
+                            {user.isSpeaking && (
+                              <span className="absolute -inset-3 rounded-full border-2 border-blue-500/40 animate-ping" />
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="absolute bottom-4 left-4 bg-black/40 backdrop-blur-xl px-3 py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-2xl z-20">
+                        <div
+                          className={`w-2 h-2 rounded-full ${user.isSpeaking
+                            ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                            : "bg-slate-400"
+                            }`}
                         />
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-            </div>
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider">
+                          {user.name}
+                        </span>
+                        {user.isLocal && muted && (
+                          <MicOff size={14} className="text-red-400" />
+                        )}
+                      </div>
+
+                      {user.isSpeaking && (
+                        <div className="absolute top-4 right-4 flex items-end gap-1 h-4 z-20">
+                          {[1, 2, 3, 4].map((i) => (
+                            <motion.div
+                              key={i}
+                              animate={{ height: [4, 16, 4] }}
+                              transition={{
+                                repeat: Infinity,
+                                duration: 0.5,
+                                delay: i * 0.1,
+                              }}
+                              className="w-1 bg-blue-500 rounded-full"
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full overflow-hidden">
+                <div className="grid grid-cols-2 gap-3 md:gap-5 w-full h-full max-w-[1000px] max-h-[700px]">
+                  {users.map((user) => (
+                    <motion.div
+                      key={user.id}
+                      layout
+                      className={`relative rounded-[2.5rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden ${user.isSpeaking
+                        ? "border-blue-500 ring-4 ring-blue-500/10"
+                        : "border-white dark:border-[#2A2E3B]"
+                        } ${user.hasVideo ? "bg-black" : "bg-white dark:bg-[#181B26]"}`}
+                    >
+                      <div
+                        ref={(el) => {
+                          if (el) {
+                            videoRefs.current[user.id] = el;
+                          } else {
+                            delete videoRefs.current[user.id];
+                          }
+                        }}
+                        className="absolute inset-0 w-full h-full"
+                      />
+
+                      {!user.hasVideo && (
+                        <div className="absolute inset-0 flex items-center justify-center z-10">
+                          <div
+                            className={`w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br ${user.color} flex items-center justify-center text-3xl md:text-5xl font-black text-white shadow-2xl relative`}
+                          >
+                            {user.initial}
+                            {user.isSpeaking && (
+                              <span className="absolute -inset-3 rounded-full border-2 border-blue-500/40 animate-ping" />
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="absolute bottom-6 left-6 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl flex items-center gap-3 border border-white/10 shadow-2xl z-20">
+                        <div
+                          className={`w-2 h-2 rounded-full ${user.isSpeaking
+                            ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                            : "bg-slate-400"
+                            }`}
+                        />
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider">
+                          {user.name}
+                        </span>
+                        {user.isLocal && muted && (
+                          <MicOff size={14} className="text-red-400" />
+                        )}
+                      </div>
+
+                      {user.isSpeaking && (
+                        <div className="absolute top-8 right-8 flex items-end gap-1 h-4 z-20">
+                          {[1, 2, 3, 4].map((i) => (
+                            <motion.div
+                              key={i}
+                              animate={{ height: [4, 16, 4] }}
+                              transition={{
+                                repeat: Infinity,
+                                duration: 0.5,
+                                delay: i * 0.1,
+                              }}
+                              className="w-1 bg-blue-500 rounded-full"
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Controls */}
@@ -676,7 +805,10 @@ export default function MeetingPage() {
                 {cameraOff ? <VideoOff size={22} /> : <Video size={22} />}
               </button>
 
-              <button className="hidden sm:flex p-4 rounded-2xl bg-slate-100 dark:bg-[#2A2E3B] hover:bg-blue-600 hover:text-white transition-all shadow-md">
+              <button
+                onClick={toggleScreenShare}
+                className="hidden sm:flex p-4 rounded-2xl bg-slate-100 dark:bg-[#2A2E3B] hover:bg-blue-600 hover:text-white transition-all shadow-md"
+              >
                 <MonitorUp size={22} />
               </button>
 
