@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import React from "react";
+import React, { useState } from "react";
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
 import {
@@ -10,17 +10,64 @@ import {
   ArrowRight,
   ShieldCheck,
 } from "lucide-react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { getCurrentUser } from "../../services/currentUser";
 
 export default function JoinMeetingPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const meetingId = searchParams.get("meetingId");
+
+  const [joinData, setJoinData] = useState({
+    meetingId: meetingId ?? "",
+    displayName: localStorage.getItem("username") ?? "",
+    muteMic: true,
+    cameraOff: true,
+  });
+
   const fadeInUp = {
     initial: { opacity: 0, y: 20 },
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.5 },
   };
 
+  function handleChange(e) {
+    const { name, value, type, checked } = e.target;
+
+    setJoinData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  }
+
+  function joinMeeting(meetingId, displayName) {
+    navigate(`/meetings/${meetingId}`, {
+      state: {
+        displayName,
+        muteMic: joinData.muteMic,
+        cameraOff: joinData.cameraOff,
+      },
+    });
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+
+    const meetingId = joinData.meetingId.trim();
+    const displayName = joinData.displayName.trim();
+
+    if (!meetingId || !displayName) {
+      alert("Please enter both Meeting ID and Display Name.");
+      return;
+    }
+
+    joinMeeting(meetingId, displayName);
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300">
       <Navbar />
+
       <div className="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16">
         <motion.div
           {...fadeInUp}
@@ -41,15 +88,18 @@ export default function JoinMeetingPage() {
             </p>
           </div>
 
-          <form className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-500 dark:text-[#A8B0C2] ml-1 uppercase tracking-widest flex items-center gap-2">
-                <Link2 size={14} /> Meeting ID or Link
+                <Link2 size={14} /> Meeting ID
               </label>
               <input
                 type="text"
+                name="meetingId"
+                value={joinData.meetingId}
+                onChange={handleChange}
                 className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-5 py-4 text-sm focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none"
-                placeholder="e.g., M-101 or https://meetverse.app/..."
+                placeholder="Enter Meeting ID"
               />
             </div>
 
@@ -59,6 +109,9 @@ export default function JoinMeetingPage() {
               </label>
               <input
                 type="text"
+                name="displayName"
+                value={joinData.displayName}
+                onChange={handleChange}
                 className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-5 py-4 text-sm focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none"
                 placeholder="Enter your name"
               />
@@ -71,6 +124,9 @@ export default function JoinMeetingPage() {
                 <div className="relative flex items-center">
                   <input
                     type="checkbox"
+                    name="muteMic"
+                    checked={joinData.muteMic}
+                    onChange={handleChange}
                     className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-slate-300 dark:border-[#2A2E3B] checked:bg-blue-600 checked:border-blue-600 transition-all"
                   />
                   <span className="absolute text-white opacity-0 peer-checked:opacity-100 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
@@ -95,11 +151,14 @@ export default function JoinMeetingPage() {
                 </span>
               </label>
 
-              {/* Camera Toggle - الإضافة الجديدة */}
+              {/* Camera Toggle */}
               <label className="group flex items-center gap-3 cursor-pointer p-4 bg-slate-50 dark:bg-[#0D0F16] rounded-2xl border border-slate-200 dark:border-[#2A2E3B] hover:border-blue-500 transition-all">
                 <div className="relative flex items-center">
                   <input
                     type="checkbox"
+                    name="cameraOff"
+                    checked={joinData.cameraOff}
+                    onChange={handleChange}
                     className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-slate-300 dark:border-[#2A2E3B] checked:bg-blue-600 checked:border-blue-600 transition-all"
                   />
                   <span className="absolute text-white opacity-0 peer-checked:opacity-100 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
