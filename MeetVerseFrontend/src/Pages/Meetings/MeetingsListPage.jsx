@@ -54,7 +54,6 @@ export default function MeetingsListPage() {
     loadMeetings();
   }, []);
 
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300">
       <Navbar />
@@ -159,7 +158,7 @@ export default function MeetingsListPage() {
 
               <div className="w-full lg:w-auto">
                 <a
-                  href={`/meetings/${m.meetingId}`}
+                  href={`/meetings/join?meetingId=${m.meetingId}`}
                   className="block text-center px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-2xl transition-all shadow-lg shadow-blue-900/20 active:scale-95"
                 >
                   Join Meeting
