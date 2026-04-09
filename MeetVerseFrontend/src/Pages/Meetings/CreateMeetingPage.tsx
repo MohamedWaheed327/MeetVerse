@@ -15,6 +15,16 @@ import {
 import { useNavigate } from "react-router-dom";
 import { createMeeting } from "../../services/createMeeting"
 
+type MeetingFormData = {
+  title: string;
+  date: string;
+  time: string;
+  aiNoiseCancellation: boolean;
+  liveTranscription: boolean;
+  aiMeetingSummary: boolean;
+  securePassword: boolean;
+};
+
 export default function CreateMeetingPage() {
   const fadeInUp = {
     initial: { opacity: 0, y: 20 },
@@ -24,7 +34,7 @@ export default function CreateMeetingPage() {
   
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<MeetingFormData>({
     title: "",
     date: "",
     time: "",
@@ -34,15 +44,16 @@ export default function CreateMeetingPage() {
     securePassword: false,
   });
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
+    const key = name as keyof MeetingFormData;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [key]: type === "checkbox" ? checked : value,
     }));
   };
 
-  const handleScheduleSession = (data) => {
+  const handleScheduleSession = (data: MeetingFormData) => {
     const processedData = {
       ...data,
       scheduledStart: `${data.date}T${data.time}:00`,
@@ -50,7 +61,7 @@ export default function CreateMeetingPage() {
     createMeeting(processedData);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     handleScheduleSession(formData);
   };
@@ -138,22 +149,22 @@ export default function CreateMeetingPage() {
                   {
                     label: "AI Noise Cancellation",
                     icon: <Waves size={14} />,
-                    name: "aiNoiseCancellation",
+                    name: "aiNoiseCancellation" as const,
                   },
                   {
                     label: "Live Transcription",
                     icon: <FileText size={14} />,
-                    name: "liveTranscription",
+                    name: "liveTranscription" as const,
                   },
                   {
                     label: "AI Meeting Summary",
                     icon: <Zap size={14} />,
-                    name: "aiMeetingSummary",
+                    name: "aiMeetingSummary" as const,
                   },
                   {
                     label: "Secure Password",
                     icon: <Shield size={14} />,
-                    name: "securePassword",
+                    name: "securePassword" as const,
                   },
                 ].map((feature, i) => (
                   <label

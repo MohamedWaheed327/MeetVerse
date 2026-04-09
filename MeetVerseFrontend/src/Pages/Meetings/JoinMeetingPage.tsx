@@ -13,12 +13,19 @@ import {
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { getCurrentUser } from "../../services/currentUser";
 
+type JoinData = {
+  meetingId: string;
+  displayName: string;
+  muteMic: boolean;
+  cameraOff: boolean;
+};
+
 export default function JoinMeetingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const meetingId = searchParams.get("meetingId");
 
-  const [joinData, setJoinData] = useState({
+  const [joinData, setJoinData] = useState<JoinData>({
     meetingId: meetingId ?? "",
     displayName: localStorage.getItem("username") ?? "",
     muteMic: true,
@@ -31,16 +38,17 @@ export default function JoinMeetingPage() {
     transition: { duration: 0.5 },
   };
 
-  function handleChange(e) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value, type, checked } = e.target;
+    const key = name as keyof JoinData;
 
     setJoinData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [key]: type === "checkbox" ? checked : value,
     }));
   }
 
-  function joinMeeting(meetingId, displayName) {
+  function joinMeeting(meetingId: string, displayName: string) {
     navigate(`/meetings/${meetingId}`, {
       state: {
         displayName,
@@ -50,7 +58,7 @@ export default function JoinMeetingPage() {
     });
   }
 
-  function handleSubmit(e) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     const meetingId = joinData.meetingId.trim();

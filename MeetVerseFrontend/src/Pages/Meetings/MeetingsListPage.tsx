@@ -5,6 +5,15 @@ import { Video, Plus, Search, Calendar, Clock, Tag } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getActiveMeetings } from "../../services/getActiveMeetings.js";
 
+type Meeting = {
+  meetingId: string;
+  title: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  isLive: boolean;
+  description: string;
+};
+
 export default function MeetingsListPage() {
   // const meetings = [
   //   {
@@ -34,7 +43,7 @@ export default function MeetingsListPage() {
   // ];
 
   const [isLoading, setIsLoading] = useState(false);
-  const [meetings, SetMeetings] = useState([]);
+  const [meetings, SetMeetings] = useState<Meeting[]>([]);
 
   // Load Meetings
   useEffect(() => {
