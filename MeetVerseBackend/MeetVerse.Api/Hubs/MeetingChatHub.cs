@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using MeetVerse.Api.Data;
+using MeetVerse.Api.Database;
 using MeetVerse.Api.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;

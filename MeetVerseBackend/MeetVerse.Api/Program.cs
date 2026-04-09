@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MeetVerse.Api.Configuration;
-using MeetVerse.Api.Data;
+using MeetVerse.Api.Database;
 using MeetVerse.Api.Hubs;
 using MeetVerse.Api.Services;
 using MeetVerse.Api.Models;

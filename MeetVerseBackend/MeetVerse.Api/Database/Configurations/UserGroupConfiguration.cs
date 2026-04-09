@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MeetVerse.Api.Models;
 
-namespace MeetVerse.Api.Data.Configurations;
+namespace MeetVerse.Api.Database.Configurations;
 
 public class UserGroupConfiguration : IEntityTypeConfiguration<UserGroup>
 {

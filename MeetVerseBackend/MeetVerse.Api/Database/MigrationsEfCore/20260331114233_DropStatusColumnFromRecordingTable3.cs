@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace MeetVerse.Api.Database.MigrationsEfCore
+namespace MeetVerse.Api.Databasebase.MigrationsEfCore
 {
     /// <inheritdoc />
     public partial class DropStatusColumnFromRecordingTable3 : Migration

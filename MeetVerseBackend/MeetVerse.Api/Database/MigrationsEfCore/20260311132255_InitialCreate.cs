@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace MeetVerse.Api.Database.MigrationsEfCore
+namespace MeetVerse.Api.Databasebase.MigrationsEfCore
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration

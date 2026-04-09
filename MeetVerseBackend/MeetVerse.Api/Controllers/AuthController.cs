@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using MeetVerse.Api.Data;
+using MeetVerse.Api.Database;
 using MeetVerse.Api.Dtos;
 using MeetVerse.Api.Models;
 using MeetVerse.Api.Services;

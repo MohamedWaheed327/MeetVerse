@@ -2,7 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using MeetVerse.Api.Data;
+using MeetVerse.Api.Database;
 using MeetVerse.Api.Models;
 
 namespace MeetVerse.Api.Hubs;

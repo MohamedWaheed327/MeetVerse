@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using MeetVerse.Api.Models;
 
-namespace MeetVerse.Api.Data;
+namespace MeetVerse.Api.Database;
 
 public interface IDatabaseSeeder
 {
