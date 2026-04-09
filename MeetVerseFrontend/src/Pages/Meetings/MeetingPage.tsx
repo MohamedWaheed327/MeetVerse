@@ -1,33 +1,31 @@
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Mic,
-  MicOff,
-  Video,
-  VideoOff,
-  MonitorUp,
-  PhoneOff,
-  MessageSquare,
-  Waves,
-  X,
-  Send,
-  ShieldCheck,
-  Type,
-} from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, MessageSquare, Waves, X, Send, ShieldCheck, Type, } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
-import { Room, RoomEvent, Track } from "livekit-client";
+import { Participant, Room, RoomEvent, Track, TrackPublication } from "livekit-client";
 import { getCurrentUser } from "../../services/currentUser";
-import { sendChatMessage } from "../../services//hubs/sendMeetingMessage";
+import { sendChatMessage } from "../../services/hubs/sendMeetingMessage";
 import connection from "../../services/hubs/connections";
-import {
-  subscribeToMeeting,
-  unsubscribeFromMeeting,
-  onMessageReceived,
-  onError,
-} from "../../services/hubs/meetingChat";
+import { subscribeToMeeting, unsubscribeFromMeeting, onMessageReceived, onError, } from "../../services/hubs/meetingChat";
 import { GetMeetingChat } from "../../services/meetingChatMessage";
+
+type Message = {
+  id: string;
+  senderName: string;
+  content: string;
+};
+
+type User = {
+  id: string;
+  name: string;
+  initial: string;
+  color: string;
+  isSpeaking: boolean;
+  isLocal: boolean;
+  hasVideo: boolean;
+};
 
 export default function MeetingPage() {
   const { meetingId } = useParams();
@@ -40,23 +38,23 @@ export default function MeetingPage() {
   const [screenShareOwner, setScreenShareOwner] = useState("");
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCaptionsOn, setIsCaptionsOn] = useState(false);
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<User[]>([]);
 
-  const scrollRef = useRef(null);
-  const roomRef = useRef(null);
-  const videoRefs = useRef({});
-  const audioRefs = useRef({});
-  const screenShareContainerRef = useRef(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const roomRef = useRef<Room | null>(null);
+  const videoRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
+  const screenShareContainerRef = useRef<HTMLDivElement | null>(null);
   const mountedRef = useRef(false);
 
   const isTogglingCameraRef = useRef(false);
   const isTogglingMicRef = useRef(false);
   const isTogglingScreenShareRef = useRef(false);
 
-  const rafRefs = useRef({ first: null, second: null });
+  const rafRefs = useRef<{ first: number | null; second: number | null }>({ first: null, second: null });
 
   const scrollToBottom = () => {
     scrollRef.current?.scrollIntoView({ behavior: "auto" });
@@ -68,7 +66,7 @@ export default function MeetingPage() {
     rafRefs.current = { first: null, second: null };
   };
 
-  const runAfterRender = (cb) => {
+  const runAfterRender = (cb: () => void) => {
     clearScheduledRenderSync();
 
     rafRefs.current.first = requestAnimationFrame(() => {
@@ -79,58 +77,56 @@ export default function MeetingPage() {
     });
   };
 
-  const isCameraSource = (source) => {
-    return source === Track.Source.Camera || source === "camera";
+  const isCameraSource = (source: Track.Source) => {
+    return source === Track.Source.Camera;
   };
 
-  const isScreenShareSource = (source) => {
+  const isScreenShareSource = (source: Track.Source) => {
     return (
-      source === Track.Source.ScreenShare ||
-      source === "screen_share" ||
-      source === "screenshare"
+      source === Track.Source.ScreenShare
     );
   };
 
-  const getCameraPublications = (participant) => {
+  const getCameraPublications = (participant: Participant) => {
     return Array.from(participant?.videoTrackPublications?.values?.() || []).filter(
       (pub) => isCameraSource(pub.source)
     );
   };
 
-  const getScreenSharePublications = (participant) => {
+  const getScreenSharePublications = (participant: Participant) => {
     return Array.from(participant?.videoTrackPublications?.values?.() || []).filter(
       (pub) => isScreenShareSource(pub.source)
     );
   };
 
-  const getAudioPublications = (participant) => {
+  const getAudioPublications = (participant: Participant) => {
     return Array.from(participant?.audioTrackPublications?.values?.() || []);
   };
 
-  const hasEnabledCameraTrack = (participant) => {
+  const hasEnabledCameraTrack = (participant: Participant) => {
     return getCameraPublications(participant).some(
       (pub) => pub.track && !pub.isMuted
     );
   };
 
-  const hasEnabledAudioTrack = (participant) => {
+  const hasEnabledAudioTrack = (participant: Participant) => {
     return getAudioPublications(participant).some(
       (pub) => pub.track && !pub.isMuted
     );
   };
 
-  const hasEnabledScreenShareTrack = (participant) => {
+  const hasEnabledScreenShareTrack = (participant: Participant) => {
     return getScreenSharePublications(participant).some(
       (pub) => pub.track && !pub.isMuted
     );
   };
 
-  const getParticipantDisplayName = (participant, isLocal = false) => {
+  const getParticipantDisplayName = (participant: Participant, isLocal = false) => {
     if (isLocal) return `${participant?.name || "You"} (You)`;
     return participant?.name || "User";
   };
 
-  const getPreferredParticipantVideoPublication = (participant) => {
+  const getPreferredParticipantVideoPublication = (participant: Participant) => {
     return (
       getCameraPublications(participant).find(
         (pub) => pub.track && !pub.isMuted
@@ -138,7 +134,7 @@ export default function MeetingPage() {
     );
   };
 
-  const getActiveScreenShare = (liveRoom) => {
+  const getActiveScreenShare = (liveRoom: Room) => {
     if (!liveRoom) return null;
 
     const allParticipants = [
@@ -175,7 +171,7 @@ export default function MeetingPage() {
     });
   };
 
-  const attachScreenShareTrackToArea = (track) => {
+  const attachScreenShareTrackToArea = (track: Track) => {
     const container = screenShareContainerRef.current;
     if (!container || track.kind !== "video") return;
 
@@ -186,7 +182,7 @@ export default function MeetingPage() {
       el.remove();
     });
 
-    const element = track.attach();
+    const element = track.attach() as HTMLVideoElement;
     element.autoplay = true;
     element.playsInline = true;
     element.className = "absolute inset-0 w-full h-full object-contain bg-black";
@@ -194,7 +190,7 @@ export default function MeetingPage() {
     container.appendChild(element);
   };
 
-  const attachVideoTrackToElement = (track, participantId) => {
+  const attachVideoTrackToElement = (track: Track, participantId: string) => {
     const container = videoRefs.current[participantId];
     if (!container || track.kind !== "video") return;
 
@@ -205,7 +201,7 @@ export default function MeetingPage() {
       el.remove();
     });
 
-    const element = track.attach();
+    const element = track.attach() as HTMLVideoElement;
     element.id = `video-player-${participantId}`;
     element.autoplay = true;
     element.playsInline = true;
@@ -217,7 +213,7 @@ export default function MeetingPage() {
     container.appendChild(element);
   };
 
-  const removeVideoElement = (participantId) => {
+  const removeVideoElement = (participantId: string) => {
     const container = videoRefs.current[participantId];
     if (!container) return;
 
@@ -229,14 +225,13 @@ export default function MeetingPage() {
     });
   };
 
-  const attachAudioTrack = (track, participantId) => {
+  const attachAudioTrack = (track: Track, participantId: string) => {
     if (track.kind !== "audio") return;
 
     removeAudioElement(participantId);
 
-    const audioElement = track.attach();
+    const audioElement = track.attach() as HTMLAudioElement;
     audioElement.autoplay = true;
-    audioElement.playsInline = true;
     audioElement.style.display = "none";
     audioElement.setAttribute("data-participant-id", participantId);
 
@@ -244,7 +239,7 @@ export default function MeetingPage() {
     audioRefs.current[participantId] = audioElement;
   };
 
-  const removeAudioElement = (participantId) => {
+  const removeAudioElement = (participantId: string) => {
     const audioElement = audioRefs.current[participantId];
     if (!audioElement) return;
 
@@ -256,7 +251,7 @@ export default function MeetingPage() {
     delete audioRefs.current[participantId];
   };
 
-  const detachTrack = (track) => {
+  const detachTrack = (track: Track) => {
     if (!track) return;
 
     track.detach().forEach((el) => {
@@ -279,7 +274,7 @@ export default function MeetingPage() {
     removeScreenShareElement();
   };
 
-  const buildParticipantsList = (liveRoom) => {
+  const buildParticipantsList = (liveRoom: Room) => {
     if (!liveRoom) return [];
 
     const colorPool = [
@@ -318,7 +313,7 @@ export default function MeetingPage() {
     return [localUser, ...remoteUsers];
   };
 
-  const syncParticipants = (liveRoom) => {
+  const syncParticipants = (liveRoom: Room) => {
     if (!liveRoom || !mountedRef.current) return;
 
     const updatedUsers = buildParticipantsList(liveRoom);
@@ -379,7 +374,7 @@ export default function MeetingPage() {
   useEffect(() => {
     mountedRef.current = true;
 
-    let activeRoom = null;
+    let activeRoom: Room;
     let cancelled = false;
 
     const joinRoom = async () => {
@@ -408,7 +403,7 @@ export default function MeetingPage() {
         activeRoom = newRoom;
         roomRef.current = newRoom;
 
-        const handleTrackSubscribed = (track, publication, participant) => {
+        const handleTrackSubscribed = (track: Track, publication: TrackPublication, participant: Participant) => {
           console.log(
             "trackSubscribed:",
             participant.identity,
@@ -423,7 +418,7 @@ export default function MeetingPage() {
           syncParticipants(newRoom);
         };
 
-        const handleTrackUnsubscribed = (track, publication, participant) => {
+        const handleTrackUnsubscribed = (track: Track, publication: TrackPublication, participant: Participant) => {
           console.log(
             "trackUnsubscribed:",
             participant.identity,
@@ -449,19 +444,19 @@ export default function MeetingPage() {
           syncParticipants(newRoom);
         };
 
-        const handleParticipantConnected = (participant) => {
+        const handleParticipantConnected = (participant: Participant) => {
           console.log("participantConnected:", participant.identity);
           syncParticipants(newRoom);
         };
 
-        const handleParticipantDisconnected = (participant) => {
+        const handleParticipantDisconnected = (participant: Participant) => {
           console.log("participantDisconnected:", participant.identity);
           removeVideoElement(participant.identity);
           removeAudioElement(participant.identity);
           syncParticipants(newRoom);
         };
 
-        const handleTrackPublished = (publication, participant) => {
+        const handleTrackPublished = (publication: TrackPublication, participant: Participant) => {
           console.log(
             "trackPublished:",
             participant.identity,
@@ -471,7 +466,7 @@ export default function MeetingPage() {
           syncParticipants(newRoom);
         };
 
-        const handleTrackUnpublished = (publication, participant) => {
+        const handleTrackUnpublished = (publication: TrackPublication, participant: Participant) => {
           console.log(
             "trackUnpublished:",
             participant.identity,
@@ -492,7 +487,7 @@ export default function MeetingPage() {
           syncParticipants(newRoom);
         };
 
-        const handleTrackMuted = (publication, participant) => {
+        const handleTrackMuted = (publication: TrackPublication, participant: Participant) => {
           console.log(
             "trackMuted:",
             participant.identity,
@@ -513,7 +508,7 @@ export default function MeetingPage() {
           syncParticipants(newRoom);
         };
 
-        const handleTrackUnmuted = (publication, participant) => {
+        const handleTrackUnmuted = (publication: TrackPublication, participant: Participant) => {
           console.log(
             "trackUnmuted:",
             participant.identity,
@@ -527,7 +522,7 @@ export default function MeetingPage() {
           syncParticipants(newRoom);
         };
 
-        const handleLocalTrackPublished = (publication) => {
+        const handleLocalTrackPublished = (publication: TrackPublication) => {
           console.log(
             "localTrackPublished:",
             publication.kind,
@@ -536,7 +531,7 @@ export default function MeetingPage() {
           syncParticipants(newRoom);
         };
 
-        const handleLocalTrackUnpublished = (publication) => {
+        const handleLocalTrackUnpublished = (publication: TrackPublication) => {
           console.log(
             "localTrackUnpublished:",
             publication.kind,
@@ -556,22 +551,19 @@ export default function MeetingPage() {
           syncParticipants(newRoom);
         };
 
-        newRoom.on("trackSubscribed", handleTrackSubscribed);
-        newRoom.on("trackUnsubscribed", handleTrackUnsubscribed);
-        newRoom.on("participantConnected", handleParticipantConnected);
-        newRoom.on("participantDisconnected", handleParticipantDisconnected);
-        newRoom.on("trackPublished", handleTrackPublished);
-        newRoom.on("trackUnpublished", handleTrackUnpublished);
-        newRoom.on("trackMuted", handleTrackMuted);
-        newRoom.on("trackUnmuted", handleTrackUnmuted);
-        newRoom.on("activeSpeakersChanged", handleActiveSpeakersChanged);
-        newRoom.on("localTrackPublished", handleLocalTrackPublished);
-        newRoom.on("localTrackUnpublished", handleLocalTrackUnpublished);
+        newRoom.on(RoomEvent.TrackSubscribed, handleTrackSubscribed);
+        newRoom.on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed);
+        newRoom.on(RoomEvent.ParticipantConnected, handleParticipantConnected);
+        newRoom.on(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected);
+        newRoom.on(RoomEvent.TrackPublished, handleTrackPublished);
+        newRoom.on(RoomEvent.TrackUnpublished, handleTrackUnpublished);
+        newRoom.on(RoomEvent.TrackMuted, handleTrackMuted);
+        newRoom.on(RoomEvent.TrackUnmuted, handleTrackUnmuted);
+        newRoom.on(RoomEvent.ActiveSpeakersChanged, handleActiveSpeakersChanged);
+        newRoom.on(RoomEvent.LocalTrackPublished, handleLocalTrackPublished);
+        newRoom.on(RoomEvent.LocalTrackUnpublished, handleLocalTrackUnpublished);
 
-        await newRoom.connect(
-          "wss://meetverse-tn25w775.livekit.cloud",
-          token
-        );
+        await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
 
         await newRoom.localParticipant.setMicrophoneEnabled(!muted);
         await newRoom.localParticipant.setCameraEnabled(!cameraOff);
@@ -637,11 +629,11 @@ export default function MeetingPage() {
 
         await subscribeToMeeting(meetingId);
 
-        onMessageReceived((payload) => {
+        onMessageReceived((payload: Message) => {
           setMessages((prev) => [...prev, payload]);
         });
 
-        onError((err) => {
+        onError((err: unknown) => {
           console.error("SignalR Error:", err);
         });
       } catch (err) {
