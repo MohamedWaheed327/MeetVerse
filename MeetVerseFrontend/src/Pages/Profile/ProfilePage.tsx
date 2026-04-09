@@ -5,8 +5,15 @@ import { motion } from "framer-motion";
 import { User, Shield, Camera, Trash2, Save, Key } from "lucide-react";
 import { getCurrentUser } from "../../services/currentUser"; // 👈 import API
 
+type MeetVerseUser = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+
 export default function ProfilePage() {
-  const [user, setUser] = useState(null); // 👈 store user data
+  const [user, setUser] = useState<MeetVerseUser | null>(null); // 👈 store user data
 
   // 👇 Add this temporarily in ProfilePage to debug
   useEffect(() => {
@@ -99,7 +106,7 @@ export default function ProfilePage() {
                 action cannot be undone.
               </p>
               <button
-                onClick={() => { localStorage.removeItem(token); }}
+                onClick={() => { }}
                 className="w-full bg-red-100 dark:bg-red-500/10 hover:bg-red-600 dark:hover:bg-red-500 hover:text-white border border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-500 py-3 rounded-2xl transition-all text-xs font-bold">
                 Delete MeetVerse Account
               </button>
