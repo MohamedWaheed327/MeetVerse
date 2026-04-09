@@ -15,7 +15,7 @@ import GroupDetailsPage from "./Pages/Groups/GroupDetailsPage";
 import ProfilePage from "./Pages/Profile/ProfilePage";
 import ResetPassword from "./Pages/Auth/ResetPassword";
 import OTPVerification from "./Pages/Auth/OTPVerification";
-import NotFound from "./Pages/NotFoundPage.jsx/NotFound";
+import NotFound from "./Pages/NotFoundPage.tsx/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute";
 
 export default function App() {
