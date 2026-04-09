@@ -1,15 +1,15 @@
-import Navbar from "../../components/LandingComponents/Navbar/Navbar";
+import Navbar from "../../../components/LandingComponents/Navbar/Navbar";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, MessageSquare, Waves, X, Send, ShieldCheck, Type, } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import api from "../../services/api";
+import api from "../../../services/api";
 import { Participant, Room, RoomEvent, Track, TrackPublication } from "livekit-client";
-import { getCurrentUser } from "../../services/currentUser";
-import { sendChatMessage } from "../../services/hubs/sendMeetingMessage";
-import connection from "../../services/hubs/connections";
-import { subscribeToMeeting, unsubscribeFromMeeting, onMessageReceived, onError, } from "../../services/hubs/meetingChat";
-import { GetMeetingChat } from "../../services/meetingChatMessage";
+import { getCurrentUser } from "../../../services/currentUser";
+import { sendChatMessage } from "../../../services/hubs/sendMeetingMessage";
+import connection from "../../../services/hubs/connections";
+import { subscribeToMeeting, unsubscribeFromMeeting, onMessageReceived, onError, } from "../../../services/hubs/meetingChat";
+import { GetMeetingChat } from "../../../services/meetingChatMessage";
 
 type Message = {
   id: string;
@@ -82,9 +82,7 @@ export default function MeetingPage() {
   };
 
   const isScreenShareSource = (source: Track.Source) => {
-    return (
-      source === Track.Source.ScreenShare
-    );
+    return source === Track.Source.ScreenShare;
   };
 
   const getCameraPublications = (participant: Participant) => {

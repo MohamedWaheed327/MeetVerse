@@ -7,7 +7,7 @@ import HomePage from "./Pages/Main/HomePage";
 import MeetingsListPage from "./Pages/Meetings/MeetingsListPage";
 import CreateMeetingPage from "./Pages/Meetings/CreateMeetingPage";
 import JoinMeetingPage from "./Pages/Meetings/JoinMeetingPage";
-import MeetingPage from "./Pages/Meetings/MeetingPage";
+import MeetingPage from "./Pages/Meetings/MeetingPage/MeetingPage";
 import GroupsListPage from "./Pages/Groups/GroupsListPage";
 import CreateGroupPage from "./Pages/Groups/CreateGroupPage";
 import JoinGroupPage from "./Pages/Groups/JoinGroupPage";
