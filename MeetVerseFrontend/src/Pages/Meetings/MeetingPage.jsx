@@ -17,7 +17,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
-import { Room, Track } from "livekit-client";
+import { Room, RoomEvent, Track } from "livekit-client";
 import { getCurrentUser } from "../../services/currentUser";
 import { sendChatMessage } from "../../services//hubs/sendMeetingMessage";
 import connection from "../../services/hubs/connections";
@@ -793,8 +793,8 @@ export default function MeetingPage() {
                       key={user.id}
                       layout
                       className={`relative rounded-[2rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden min-h-[180px] ${user.isSpeaking
-                          ? "border-blue-500 ring-4 ring-blue-500/10"
-                          : "border-white dark:border-[#2A2E3B]"
+                        ? "border-blue-500 ring-4 ring-blue-500/10"
+                        : "border-white dark:border-[#2A2E3B]"
                         } ${user.hasVideo
                           ? "bg-black"
                           : "bg-white dark:bg-[#181B26]"
@@ -827,8 +827,8 @@ export default function MeetingPage() {
                       <div className="absolute bottom-4 left-4 bg-black/40 backdrop-blur-xl px-3 py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-2xl z-20">
                         <div
                           className={`w-2 h-2 rounded-full ${user.isSpeaking
-                              ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
-                              : "bg-slate-400"
+                            ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                            : "bg-slate-400"
                             }`}
                         />
                         <span className="text-[10px] font-black text-white uppercase tracking-wider">
@@ -867,8 +867,8 @@ export default function MeetingPage() {
                       key={user.id}
                       layout
                       className={`relative rounded-[2.5rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden ${user.isSpeaking
-                          ? "border-blue-500 ring-4 ring-blue-500/10"
-                          : "border-white dark:border-[#2A2E3B]"
+                        ? "border-blue-500 ring-4 ring-blue-500/10"
+                        : "border-white dark:border-[#2A2E3B]"
                         } ${user.hasVideo
                           ? "bg-black"
                           : "bg-white dark:bg-[#181B26]"
@@ -901,8 +901,8 @@ export default function MeetingPage() {
                       <div className="absolute bottom-6 left-6 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl flex items-center gap-3 border border-white/10 shadow-2xl z-20">
                         <div
                           className={`w-2 h-2 rounded-full ${user.isSpeaking
-                              ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
-                              : "bg-slate-400"
+                            ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                            : "bg-slate-400"
                             }`}
                         />
                         <span className="text-[10px] font-black text-white uppercase tracking-wider">
@@ -942,8 +942,8 @@ export default function MeetingPage() {
               <button
                 onClick={toggleMic}
                 className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${muted
-                    ? "bg-red-500 text-white shadow-red-500/20"
-                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                  ? "bg-red-500 text-white shadow-red-500/20"
+                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
                   }`}
               >
                 {muted ? <MicOff size={22} /> : <Mic size={22} />}
@@ -952,8 +952,8 @@ export default function MeetingPage() {
               <button
                 onClick={toggleCamera}
                 className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${cameraOff
-                    ? "bg-red-500 text-white shadow-red-500/20"
-                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                  ? "bg-red-500 text-white shadow-red-500/20"
+                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
                   }`}
               >
                 {cameraOff ? <VideoOff size={22} /> : <Video size={22} />}
@@ -962,8 +962,8 @@ export default function MeetingPage() {
               <button
                 onClick={toggleScreenShare}
                 className={`hidden sm:flex p-4 rounded-2xl transition-all shadow-md active:scale-90 ${screenShareOff
-                    ? "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-blue-600 hover:text-white"
-                    : "bg-blue-600 text-white shadow-blue-600/30"
+                  ? "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-blue-600 hover:text-white"
+                  : "bg-blue-600 text-white shadow-blue-600/30"
                   }`}
               >
                 <MonitorUp size={22} />
@@ -976,8 +976,8 @@ export default function MeetingPage() {
               <button
                 onClick={() => setIsCaptionsOn((prev) => !prev)}
                 className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${isCaptionsOn
-                    ? "bg-blue-600 text-white shadow-blue-600/30"
-                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                  ? "bg-blue-600 text-white shadow-blue-600/30"
+                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
                   }`}
                 title="Captions"
               >
@@ -989,8 +989,8 @@ export default function MeetingPage() {
               <button
                 onClick={() => setIsChatOpen((prev) => !prev)}
                 className={`p-4 rounded-2xl transition-all shadow-md flex items-center gap-2 ${isChatOpen
-                    ? "bg-blue-600 text-white shadow-blue-600/30"
-                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                  ? "bg-blue-600 text-white shadow-blue-600/30"
+                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
                   }`}
               >
                 <MessageSquare size={22} />
