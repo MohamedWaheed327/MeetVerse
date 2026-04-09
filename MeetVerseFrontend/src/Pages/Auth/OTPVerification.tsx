@@ -23,7 +23,7 @@ export default function OTPVerification() {
   const [isTimerActive, setIsTimerActive] = useState(true);
 
   useEffect(() => {
-    let interval;
+    let interval: number;
     if (isTimerActive && timer > 0) {
       interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
     }

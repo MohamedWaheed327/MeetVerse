@@ -11,13 +11,13 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState(null);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const location = useLocation();
   const navigate = useNavigate();
   const email = location.state?.email || "user@meetverse.app";
 
-  async function handleReset(values) {
+  async function handleReset(values: { password: string; rePassword: string }) {
     try {
       setLoading(true);
       // API Logic here

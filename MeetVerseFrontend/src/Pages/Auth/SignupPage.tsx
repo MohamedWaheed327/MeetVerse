@@ -13,9 +13,9 @@ export default function SignupPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log("signup form submitted", { firstName, lastName, email, password });
     setError(null);
@@ -34,10 +34,15 @@ export default function SignupPage() {
       localStorage.setItem("username", name);
 
       navigate("/home");
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("register failed", err);
       // registerUser throws the api error object
-      setError(err.message || "Unable to register");
+      if (err instanceof Error) {
+        setError(err.message);
+      }
+      else {
+        setError("Unable to register");
+      }
       setLoading(false);
     }
   };

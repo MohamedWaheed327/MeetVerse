@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { FormEvent, useState } from "react";
 import { motion } from "framer-motion";
 import { LogIn, Mail, Lock, ArrowRight, Github, Chrome } from "lucide-react";
 import { loginUser } from "../../services/login";
@@ -12,9 +12,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -27,9 +27,13 @@ export default function LoginPage() {
       var user = await getCurrentUser();
       localStorage.setItem("username", user.name);
       navigate("/home");
-    } catch (err) {
+    } catch (err: unknown) {
       // loginUser throws the api error object
-      setError(err.message || "Unable to login");
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Unable to login");
+      }
       setLoading(false);
     }
   };
