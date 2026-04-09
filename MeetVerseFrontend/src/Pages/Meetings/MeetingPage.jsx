@@ -17,7 +17,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import api from "../../services/api";
-import { Room } from "livekit-client";
+import { Room, Track } from "livekit-client";
 import { getCurrentUser } from "../../services/currentUser";
 import { sendChatMessage } from "../../services//hubs/sendMeetingMessage";
 import connection from "../../services/hubs/connections";
@@ -36,38 +36,35 @@ export default function MeetingPage() {
 
   const [muted, setMuted] = useState(state?.muteMic ?? true);
   const [cameraOff, setCameraOff] = useState(state?.cameraOff ?? true);
-  const [ScreenShareOff, setScreenShareOff] = useState(true);
+  const [screenShareOff, setScreenShareOff] = useState(true);
+  const [screenShareOwner, setScreenShareOwner] = useState("");
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCaptionsOn, setIsCaptionsOn] = useState(false);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [room, setRoom] = useState(null);
   const [users, setUsers] = useState([]);
 
   const scrollRef = useRef(null);
   const roomRef = useRef(null);
   const videoRefs = useRef({});
   const audioRefs = useRef({});
+  const screenShareContainerRef = useRef(null);
   const mountedRef = useRef(false);
+
   const isTogglingCameraRef = useRef(false);
   const isTogglingMicRef = useRef(false);
   const isTogglingScreenShareRef = useRef(false);
-  const rafRefs = useRef({ first: null, second: null });
 
-  const isScreenShared = false;
+  const rafRefs = useRef({ first: null, second: null });
 
   const scrollToBottom = () => {
     scrollRef.current?.scrollIntoView({ behavior: "auto" });
   };
 
   const clearScheduledRenderSync = () => {
-    if (rafRefs.current.first) {
-      cancelAnimationFrame(rafRefs.current.first);
-    }
-    if (rafRefs.current.second) {
-      cancelAnimationFrame(rafRefs.current.second);
-    }
+    if (rafRefs.current.first) cancelAnimationFrame(rafRefs.current.first);
+    if (rafRefs.current.second) cancelAnimationFrame(rafRefs.current.second);
     rafRefs.current = { first: null, second: null };
   };
 
@@ -82,39 +79,125 @@ export default function MeetingPage() {
     });
   };
 
-  const getScreenSharePublications = (participant) =>
-    Array.from(participant?.screenShareTrackPublications?.values?.() || []);
+  const isCameraSource = (source) => {
+    return source === Track.Source.Camera || source === "camera";
+  };
 
-  const getVideoPublications = (participant) =>
-    Array.from(participant?.videoTrackPublications?.values?.() || []);
-
-  const getAudioPublications = (participant) =>
-    Array.from(participant?.audioTrackPublications?.values?.() || []);
-
-  const hasEnabledScreenShareTrack = (participant) =>
-    getScreenSharePublications(participant).some((pub) => pub.track && !pub.isMuted);
-
-  const hasEnabledVideoTrack = (participant) =>
-    getVideoPublications(participant).some((pub) => pub.track && !pub.isMuted);
-
-  const hasEnabledAudioTrack = (participant) =>
-    getAudioPublications(participant).some((pub) => pub.track && !pub.isMuted);
-
-  const getPreferredVideoPublication = (participant) => {
-    const pubs = getVideoPublications(participant);
-
+  const isScreenShareSource = (source) => {
     return (
-      pubs.find((pub) => pub.track && !pub.isMuted && pub.source === "camera") ||
-      pubs.find((pub) => pub.track && !pub.isMuted) ||
-      null
+      source === Track.Source.ScreenShare ||
+      source === "screen_share" ||
+      source === "screenshare"
     );
   };
 
-  const attachTrackToElement = (track, participantId) => {
+  const getCameraPublications = (participant) => {
+    return Array.from(participant?.videoTrackPublications?.values?.() || []).filter(
+      (pub) => isCameraSource(pub.source)
+    );
+  };
+
+  const getScreenSharePublications = (participant) => {
+    return Array.from(participant?.videoTrackPublications?.values?.() || []).filter(
+      (pub) => isScreenShareSource(pub.source)
+    );
+  };
+
+  const getAudioPublications = (participant) => {
+    return Array.from(participant?.audioTrackPublications?.values?.() || []);
+  };
+
+  const hasEnabledCameraTrack = (participant) => {
+    return getCameraPublications(participant).some(
+      (pub) => pub.track && !pub.isMuted
+    );
+  };
+
+  const hasEnabledAudioTrack = (participant) => {
+    return getAudioPublications(participant).some(
+      (pub) => pub.track && !pub.isMuted
+    );
+  };
+
+  const hasEnabledScreenShareTrack = (participant) => {
+    return getScreenSharePublications(participant).some(
+      (pub) => pub.track && !pub.isMuted
+    );
+  };
+
+  const getParticipantDisplayName = (participant, isLocal = false) => {
+    if (isLocal) return `${participant?.name || "You"} (You)`;
+    return participant?.name || "User";
+  };
+
+  const getPreferredParticipantVideoPublication = (participant) => {
+    return (
+      getCameraPublications(participant).find(
+        (pub) => pub.track && !pub.isMuted
+      ) || null
+    );
+  };
+
+  const getActiveScreenShare = (liveRoom) => {
+    if (!liveRoom) return null;
+
+    const allParticipants = [
+      liveRoom.localParticipant,
+      ...Array.from(liveRoom.remoteParticipants.values()),
+    ];
+
+    for (const participant of allParticipants) {
+      const activePub = getScreenSharePublications(participant).find(
+        (pub) => pub.track && !pub.isMuted
+      );
+
+      if (activePub) {
+        return {
+          publication: activePub,
+          participant,
+          isLocal: participant.identity === liveRoom.localParticipant.identity,
+        };
+      }
+    }
+
+    return null;
+  };
+
+  const removeScreenShareElement = () => {
+    const container = screenShareContainerRef.current;
+    if (!container) return;
+
+    container.querySelectorAll("video").forEach((video) => {
+      try {
+        video.srcObject = null;
+      } catch { }
+      video.remove();
+    });
+  };
+
+  const attachScreenShareTrackToArea = (track) => {
+    const container = screenShareContainerRef.current;
+    if (!container || track.kind !== "video") return;
+
+    container.querySelectorAll("video").forEach((el) => {
+      try {
+        el.srcObject = null;
+      } catch { }
+      el.remove();
+    });
+
+    const element = track.attach();
+    element.autoplay = true;
+    element.playsInline = true;
+    element.className = "absolute inset-0 w-full h-full object-contain bg-black";
+
+    container.appendChild(element);
+  };
+
+  const attachVideoTrackToElement = (track, participantId) => {
     const container = videoRefs.current[participantId];
     if (!container || track.kind !== "video") return;
 
-    // remove old video in that card
     container.querySelectorAll("video").forEach((el) => {
       try {
         el.srcObject = null;
@@ -128,7 +211,6 @@ export default function MeetingPage() {
     element.playsInline = true;
     element.muted =
       participantId === roomRef.current?.localParticipant?.identity;
-
     element.className =
       "absolute inset-0 w-full h-full object-cover rounded-[2.5rem]";
 
@@ -176,12 +258,25 @@ export default function MeetingPage() {
 
   const detachTrack = (track) => {
     if (!track) return;
+
     track.detach().forEach((el) => {
       try {
         el.srcObject = null;
       } catch { }
       el.remove();
     });
+  };
+
+  const cleanupMediaElements = () => {
+    Object.keys(videoRefs.current).forEach((participantId) => {
+      removeVideoElement(participantId);
+    });
+
+    Object.keys(audioRefs.current).forEach((participantId) => {
+      removeAudioElement(participantId);
+    });
+
+    removeScreenShareElement();
   };
 
   const buildParticipantsList = (liveRoom) => {
@@ -205,7 +300,7 @@ export default function MeetingPage() {
       color: colorPool[0],
       isSpeaking: localParticipant.isSpeaking || false,
       isLocal: true,
-      hasVideo: hasEnabledVideoTrack(localParticipant),
+      hasVideo: hasEnabledCameraTrack(localParticipant),
     };
 
     const remoteUsers = Array.from(liveRoom.remoteParticipants.values()).map(
@@ -216,7 +311,7 @@ export default function MeetingPage() {
         color: colorPool[(index + 1) % colorPool.length],
         isSpeaking: participant.isSpeaking || false,
         isLocal: false,
-        hasVideo: hasEnabledVideoTrack(participant),
+        hasVideo: hasEnabledCameraTrack(participant),
       })
     );
 
@@ -227,10 +322,20 @@ export default function MeetingPage() {
     if (!liveRoom || !mountedRef.current) return;
 
     const updatedUsers = buildParticipantsList(liveRoom);
+    const activeScreenShare = getActiveScreenShare(liveRoom);
 
     setUsers(updatedUsers);
-    setCameraOff(!hasEnabledVideoTrack(liveRoom.localParticipant));
+    setCameraOff(!hasEnabledCameraTrack(liveRoom.localParticipant));
     setMuted(!hasEnabledAudioTrack(liveRoom.localParticipant));
+    setScreenShareOff(!activeScreenShare);
+    setScreenShareOwner(
+      activeScreenShare
+        ? getParticipantDisplayName(
+          activeScreenShare.participant,
+          activeScreenShare.isLocal
+        )
+        : ""
+    );
 
     runAfterRender(() => {
       if (!mountedRef.current || !liveRoom) return;
@@ -243,32 +348,31 @@ export default function MeetingPage() {
       const activeIds = new Set(allParticipants.map((p) => p.identity));
 
       allParticipants.forEach((participant) => {
-        const preferredVideoPub = getPreferredVideoPublication(participant);
+        const preferredVideoPub =
+          getPreferredParticipantVideoPublication(participant);
 
         if (!preferredVideoPub?.track) {
           removeVideoElement(participant.identity);
           return;
         }
 
-        attachTrackToElement(preferredVideoPub.track, participant.identity);
+        attachVideoTrackToElement(
+          preferredVideoPub.track,
+          participant.identity
+        );
       });
 
-      // cleanup stale video refs for participants who left
       Object.keys(videoRefs.current).forEach((participantId) => {
         if (!activeIds.has(participantId)) {
           removeVideoElement(participantId);
         }
       });
-    });
-  };
 
-  const cleanupMediaElements = () => {
-    Object.keys(videoRefs.current).forEach((participantId) => {
-      removeVideoElement(participantId);
-    });
-
-    Object.keys(audioRefs.current).forEach((participantId) => {
-      removeAudioElement(participantId);
+      if (activeScreenShare?.publication?.track) {
+        attachScreenShareTrackToArea(activeScreenShare.publication.track);
+      } else {
+        removeScreenShareElement();
+      }
     });
   };
 
@@ -303,10 +407,14 @@ export default function MeetingPage() {
 
         activeRoom = newRoom;
         roomRef.current = newRoom;
-        setRoom(newRoom);
 
         const handleTrackSubscribed = (track, publication, participant) => {
-          console.log("trackSubscribed:", participant.identity, track.kind);
+          console.log(
+            "trackSubscribed:",
+            participant.identity,
+            track.kind,
+            publication?.source
+          );
 
           if (track.kind === "audio") {
             attachAudioTrack(track, participant.identity);
@@ -316,14 +424,25 @@ export default function MeetingPage() {
         };
 
         const handleTrackUnsubscribed = (track, publication, participant) => {
-          console.log("trackUnsubscribed:", participant.identity, track.kind);
+          console.log(
+            "trackUnsubscribed:",
+            participant.identity,
+            track.kind,
+            publication?.source
+          );
 
           if (track.kind === "audio") {
             removeAudioElement(participant.identity);
           }
 
           if (track.kind === "video") {
-            removeVideoElement(participant.identity);
+            if (isCameraSource(publication?.source || track?.source)) {
+              removeVideoElement(participant.identity);
+            }
+
+            if (isScreenShareSource(publication?.source || track?.source)) {
+              removeScreenShareElement();
+            }
           }
 
           detachTrack(track);
@@ -346,7 +465,8 @@ export default function MeetingPage() {
           console.log(
             "trackPublished:",
             participant.identity,
-            publication.kind
+            publication.kind,
+            publication.source
           );
           syncParticipants(newRoom);
         };
@@ -355,28 +475,51 @@ export default function MeetingPage() {
           console.log(
             "trackUnpublished:",
             participant.identity,
-            publication.kind
+            publication.kind,
+            publication.source
           );
 
-          if (publication.kind === "video") {
-            removeVideoElement(participant.identity);
+          if (publication.kind === Track.Kind.Video) {
+            if (isCameraSource(publication.source)) {
+              removeVideoElement(participant.identity);
+            }
+
+            if (isScreenShareSource(publication.source)) {
+              removeScreenShareElement();
+            }
           }
 
           syncParticipants(newRoom);
         };
 
         const handleTrackMuted = (publication, participant) => {
-          console.log("trackMuted:", participant.identity, publication.kind);
+          console.log(
+            "trackMuted:",
+            participant.identity,
+            publication.kind,
+            publication.source
+          );
 
-          if (publication.kind === "video") {
-            removeVideoElement(participant.identity);
+          if (publication.kind === Track.Kind.Video) {
+            if (isCameraSource(publication.source)) {
+              removeVideoElement(participant.identity);
+            }
+
+            if (isScreenShareSource(publication.source)) {
+              removeScreenShareElement();
+            }
           }
 
           syncParticipants(newRoom);
         };
 
         const handleTrackUnmuted = (publication, participant) => {
-          console.log("trackUnmuted:", participant.identity, publication.kind);
+          console.log(
+            "trackUnmuted:",
+            participant.identity,
+            publication.kind,
+            publication.source
+          );
           syncParticipants(newRoom);
         };
 
@@ -385,15 +528,29 @@ export default function MeetingPage() {
         };
 
         const handleLocalTrackPublished = (publication) => {
-          console.log("localTrackPublished:", publication.kind);
+          console.log(
+            "localTrackPublished:",
+            publication.kind,
+            publication.source
+          );
           syncParticipants(newRoom);
         };
 
         const handleLocalTrackUnpublished = (publication) => {
-          console.log("localTrackUnpublished:", publication.kind);
+          console.log(
+            "localTrackUnpublished:",
+            publication.kind,
+            publication.source
+          );
 
-          if (publication.kind === "video") {
-            removeVideoElement(newRoom.localParticipant.identity);
+          if (publication.kind === Track.Kind.Video) {
+            if (isCameraSource(publication.source)) {
+              removeVideoElement(newRoom.localParticipant.identity);
+            }
+
+            if (isScreenShareSource(publication.source)) {
+              removeScreenShareElement();
+            }
           }
 
           syncParticipants(newRoom);
@@ -411,9 +568,11 @@ export default function MeetingPage() {
         newRoom.on("localTrackPublished", handleLocalTrackPublished);
         newRoom.on("localTrackUnpublished", handleLocalTrackUnpublished);
 
-        await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
+        await newRoom.connect(
+          "wss://meetverse-tn25w775.livekit.cloud",
+          token
+        );
 
-        // default states when entering
         await newRoom.localParticipant.setMicrophoneEnabled(!muted);
         await newRoom.localParticipant.setCameraEnabled(!cameraOff);
 
@@ -442,7 +601,6 @@ export default function MeetingPage() {
 
       cleanupMediaElements();
       roomRef.current = null;
-      setRoom(null);
     };
   }, [meetingId]);
 
@@ -522,12 +680,11 @@ export default function MeetingPage() {
 
       await liveRoom.localParticipant.setScreenShareEnabled(shouldEnable);
 
-      // optimistic UI update, real sync follows from room events
       setScreenShareOff(!shouldEnable);
 
-      console.log("📷 ScreenShare state:", shouldEnable);
+      console.log("🖥️ Screen share state:", shouldEnable);
     } catch (err) {
-      console.error("❌ Failed to toggle ScreenShare:", err);
+      console.error("❌ Failed to toggle screen share:", err);
     } finally {
       isTogglingScreenShareRef.current = false;
     }
@@ -540,14 +697,12 @@ export default function MeetingPage() {
     isTogglingCameraRef.current = true;
 
     try {
-      const shouldEnable = !hasEnabledVideoTrack(liveRoom.localParticipant);
+      const shouldEnable = !hasEnabledCameraTrack(liveRoom.localParticipant);
 
       await liveRoom.localParticipant.setCameraEnabled(shouldEnable);
-
-      // optimistic UI update, real sync follows from room events
       setCameraOff(!shouldEnable);
 
-      console.log("📷 camera state:", shouldEnable);
+      console.log("📷 Camera state:", shouldEnable);
     } catch (err) {
       console.error("❌ Failed to toggle camera:", err);
     } finally {
@@ -565,10 +720,9 @@ export default function MeetingPage() {
       const shouldEnable = !hasEnabledAudioTrack(liveRoom.localParticipant);
 
       await liveRoom.localParticipant.setMicrophoneEnabled(shouldEnable);
-
       setMuted(!shouldEnable);
 
-      console.log("🎤 mic state:", shouldEnable);
+      console.log("🎤 Mic state:", shouldEnable);
     } catch (err) {
       console.error("❌ Failed to toggle microphone:", err);
     } finally {
@@ -615,25 +769,19 @@ export default function MeetingPage() {
 
           {/* Video / Screen Share Layout */}
           <div className="flex-1 p-2 min-h-0 overflow-hidden">
-            {isScreenShared ? (
+            {!screenShareOff ? (
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 w-full h-full">
                 {/* Screen share area */}
                 <div className="relative rounded-[2.5rem] border-2 border-white dark:border-[#2A2E3B] bg-black overflow-hidden shadow-xl min-h-[300px]">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center px-6">
-                      <MonitorUp size={42} className="mx-auto mb-4 text-blue-500" />
-                      <h2 className="text-white text-lg md:text-xl font-black uppercase tracking-wide">
-                        Screen Sharing Area
-                      </h2>
-                      <p className="text-white/60 text-sm mt-2">
-                        Reserved because <code>isScreenShared = true</code>
-                      </p>
-                    </div>
-                  </div>
+                  <div
+                    ref={screenShareContainerRef}
+                    className="absolute inset-0 w-full h-full"
+                  />
 
                   <div className="absolute top-5 left-5 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/10 z-20">
                     <span className="text-[10px] font-black text-white uppercase tracking-wider">
                       Presenting Screen
+                      {screenShareOwner ? ` • ${screenShareOwner}` : ""}
                     </span>
                   </div>
                 </div>
@@ -645,9 +793,12 @@ export default function MeetingPage() {
                       key={user.id}
                       layout
                       className={`relative rounded-[2rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden min-h-[180px] ${user.isSpeaking
-                        ? "border-blue-500 ring-4 ring-blue-500/10"
-                        : "border-white dark:border-[#2A2E3B]"
-                        } ${user.hasVideo ? "bg-black" : "bg-white dark:bg-[#181B26]"}`}
+                          ? "border-blue-500 ring-4 ring-blue-500/10"
+                          : "border-white dark:border-[#2A2E3B]"
+                        } ${user.hasVideo
+                          ? "bg-black"
+                          : "bg-white dark:bg-[#181B26]"
+                        }`}
                     >
                       <div
                         ref={(el) => {
@@ -676,8 +827,8 @@ export default function MeetingPage() {
                       <div className="absolute bottom-4 left-4 bg-black/40 backdrop-blur-xl px-3 py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-2xl z-20">
                         <div
                           className={`w-2 h-2 rounded-full ${user.isSpeaking
-                            ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
-                            : "bg-slate-400"
+                              ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                              : "bg-slate-400"
                             }`}
                         />
                         <span className="text-[10px] font-black text-white uppercase tracking-wider">
@@ -716,9 +867,12 @@ export default function MeetingPage() {
                       key={user.id}
                       layout
                       className={`relative rounded-[2.5rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden ${user.isSpeaking
-                        ? "border-blue-500 ring-4 ring-blue-500/10"
-                        : "border-white dark:border-[#2A2E3B]"
-                        } ${user.hasVideo ? "bg-black" : "bg-white dark:bg-[#181B26]"}`}
+                          ? "border-blue-500 ring-4 ring-blue-500/10"
+                          : "border-white dark:border-[#2A2E3B]"
+                        } ${user.hasVideo
+                          ? "bg-black"
+                          : "bg-white dark:bg-[#181B26]"
+                        }`}
                     >
                       <div
                         ref={(el) => {
@@ -747,8 +901,8 @@ export default function MeetingPage() {
                       <div className="absolute bottom-6 left-6 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl flex items-center gap-3 border border-white/10 shadow-2xl z-20">
                         <div
                           className={`w-2 h-2 rounded-full ${user.isSpeaking
-                            ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
-                            : "bg-slate-400"
+                              ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                              : "bg-slate-400"
                             }`}
                         />
                         <span className="text-[10px] font-black text-white uppercase tracking-wider">
@@ -788,8 +942,8 @@ export default function MeetingPage() {
               <button
                 onClick={toggleMic}
                 className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${muted
-                  ? "bg-red-500 text-white shadow-red-500/20"
-                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                    ? "bg-red-500 text-white shadow-red-500/20"
+                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
                   }`}
               >
                 {muted ? <MicOff size={22} /> : <Mic size={22} />}
@@ -798,8 +952,8 @@ export default function MeetingPage() {
               <button
                 onClick={toggleCamera}
                 className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${cameraOff
-                  ? "bg-red-500 text-white shadow-red-500/20"
-                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                    ? "bg-red-500 text-white shadow-red-500/20"
+                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
                   }`}
               >
                 {cameraOff ? <VideoOff size={22} /> : <Video size={22} />}
@@ -807,7 +961,10 @@ export default function MeetingPage() {
 
               <button
                 onClick={toggleScreenShare}
-                className="hidden sm:flex p-4 rounded-2xl bg-slate-100 dark:bg-[#2A2E3B] hover:bg-blue-600 hover:text-white transition-all shadow-md"
+                className={`hidden sm:flex p-4 rounded-2xl transition-all shadow-md active:scale-90 ${screenShareOff
+                    ? "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-blue-600 hover:text-white"
+                    : "bg-blue-600 text-white shadow-blue-600/30"
+                  }`}
               >
                 <MonitorUp size={22} />
               </button>
@@ -819,8 +976,8 @@ export default function MeetingPage() {
               <button
                 onClick={() => setIsCaptionsOn((prev) => !prev)}
                 className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${isCaptionsOn
-                  ? "bg-blue-600 text-white shadow-blue-600/30"
-                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                    ? "bg-blue-600 text-white shadow-blue-600/30"
+                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
                   }`}
                 title="Captions"
               >
@@ -832,8 +989,8 @@ export default function MeetingPage() {
               <button
                 onClick={() => setIsChatOpen((prev) => !prev)}
                 className={`p-4 rounded-2xl transition-all shadow-md flex items-center gap-2 ${isChatOpen
-                  ? "bg-blue-600 text-white shadow-blue-600/30"
-                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                    ? "bg-blue-600 text-white shadow-blue-600/30"
+                    : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
                   }`}
               >
                 <MessageSquare size={22} />
