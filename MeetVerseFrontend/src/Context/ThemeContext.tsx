@@ -1,9 +1,12 @@
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState, useEffect, ReactNode } from "react";
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const ThemeContext = createContext();
+export const ThemeContext = createContext({
+  theme: "light",
+  toggleTheme: () => { },
+});
 
-export function ThemeContextProvider({ children }) {
+export function ThemeContextProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
 
   useEffect(() => {

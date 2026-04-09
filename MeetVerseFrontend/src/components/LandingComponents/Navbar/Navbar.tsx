@@ -20,7 +20,7 @@ export default function Navbar() {
   const inactiveClasses =
     "text-gray-600 dark:text-[#A8B0C2] hover:text-blue-600 dark:hover:text-blue-400";
 
-  const isActiveSection = (hash) => location.hash === hash;
+  const isActiveSection = (hash: string) => location.hash === hash;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-[#0D0F16]/80 backdrop-blur-md border-b border-gray-200 dark:border-[#2A2E3B] transition-colors duration-300">
@@ -41,8 +41,8 @@ export default function Navbar() {
                 <a
                   href="#features"
                   className={`${linkClasses} ${isActiveSection("#features")
-                      ? activeClasses
-                      : inactiveClasses
+                    ? activeClasses
+                    : inactiveClasses
                     }`}
                 >
                   Features
@@ -50,8 +50,8 @@ export default function Navbar() {
                 <a
                   href="#how-it-works"
                   className={`${linkClasses} ${isActiveSection("#how-it-works")
-                      ? activeClasses
-                      : inactiveClasses
+                    ? activeClasses
+                    : inactiveClasses
                     }`}
                 >
                   How It Works
@@ -59,8 +59,8 @@ export default function Navbar() {
                 <a
                   href="#Overview"
                   className={`${linkClasses} ${isActiveSection("#Overview")
-                      ? activeClasses
-                      : inactiveClasses
+                    ? activeClasses
+                    : inactiveClasses
                     }`}
                 >
                   Overview
@@ -68,8 +68,8 @@ export default function Navbar() {
                 <a
                   href="#our-audience"
                   className={`${linkClasses} ${isActiveSection("#our-audience")
-                      ? activeClasses
-                      : inactiveClasses
+                    ? activeClasses
+                    : inactiveClasses
                     }`}
                 >
                   Our Audience
@@ -137,8 +137,8 @@ export default function Navbar() {
               ) : (
                 <button
                   onClick={() => {
-                      localStorage.removeItem("token");
-                      localStorage.removeItem("username");
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("username");
                     window.location.href = "/";
                   }}
                   className="text-red-500 font-bold text-sm"
@@ -174,8 +174,8 @@ export default function Navbar() {
                     href={hash}
                     onClick={closeMobile}
                     className={`text-lg font-semibold ${isActiveSection(hash)
-                        ? "text-blue-600"
-                        : "text-gray-800 dark:text-[#F1F5F9]"
+                      ? "text-blue-600"
+                      : "text-gray-800 dark:text-[#F1F5F9]"
                       }`}
                   >
                     {hash.replace("#", "").toUpperCase()}
