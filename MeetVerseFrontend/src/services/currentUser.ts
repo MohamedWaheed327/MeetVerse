@@ -1,13 +1,13 @@
 import api from "./api";
 
 // Get current user profile
-export const getCurrentUser = async (data) => {
+export const getCurrentUser = async () => {
     try {
         const response = await api.get("/profile/me", {});
         return response.data;
-    } catch (error) {
-        if (error.response) {
-            throw error.response.data;
+    } catch (error: unknown) {
+        if (error instanceof Error) {
+            throw error.message;
         } else {
             throw { message: "Network error" };
         }

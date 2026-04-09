@@ -4,7 +4,7 @@ const host = import.meta.env.DEV ? import.meta.env.VITE_BACKEND_DEV : import.met
 
 const connection = new signalR.HubConnectionBuilder()
     .withUrl(host + "/hubs/meetingchat", {
-        accessTokenFactory: () => localStorage.getItem("token"),
+        accessTokenFactory: () => localStorage.getItem("token") || "",
     })
     .withAutomaticReconnect()
     .configureLogging(signalR.LogLevel.Information)

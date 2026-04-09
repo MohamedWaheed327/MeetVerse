@@ -627,7 +627,7 @@ export default function MeetingPage() {
           await connection.start();
         }
 
-        await subscribeToMeeting(meetingId);
+        await subscribeToMeeting(meetingId ?? "");
 
         onMessageReceived((payload: Message) => {
           setMessages((prev) => [...prev, payload]);
@@ -644,7 +644,7 @@ export default function MeetingPage() {
     start();
 
     return () => {
-      unsubscribeFromMeeting(meetingId);
+      unsubscribeFromMeeting(meetingId ?? "");
       connection.off("MessageSent");
       connection.off("Error");
     };
@@ -654,7 +654,7 @@ export default function MeetingPage() {
     if (!newMessage.trim()) return;
 
     try {
-      await sendChatMessage(meetingId, newMessage.trim());
+      await sendChatMessage(meetingId ?? "", newMessage.trim());
       setNewMessage("");
     } catch (err) {
       console.error("Send failed:", err);

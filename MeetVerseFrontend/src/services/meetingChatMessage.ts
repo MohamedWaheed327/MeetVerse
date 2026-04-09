@@ -1,6 +1,6 @@
 import api from "./api";
 
-export const GetMeetingChat = async (data) => {
+export const GetMeetingChat = async (data: { meetingId: string }) => {
     try {
         const response = await api.get("/meetings/chat", {
             params: {
@@ -9,9 +9,9 @@ export const GetMeetingChat = async (data) => {
         });
 
         return response.data;
-    } catch (error) {
-        if (error.response) {
-            throw error.response.data;
+    } catch (error: unknown) {
+        if (error instanceof Error) {
+            throw error.message;
         } else {
             throw { message: "Network error" };
         }
