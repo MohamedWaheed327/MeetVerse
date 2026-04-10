@@ -10,6 +10,7 @@ import { sendChatMessage } from "../../../services/hubs/sendMeetingMessage";
 import connection from "../../../services/hubs/connections";
 import { subscribeToMeeting, unsubscribeFromMeeting, onMessageReceived, onError, } from "../../../services/hubs/meetingChat";
 import { GetMeetingChat } from "../../../services/meetingChatMessage";
+import { getLivekitToken } from "./getLivekitToken";
 
 type Message = {
   id: string;
@@ -377,26 +378,9 @@ export default function MeetingPage() {
 
     const joinRoom = async () => {
       try {
-        const currentUser = await getCurrentUser();
+        const token = await getLivekitToken(meetingId ?? "", state?.displayName);
         if (cancelled) return;
-
-        const response = await api.get("/livekit/token", {
-          params: {
-            username: `user_${currentUser.id}`,
-            room: meetingId,
-            displayName: state?.displayName ?? currentUser.name,
-            avatar: currentUser.avatarUrl,
-          },
-        });
-
-        if (cancelled) return;
-
-        const token = response.data.token;
-
-        const newRoom = new Room({
-          adaptiveStream: true,
-          dynacast: true,
-        });
+        const newRoom = new Room({ adaptiveStream: true, dynacast: true, });
 
         activeRoom = newRoom;
         roomRef.current = newRoom;
