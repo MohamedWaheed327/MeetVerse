@@ -1039,7 +1039,7 @@ export default function MeetingPage() {
                       className="space-y-2"
                     >
                       <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
-                        {msg.senderName}
+                        {state.displayName ?? msg.senderName}
                       </span>
 
                       <div className="bg-slate-100 dark:bg-[#0D0F16] p-4 rounded-[1.8rem] text-[13px] shadow-sm inline-block">
