@@ -1,15 +1,5 @@
 import { Participant, Room, Track } from "livekit-client";
-
-const isCameraSource = (source: Track.Source) => {
-    return source === Track.Source.Camera;
-};
-
-const getCameraPublications = (participant: Participant) => {
-    return Array.from(participant?.videoTrackPublications?.values?.() || []).filter(
-        (pub) => isCameraSource(pub.source)
-    );
-};
-
+import { getCameraPublications } from "./getParticipantPublications";
 
 const hasEnabledCameraTrack = (participant: Participant) => {
     return getCameraPublications(participant).some(

@@ -3,15 +3,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, MessageSquare, Waves, X, Send, ShieldCheck, Type, } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import api from "../../../services/api";
 import { Participant, Room, RoomEvent, Track, TrackPublication } from "livekit-client";
-import { getCurrentUser } from "../../../services/currentUser";
 import { sendChatMessage } from "../../../services/hubs/sendMeetingMessage";
 import connection from "../../../services/hubs/connections";
 import { subscribeToMeeting, unsubscribeFromMeeting, onMessageReceived, onError, } from "../../../services/hubs/meetingChat";
 import { GetMeetingChat } from "../../../services/meetingChatMessage";
 import { getLivekitToken } from "./getLivekitToken";
 import { buildParticipantsList } from "./buildParticipantsList";
+import { isCameraSource, isScreenShareSource } from "./isSource";
+import { getAudioPublications, getCameraPublications, getScreenSharePublications } from "./getParticipantPublications";
 
 type Message = {
   id: string;
@@ -58,9 +58,7 @@ export default function MeetingPage() {
 
   const rafRefs = useRef<{ first: number | null; second: number | null }>({ first: null, second: null });
 
-  const scrollToBottom = () => {
-    scrollRef.current?.scrollIntoView({ behavior: "auto" });
-  };
+  const scrollToBottom = () => scrollRef.current?.scrollIntoView({ behavior: "auto" });
 
   const clearScheduledRenderSync = () => {
     if (rafRefs.current.first) cancelAnimationFrame(rafRefs.current.first);
@@ -77,30 +75,6 @@ export default function MeetingPage() {
         rafRefs.current = { first: null, second: null };
       });
     });
-  };
-
-  const isCameraSource = (source: Track.Source) => {
-    return source === Track.Source.Camera;
-  };
-
-  const isScreenShareSource = (source: Track.Source) => {
-    return source === Track.Source.ScreenShare;
-  };
-
-  const getCameraPublications = (participant: Participant) => {
-    return Array.from(participant?.videoTrackPublications?.values?.() || []).filter(
-      (pub) => isCameraSource(pub.source)
-    );
-  };
-
-  const getScreenSharePublications = (participant: Participant) => {
-    return Array.from(participant?.videoTrackPublications?.values?.() || []).filter(
-      (pub) => isScreenShareSource(pub.source)
-    );
-  };
-
-  const getAudioPublications = (participant: Participant) => {
-    return Array.from(participant?.audioTrackPublications?.values?.() || []);
   };
 
   const hasEnabledCameraTrack = (participant: Participant) => {
