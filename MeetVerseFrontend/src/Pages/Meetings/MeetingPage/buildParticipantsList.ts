@@ -1,11 +1,5 @@
-import { Participant, Room, Track } from "livekit-client";
-import { getCameraPublications } from "./getParticipantPublications";
-
-const hasEnabledCameraTrack = (participant: Participant) => {
-    return getCameraPublications(participant).some(
-        (pub) => pub.track && !pub.isMuted
-    );
-};
+import { Room } from "livekit-client";
+import { hasEnabledCameraTrack } from "./hasEnabledTrack";
 
 export const buildParticipantsList = (liveRoom: Room) => {
     if (!liveRoom) return [];

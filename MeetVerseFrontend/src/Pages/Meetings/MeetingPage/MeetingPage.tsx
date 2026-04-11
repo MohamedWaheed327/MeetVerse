@@ -11,8 +11,9 @@ import { GetMeetingChat } from "../../../services/meetingChatMessage";
 import { getLivekitToken } from "./getLivekitToken";
 import { buildParticipantsList } from "./buildParticipantsList";
 import { isCameraSource, isScreenShareSource } from "./isSource";
-import { getAudioPublications, getCameraPublications, getScreenSharePublications } from "./getParticipantPublications";
+import { getCameraPublications, getScreenSharePublications } from "./getParticipantPublications";
 import { hasEnabledAudioTrack, hasEnabledCameraTrack, hasEnabledScreenShareTrack } from "./hasEnabledTrack";
+import { getParticipantDisplayName } from "./getParticipantDisplayName";
 
 type Message = {
   id: string;
@@ -59,8 +60,6 @@ export default function MeetingPage() {
 
   const rafRefs = useRef<{ first: number | null; second: number | null }>({ first: null, second: null });
 
-  const scrollToBottom = () => scrollRef.current?.scrollIntoView({ behavior: "auto" });
-
   const clearScheduledRenderSync = () => {
     if (rafRefs.current.first) cancelAnimationFrame(rafRefs.current.first);
     if (rafRefs.current.second) cancelAnimationFrame(rafRefs.current.second);
@@ -76,11 +75,6 @@ export default function MeetingPage() {
         rafRefs.current = { first: null, second: null };
       });
     });
-  };
-
-  const getParticipantDisplayName = (participant: Participant, isLocal = false) => {
-    if (isLocal) return `${participant?.name || "You"} (You)`;
-    return participant?.name || "User";
   };
 
   const getPreferredParticipantVideoPublication = (participant: Participant) => {
@@ -517,7 +511,7 @@ export default function MeetingPage() {
 
   useEffect(() => {
     if (isChatOpen) {
-      scrollToBottom();
+      scrollRef.current?.scrollIntoView({ behavior: "auto" });
     }
   }, [messages, isChatOpen]);
 
