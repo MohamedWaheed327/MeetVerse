@@ -12,6 +12,7 @@ import { getLivekitToken } from "./getLivekitToken";
 import { buildParticipantsList } from "./buildParticipantsList";
 import { isCameraSource, isScreenShareSource } from "./isSource";
 import { getAudioPublications, getCameraPublications, getScreenSharePublications } from "./getParticipantPublications";
+import { hasEnabledAudioTrack, hasEnabledCameraTrack, hasEnabledScreenShareTrack } from "./hasEnabledTrack";
 
 type Message = {
   id: string;
@@ -75,24 +76,6 @@ export default function MeetingPage() {
         rafRefs.current = { first: null, second: null };
       });
     });
-  };
-
-  const hasEnabledCameraTrack = (participant: Participant) => {
-    return getCameraPublications(participant).some(
-      (pub) => pub.track && !pub.isMuted
-    );
-  };
-
-  const hasEnabledAudioTrack = (participant: Participant) => {
-    return getAudioPublications(participant).some(
-      (pub) => pub.track && !pub.isMuted
-    );
-  };
-
-  const hasEnabledScreenShareTrack = (participant: Participant) => {
-    return getScreenSharePublications(participant).some(
-      (pub) => pub.track && !pub.isMuted
-    );
   };
 
   const getParticipantDisplayName = (participant: Participant, isLocal = false) => {
