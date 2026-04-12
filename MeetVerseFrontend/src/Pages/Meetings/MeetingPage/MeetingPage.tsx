@@ -12,7 +12,6 @@ import { getLivekitToken } from "./getLivekitToken";
 import { buildParticipantsList } from "./buildParticipantsList";
 import { isCameraSource, isScreenShareSource } from "./isSource";
 import { getCameraPublications, getScreenSharePublications } from "./getParticipantPublications";
-import { hasEnabledAudioTrack, hasEnabledCameraTrack, hasEnabledScreenShareTrack } from "./hasEnabledTrack";
 import { getParticipantDisplayName } from "./getParticipantDisplayName";
 
 type Message = {
@@ -110,18 +109,6 @@ export default function MeetingPage() {
     return null;
   };
 
-  const removeScreenShareElement = () => {
-    const container = screenShareContainerRef.current;
-    if (!container) return;
-
-    container.querySelectorAll("video").forEach((video) => {
-      try {
-        video.srcObject = null;
-      } catch { }
-      video.remove();
-    });
-  };
-
   const attachScreenShareTrackToArea = (track: Track) => {
     const container = screenShareContainerRef.current;
     if (!container || track.kind !== "video") return;
@@ -139,6 +126,18 @@ export default function MeetingPage() {
     element.className = "absolute inset-0 w-full h-full object-contain bg-black";
 
     container.appendChild(element);
+  };
+
+  const removeScreenShareElement = () => {
+    const container = screenShareContainerRef.current;
+    if (!container) return;
+
+    container.querySelectorAll("video").forEach((video) => {
+      try {
+        video.srcObject = null;
+      } catch { }
+      video.remove();
+    });
   };
 
   const attachVideoTrackToElement = (track: Track, participantId: string) => {
@@ -232,8 +231,8 @@ export default function MeetingPage() {
     const activeScreenShare = getActiveScreenShare(liveRoom);
 
     setUsers(updatedUsers);
-    setCameraOff(!hasEnabledCameraTrack(liveRoom.localParticipant));
-    setMuted(!hasEnabledAudioTrack(liveRoom.localParticipant));
+    setCameraOff(!liveRoom.localParticipant.isCameraEnabled);
+    setMuted(!liveRoom.localParticipant.isMicrophoneEnabled);
     setScreenShareOff(!activeScreenShare);
     setScreenShareOwner(
       activeScreenShare
@@ -563,7 +562,7 @@ export default function MeetingPage() {
     isTogglingScreenShareRef.current = true;
 
     try {
-      const shouldEnable = !hasEnabledScreenShareTrack(liveRoom.localParticipant);
+      const shouldEnable = !liveRoom.localParticipant.isScreenShareEnabled;
 
       await liveRoom.localParticipant.setScreenShareEnabled(shouldEnable);
 
@@ -584,8 +583,7 @@ export default function MeetingPage() {
     isTogglingCameraRef.current = true;
 
     try {
-      const shouldEnable = !hasEnabledCameraTrack(liveRoom.localParticipant);
-
+      const shouldEnable = !liveRoom.localParticipant.isCameraEnabled;
       await liveRoom.localParticipant.setCameraEnabled(shouldEnable);
       setCameraOff(!shouldEnable);
 
@@ -604,8 +602,7 @@ export default function MeetingPage() {
     isTogglingMicRef.current = true;
 
     try {
-      const shouldEnable = !hasEnabledAudioTrack(liveRoom.localParticipant);
-
+      const shouldEnable = !liveRoom.localParticipant.isMicrophoneEnabled;
       await liveRoom.localParticipant.setMicrophoneEnabled(shouldEnable);
       setMuted(!shouldEnable);
 

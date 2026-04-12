@@ -1,5 +1,4 @@
 import { Room } from "livekit-client";
-import { hasEnabledCameraTrack } from "./hasEnabledTrack";
 
 export const buildParticipantsList = (liveRoom: Room) => {
     if (!liveRoom) return [];
@@ -22,7 +21,7 @@ export const buildParticipantsList = (liveRoom: Room) => {
         color: colorPool[0],
         isSpeaking: localParticipant.isSpeaking || false,
         isLocal: true,
-        hasVideo: hasEnabledCameraTrack(localParticipant),
+        hasVideo: localParticipant.isCameraEnabled,
     };
 
     const remoteUsers = Array.from(liveRoom.remoteParticipants.values()).map(
@@ -33,7 +32,7 @@ export const buildParticipantsList = (liveRoom: Room) => {
             color: colorPool[(index + 1) % colorPool.length],
             isSpeaking: participant.isSpeaking || false,
             isLocal: false,
-            hasVideo: hasEnabledCameraTrack(participant),
+            hasVideo: participant.isCameraEnabled,
         })
     );
 
