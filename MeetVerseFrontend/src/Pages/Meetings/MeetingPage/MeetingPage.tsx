@@ -13,6 +13,7 @@ import { buildParticipantsList } from "./buildParticipantsList";
 import { isCameraSource, isScreenShareSource } from "./isSource";
 import { getCameraPublications, getScreenSharePublications } from "./getParticipantPublications";
 import { getParticipantDisplayName } from "./getParticipantDisplayName";
+import { getActiveScreenShare } from "./getActiveScreenShare";
 
 type Message = {
   id: string;
@@ -82,31 +83,6 @@ export default function MeetingPage() {
         (pub) => pub.track && !pub.isMuted
       ) || null
     );
-  };
-
-  const getActiveScreenShare = (liveRoom: Room) => {
-    if (!liveRoom) return null;
-
-    const allParticipants = [
-      liveRoom.localParticipant,
-      ...Array.from(liveRoom.remoteParticipants.values()),
-    ];
-
-    for (const participant of allParticipants) {
-      const activePub = getScreenSharePublications(participant).find(
-        (pub) => pub.track && !pub.isMuted
-      );
-
-      if (activePub) {
-        return {
-          publication: activePub,
-          participant,
-          isLocal: participant.identity === liveRoom.localParticipant.identity,
-        };
-      }
-    }
-
-    return null;
   };
 
   const attachScreenShareTrackToArea = (track: Track) => {
@@ -228,7 +204,7 @@ export default function MeetingPage() {
     if (!liveRoom || !mountedRef.current) return;
 
     const updatedUsers = buildParticipantsList(liveRoom);
-    const activeScreenShare = getActiveScreenShare(liveRoom);
+    const activeScreenShare = getActiveScreenShare(liveRoom, null);
 
     setUsers(updatedUsers);
     setCameraOff(!liveRoom.localParticipant.isCameraEnabled);
@@ -237,7 +213,7 @@ export default function MeetingPage() {
     setScreenShareOwner(
       activeScreenShare
         ? getParticipantDisplayName(
-          activeScreenShare.participant,
+          activeScreenShare.participant as Participant,
           activeScreenShare.isLocal
         )
         : ""
