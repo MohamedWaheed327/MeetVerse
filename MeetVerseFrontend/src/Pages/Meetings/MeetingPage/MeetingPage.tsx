@@ -14,6 +14,7 @@ import { isCameraSource, isScreenShareSource } from "./isSource";
 import { getParticipantDisplayName } from "./getParticipantDisplayName";
 import { getActiveScreenShare } from "./getActiveScreenShare";
 import { getPreferredParticipantVideoPublication } from "./getPreferredParticipantVideoPublication";
+import { attachAudioTrack, attachScreenShareTrackToArea, attachVideoTrackToElement, removeAudioElement, removeScreenShareElement, removeVideoElement } from "./attachAndRemoveTracksToAndFromElements";
 
 type Message = {
   id: string;
@@ -77,98 +78,6 @@ export default function MeetingPage() {
     });
   };
 
-  const attachScreenShareTrackToArea = (track: Track) => {
-    const container = screenShareContainerRef.current;
-    if (!container || track.kind !== "video") return;
-
-    container.querySelectorAll("video").forEach((el) => {
-      try {
-        el.srcObject = null;
-      } catch { }
-      el.remove();
-    });
-
-    const element = track.attach() as HTMLVideoElement;
-    element.autoplay = true;
-    element.playsInline = true;
-    element.className = "absolute inset-0 w-full h-full object-contain bg-black";
-
-    container.appendChild(element);
-  };
-
-  const removeScreenShareElement = () => {
-    const container = screenShareContainerRef.current;
-    if (!container) return;
-
-    container.querySelectorAll("video").forEach((video) => {
-      try {
-        video.srcObject = null;
-      } catch { }
-      video.remove();
-    });
-  };
-
-  const attachVideoTrackToElement = (track: Track, participantId: string) => {
-    const container = videoRefs.current[participantId];
-    if (!container || track.kind !== "video") return;
-
-    container.querySelectorAll("video").forEach((el) => {
-      try {
-        el.srcObject = null;
-      } catch { }
-      el.remove();
-    });
-
-    const element = track.attach() as HTMLVideoElement;
-    element.id = `video-player-${participantId}`;
-    element.autoplay = true;
-    element.playsInline = true;
-    element.muted =
-      participantId === roomRef.current?.localParticipant?.identity;
-    element.className =
-      "absolute inset-0 w-full h-full object-cover rounded-[2.5rem]";
-
-    container.appendChild(element);
-  };
-
-  const removeVideoElement = (participantId: string) => {
-    const container = videoRefs.current[participantId];
-    if (!container) return;
-
-    container.querySelectorAll("video").forEach((video) => {
-      try {
-        video.srcObject = null;
-      } catch { }
-      video.remove();
-    });
-  };
-
-  const attachAudioTrack = (track: Track, participantId: string) => {
-    if (track.kind !== "audio") return;
-
-    removeAudioElement(participantId);
-
-    const audioElement = track.attach() as HTMLAudioElement;
-    audioElement.autoplay = true;
-    audioElement.style.display = "none";
-    audioElement.setAttribute("data-participant-id", participantId);
-
-    document.body.appendChild(audioElement);
-    audioRefs.current[participantId] = audioElement;
-  };
-
-  const removeAudioElement = (participantId: string) => {
-    const audioElement = audioRefs.current[participantId];
-    if (!audioElement) return;
-
-    try {
-      audioElement.srcObject = null;
-    } catch { }
-
-    audioElement.remove();
-    delete audioRefs.current[participantId];
-  };
-
   const detachTrack = (track: Track) => {
     if (!track) return;
 
@@ -182,14 +91,14 @@ export default function MeetingPage() {
 
   const cleanupMediaElements = () => {
     Object.keys(videoRefs.current).forEach((participantId) => {
-      removeVideoElement(participantId);
+      removeVideoElement(participantId, videoRefs);
     });
 
     Object.keys(audioRefs.current).forEach((participantId) => {
-      removeAudioElement(participantId);
+      removeAudioElement(participantId, audioRefs);
     });
 
-    removeScreenShareElement();
+    removeScreenShareElement(screenShareContainerRef);
   };
 
   const syncParticipants = (liveRoom: Room) => {
@@ -202,14 +111,7 @@ export default function MeetingPage() {
     setCameraOff(!liveRoom.localParticipant.isCameraEnabled);
     setMuted(!liveRoom.localParticipant.isMicrophoneEnabled);
     setScreenShareOff(!activeScreenShare);
-    setScreenShareOwner(
-      activeScreenShare
-        ? getParticipantDisplayName(
-          activeScreenShare.participant as Participant,
-          activeScreenShare.isLocal
-        )
-        : ""
-    );
+    setScreenShareOwner(activeScreenShare ? getParticipantDisplayName(activeScreenShare.participant as Participant, activeScreenShare.isLocal) : "");
 
     runAfterRender(() => {
       if (!mountedRef.current || !liveRoom) return;
@@ -222,30 +124,26 @@ export default function MeetingPage() {
       const activeIds = new Set(allParticipants.map((p) => p.identity));
 
       allParticipants.forEach((participant) => {
-        const preferredVideoPub =
-          getPreferredParticipantVideoPublication(participant);
+        const preferredVideoPub = getPreferredParticipantVideoPublication(participant);
 
         if (!preferredVideoPub?.track) {
-          removeVideoElement(participant.identity);
+          removeVideoElement(participant.identity, videoRefs);
           return;
         }
 
-        attachVideoTrackToElement(
-          preferredVideoPub.track,
-          participant.identity
-        );
+        attachVideoTrackToElement(preferredVideoPub.track, participant.identity, videoRefs);
       });
 
       Object.keys(videoRefs.current).forEach((participantId) => {
         if (!activeIds.has(participantId)) {
-          removeVideoElement(participantId);
+          removeVideoElement(participantId, videoRefs);
         }
       });
 
       if (activeScreenShare?.publication?.track) {
-        attachScreenShareTrackToArea(activeScreenShare.publication.track);
+        attachScreenShareTrackToArea(activeScreenShare.publication.track, screenShareContainerRef);
       } else {
-        removeScreenShareElement();
+        removeScreenShareElement(screenShareContainerRef);
       }
     });
   };
@@ -266,39 +164,29 @@ export default function MeetingPage() {
         roomRef.current = newRoom;
 
         const handleTrackSubscribed = (track: Track, publication: TrackPublication, participant: Participant) => {
-          console.log(
-            "trackSubscribed:",
-            participant.identity,
-            track.kind,
-            publication?.source
-          );
+          console.log("trackSubscribed:", participant.identity, track.kind, publication?.source);
 
-          if (track.kind === "audio") {
-            attachAudioTrack(track, participant.identity);
+          if (track.kind === Track.Kind.Audio) {
+            attachAudioTrack(track, participant.identity, audioRefs);
           }
 
           syncParticipants(newRoom);
         };
 
         const handleTrackUnsubscribed = (track: Track, publication: TrackPublication, participant: Participant) => {
-          console.log(
-            "trackUnsubscribed:",
-            participant.identity,
-            track.kind,
-            publication?.source
-          );
+          console.log("trackUnsubscribed:", participant.identity, track.kind, publication?.source);
 
-          if (track.kind === "audio") {
-            removeAudioElement(participant.identity);
+          if (track.kind === Track.Kind.Audio) {
+            removeAudioElement(participant.identity, audioRefs);
           }
 
-          if (track.kind === "video") {
+          if (track.kind === Track.Kind.Video) {
             if (isCameraSource(publication?.source || track?.source)) {
-              removeVideoElement(participant.identity);
+              removeVideoElement(participant.identity, videoRefs);
             }
 
             if (isScreenShareSource(publication?.source || track?.source)) {
-              removeScreenShareElement();
+              removeScreenShareElement(screenShareContainerRef);
             }
           }
 
@@ -313,36 +201,26 @@ export default function MeetingPage() {
 
         const handleParticipantDisconnected = (participant: Participant) => {
           console.log("participantDisconnected:", participant.identity);
-          removeVideoElement(participant.identity);
-          removeAudioElement(participant.identity);
+          removeVideoElement(participant.identity, videoRefs);
+          removeAudioElement(participant.identity, audioRefs);
           syncParticipants(newRoom);
         };
 
         const handleTrackPublished = (publication: TrackPublication, participant: Participant) => {
-          console.log(
-            "trackPublished:",
-            participant.identity,
-            publication.kind,
-            publication.source
-          );
+          console.log("trackPublished:", participant.identity, publication.kind, publication.source);
           syncParticipants(newRoom);
         };
 
         const handleTrackUnpublished = (publication: TrackPublication, participant: Participant) => {
-          console.log(
-            "trackUnpublished:",
-            participant.identity,
-            publication.kind,
-            publication.source
-          );
+          console.log("trackUnpublished:", participant.identity, publication.kind, publication.source);
 
           if (publication.kind === Track.Kind.Video) {
             if (isCameraSource(publication.source)) {
-              removeVideoElement(participant.identity);
+              removeVideoElement(participant.identity, videoRefs);
             }
 
             if (isScreenShareSource(publication.source)) {
-              removeScreenShareElement();
+              removeScreenShareElement(screenShareContainerRef);
             }
           }
 
@@ -350,20 +228,15 @@ export default function MeetingPage() {
         };
 
         const handleTrackMuted = (publication: TrackPublication, participant: Participant) => {
-          console.log(
-            "trackMuted:",
-            participant.identity,
-            publication.kind,
-            publication.source
-          );
+          console.log("trackMuted:", participant.identity, publication.kind, publication.source);
 
           if (publication.kind === Track.Kind.Video) {
             if (isCameraSource(publication.source)) {
-              removeVideoElement(participant.identity);
+              removeVideoElement(participant.identity, videoRefs);
             }
 
             if (isScreenShareSource(publication.source)) {
-              removeScreenShareElement();
+              removeScreenShareElement(screenShareContainerRef);
             }
           }
 
@@ -371,12 +244,7 @@ export default function MeetingPage() {
         };
 
         const handleTrackUnmuted = (publication: TrackPublication, participant: Participant) => {
-          console.log(
-            "trackUnmuted:",
-            participant.identity,
-            publication.kind,
-            publication.source
-          );
+          console.log("trackUnmuted:", participant.identity, publication.kind, publication.source);
           syncParticipants(newRoom);
         };
 
@@ -385,28 +253,20 @@ export default function MeetingPage() {
         };
 
         const handleLocalTrackPublished = (publication: TrackPublication) => {
-          console.log(
-            "localTrackPublished:",
-            publication.kind,
-            publication.source
-          );
+          console.log("localTrackPublished:", publication.kind, publication.source);
           syncParticipants(newRoom);
         };
 
         const handleLocalTrackUnpublished = (publication: TrackPublication) => {
-          console.log(
-            "localTrackUnpublished:",
-            publication.kind,
-            publication.source
-          );
+          console.log("localTrackUnpublished:", publication.kind, publication.source);
 
           if (publication.kind === Track.Kind.Video) {
             if (isCameraSource(publication.source)) {
-              removeVideoElement(newRoom.localParticipant.identity);
+              removeVideoElement(newRoom.localParticipant.identity, videoRefs);
             }
 
             if (isScreenShareSource(publication.source)) {
-              removeScreenShareElement();
+              removeScreenShareElement(screenShareContainerRef);
             }
           }
 
@@ -562,7 +422,7 @@ export default function MeetingPage() {
       isTogglingCameraRef.current = false;
     }
   };
-
+ 
   const toggleMic = async () => {
     const liveRoom = roomRef.current;
     if (!liveRoom || isTogglingMicRef.current) return;
