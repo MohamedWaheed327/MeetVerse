@@ -11,9 +11,9 @@ import { GetMeetingChat } from "../../../services/meetingChatMessage";
 import { getLivekitToken } from "./getLivekitToken";
 import { buildParticipantsList } from "./buildParticipantsList";
 import { isCameraSource, isScreenShareSource } from "./isSource";
+import { getCameraPublications, getScreenSharePublications } from "./getParticipantPublications";
 import { getParticipantDisplayName } from "./getParticipantDisplayName";
 import { getActiveScreenShare } from "./getActiveScreenShare";
-import { getPreferredParticipantVideoPublication } from "./getPreferredParticipantVideoPublication";
 
 type Message = {
   id: string;
@@ -75,6 +75,14 @@ export default function MeetingPage() {
         rafRefs.current = { first: null, second: null };
       });
     });
+  };
+
+  const getPreferredParticipantVideoPublication = (participant: Participant) => {
+    return (
+      getCameraPublications(participant).find(
+        (pub) => pub.track && !pub.isMuted
+      ) || null
+    );
   };
 
   const attachScreenShareTrackToArea = (track: Track) => {
