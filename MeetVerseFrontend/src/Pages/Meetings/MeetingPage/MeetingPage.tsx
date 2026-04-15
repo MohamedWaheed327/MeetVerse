@@ -81,7 +81,9 @@ export default function MeetingPage() {
     return (
       getCameraPublications(participant).find(
         (pub) => pub.track && !pub.isMuted
-      ) || null
+      ) ||
+      // participant.getTrackPublication(Track.Source.Camera) as TrackPublication ||
+      null
     );
   };
 
