@@ -12,17 +12,42 @@ import {
   Video,
   ArrowRight,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { getGroupMembers } from "../../services/getGroupMembers";
+
+type member = {
+  userId: string;
+  name: string;
+  role: string;
+  status: string;
+};
 
 export default function GroupDetailsPage() {
   const navigate = useNavigate();
+  const { groupId } = useParams();
 
-  const members = [
-    { name: "You", role: "Admin", status: "Online" },
-    { name: "Sarah", role: "Member", status: "Away" },
-    { name: "Omar", role: "Member", status: "Online" },
-    { name: "Mona", role: "Member", status: "Offline" },
-  ];
+  const [members, setMembers] = useState<member[]>([]);
+
+  useEffect(() => {
+    const loadGroupMembers = async () => {
+      try {
+        const GroupMembers = await getGroupMembers(groupId ?? "");
+        setMembers(GroupMembers || []);
+      } catch (err) {
+        console.error("Failed to load group members:", err);
+      }
+    };
+
+    loadGroupMembers();
+  }, []);
+
+  // const members = [
+  //   { name: "You", role: "Admin", status: "Online" },
+  //   { name: "Sarah", role: "Member", status: "Away" },
+  //   { name: "Omar", role: "Member", status: "Online" },
+  //   { name: "Mona", role: "Member", status: "Offline" },
+  // ];
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300">

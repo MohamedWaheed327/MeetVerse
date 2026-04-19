@@ -99,7 +99,7 @@ export default function App() {
         }
       />
       <Route
-        path="/groups/:id"
+        path="/groups/:groupId"
         element={
           <ProtectedRoute>
             <GroupDetailsPage />
