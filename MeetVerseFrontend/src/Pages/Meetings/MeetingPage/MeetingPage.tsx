@@ -7,13 +7,14 @@ import { Participant, Room, RoomEvent, Track, TrackPublication } from "livekit-c
 import { sendChatMessage } from "../../../services/hubs/sendMeetingMessage";
 import connection from "../../../services/hubs/connections";
 import { subscribeToMeeting, unsubscribeFromMeeting, onMessageReceived, onError, } from "../../../services/hubs/meetingChat";
-import { GetMeetingChat } from "../../../services/meetingChatMessage";
+import { GetMeetingChat } from "../../../services/getMeetingChat";
 import { getLivekitToken } from "./getLivekitToken";
 import { buildParticipantsList } from "./buildParticipantsList";
 import { isCameraSource, isScreenShareSource } from "./isSource";
-import { getCameraPublications, getScreenSharePublications } from "./getParticipantPublications";
+import { getAudioPublications, getCameraPublications, getScreenSharePublications } from "./getParticipantPublications";
 import { getParticipantDisplayName } from "./getParticipantDisplayName";
 import { getActiveScreenShare } from "./getActiveScreenShare";
+import { createProcessedMicTrack } from "./NoiseCancellation/createProcessedMicTrack";
 
 type Message = {
   id: string;
@@ -53,6 +54,7 @@ export default function MeetingPage() {
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const screenShareContainerRef = useRef<HTMLDivElement | null>(null);
   const mountedRef = useRef(false);
+  const cleanupRef = useRef<null | (() => Promise<void>)>(null);
 
   const isTogglingCameraRef = useRef(false);
   const isTogglingMicRef = useRef(false);
@@ -437,6 +439,18 @@ export default function MeetingPage() {
 
         await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
 
+        // if (muted) {
+        //   // await newRoom.localParticipant.setMicrophoneEnabled(false);
+        // }
+        // else {
+        //   const { localAudioTrack, cleanup } = await createProcessedMicTrack();
+        //   cleanupRef.current = cleanup;
+        //   await newRoom.localParticipant.publishTrack(localAudioTrack, {
+        //     source: Track.Source.Microphone,
+        //     name: 'processed-mic',
+        //   });
+        // }
+
         await newRoom.localParticipant.setMicrophoneEnabled(!muted);
         await newRoom.localParticipant.setCameraEnabled(!cameraOff);
 
@@ -463,6 +477,7 @@ export default function MeetingPage() {
         }
       }
 
+      // cleanupRef.current?.();
       cleanupMediaElements();
       roomRef.current = null;
     };
@@ -581,6 +596,23 @@ export default function MeetingPage() {
 
     try {
       const shouldEnable = !liveRoom.localParticipant.isMicrophoneEnabled;
+
+      // if (shouldEnable) {
+      //   const { localAudioTrack, cleanup } = await createProcessedMicTrack();
+      //   cleanupRef.current = cleanup;
+      //   await liveRoom.localParticipant.publishTrack(localAudioTrack, {
+      //     source: Track.Source.Microphone,
+      //     name: 'processed-mic',
+      //   });
+      // }
+      // else {
+      //   Array.from(liveRoom.localParticipant.trackPublications.values()).forEach(async (pub) => {
+      //     if (pub.track) {
+      //       await liveRoom.localParticipant.unpublishTrack(pub.track);
+      //     }
+      //   });
+      // }
+
       await liveRoom.localParticipant.setMicrophoneEnabled(shouldEnable);
       setMuted(!shouldEnable);
 
@@ -905,20 +937,44 @@ export default function MeetingPage() {
                     No messages yet.
                   </div>
                 ) : (
-                  messages.map((msg, index) => (
-                    <div
-                      key={msg.id ?? `${msg.senderName}-${index}`}
-                      className="space-y-2"
-                    >
-                      <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
-                        {msg.senderName}
-                      </span>
+                  messages.map((msg, index) => {
+                    const isMe = false && (msg.senderName === localStorage.getItem("username"));
 
-                      <div className="bg-slate-100 dark:bg-[#0D0F16] p-4 rounded-[1.8rem] text-[13px] shadow-sm inline-block">
-                        {msg.content}
+                    return (
+                      <div
+                        key={msg.id ?? `${msg.senderName}-${index}`}
+                        className={`space-y-2 ${isMe ? "text-right" : ""}`}
+                      >
+                        {!isMe && (
+                          <div className="flex items-center gap-2">
+                            <div className="size-6 rounded-full bg-emerald-500 flex items-center justify-center text-[8px] font-bold text-white">
+                              {msg.senderName?.charAt(0)}
+                            </div>
+
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                              {msg.senderName}
+                            </span>
+                          </div>
+                        )}
+
+                        {isMe && (
+                          <span className="text-[9px] font-black text-blue-600 uppercase mr-2 tracking-widest">
+                            You
+                          </span>
+                        )}
+
+                        <div
+                          className={`p-4 rounded-[1.8rem] text-[13px] shadow-sm inline-block
+        ${isMe
+                              ? "bg-blue-600 text-white rounded-tr-none shadow-xl shadow-blue-900/10 text-left"
+                              : "bg-slate-100 dark:bg-[#0D0F16] rounded-tl-none"
+                            }`}
+                        >
+                          {msg.content}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
                 <div ref={scrollRef} />
               </div>

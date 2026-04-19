@@ -15,6 +15,8 @@ import {
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getGroupMembers } from "../../services/getGroupMembers";
+import { GetGroupChat } from "../../services/getGroupChat";
+import { getCurrentUser } from "../../services/currentUser";
 
 type member = {
   userId: string;
@@ -23,17 +25,28 @@ type member = {
   status: string;
 };
 
+type GroupChat = {
+  id: string;
+  groupId: string;
+  senderId: string;
+  senderName: string;
+  senderAvatarUrl: string;
+  content: string;
+  sentAt: string;
+};
+
 export default function GroupDetailsPage() {
   const navigate = useNavigate();
   const { groupId } = useParams();
 
   const [members, setMembers] = useState<member[]>([]);
+  const [groupChat, setGroupChat] = useState<GroupChat[]>([]);
 
   useEffect(() => {
     const loadGroupMembers = async () => {
       try {
         const GroupMembers = await getGroupMembers(groupId ?? "");
-        setMembers(GroupMembers || []);
+        setMembers(GroupMembers || []);        
       } catch (err) {
         console.error("Failed to load group members:", err);
       }
@@ -41,6 +54,23 @@ export default function GroupDetailsPage() {
 
     loadGroupMembers();
   }, []);
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const history = await GetGroupChat(groupId ?? "");
+        setGroupChat(history || []);
+        console.log(groupChat);
+      } catch (err) {
+        console.error("Failed to load chat history:", err);
+      }
+    };
+
+    if (groupId) {
+      loadHistory();
+    }
+  }, [groupId]);
+
 
   // const members = [
   //   { name: "You", role: "Admin", status: "Online" },
@@ -95,33 +125,48 @@ export default function GroupDetailsPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-8 space-y-6">
-              <div className="flex gap-4">
-                <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-[#2A2E3B] flex items-center justify-center text-[10px] font-bold">
-                  S
-                </div>
-                <div className="space-y-1 max-w-[70%]">
-                  <p className="text-[10px] font-bold text-slate-400">
-                    Sarah • Yesterday
-                  </p>
-                  <div className="bg-slate-100 dark:bg-[#0D0F16] p-4 rounded-3xl rounded-tl-none text-sm leading-relaxed">
-                    Welcome to the AI study group! Let's build something great.
+              {groupChat.map((msg, idx) => {
+                const isMe = false && (msg.senderId === localStorage.getItem("userid"));
+
+                return (
+                  <div
+                    key={msg.id ?? idx}
+                    className={`flex gap-4 ${isMe ? "flex-row-reverse" : ""}`}
+                  >
+                    {/* Avatar */}
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold
+          ${isMe ? "bg-blue-600 text-white" : "bg-slate-200 dark:bg-[#2A2E3B]"}`}
+                    >
+                      {msg.senderName?.[0]}
+                    </div>
+
+                    {/* Message */}
+                    <div
+                      className={`space-y-1 max-w-[70%] ${isMe ? "text-right" : ""
+                        }`}
+                    >
+                      <p
+                        className={`text-[10px] font-bold ${isMe ? "text-blue-500" : "text-slate-400"
+                          }`}
+                      >
+                        {isMe ? "You" : msg.senderName} •{" "}
+                        {new Date(msg.sentAt).toLocaleString()}
+                      </p>
+
+                      <div
+                        className={`p-4 rounded-3xl text-sm leading-relaxed
+            ${isMe
+                            ? "bg-blue-600 text-white rounded-tr-none"
+                            : "bg-slate-100 dark:bg-[#0D0F16] rounded-tl-none"
+                          }`}
+                      >
+                        {msg.content}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="flex gap-4 flex-row-reverse">
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">
-                  Y
-                </div>
-                <div className="space-y-1 max-w-[70%] text-right">
-                  <p className="text-[10px] font-bold text-blue-500">
-                    You • Today
-                  </p>
-                  <div className="bg-blue-600 text-white p-4 rounded-3xl rounded-tr-none text-sm leading-relaxed shadow-lg shadow-blue-900/20">
-                    Agreed! Can we schedule our first meeting and share
-                    resources?
-                  </div>
-                </div>
-              </div>
+                );
+              })}
             </div>
 
             <div className="p-6 bg-slate-50 dark:bg-[#0D0F16]/50">
