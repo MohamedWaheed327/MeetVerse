@@ -46,7 +46,7 @@ export default function GroupDetailsPage() {
     const loadGroupMembers = async () => {
       try {
         const GroupMembers = await getGroupMembers(groupId ?? "");
-        setMembers(GroupMembers || []);        
+        setMembers(GroupMembers || []);
       } catch (err) {
         console.error("Failed to load group members:", err);
       }
@@ -126,7 +126,7 @@ export default function GroupDetailsPage() {
 
             <div className="flex-1 overflow-y-auto p-8 space-y-6">
               {groupChat.map((msg, idx) => {
-                const isMe = false && (msg.senderId === localStorage.getItem("userid"));
+                const isMe = (msg.senderId === localStorage.getItem("userid"));
 
                 return (
                   <div
