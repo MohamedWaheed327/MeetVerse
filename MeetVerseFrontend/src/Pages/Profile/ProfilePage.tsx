@@ -1,9 +1,11 @@
 /* eslint-disable no-unused-vars */
-import React, { useState, useEffect } from "react"; // 👈 added useState, useEffect
+import React, { useState, useEffect } from "react";
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
 import { User, Shield, Camera, Trash2, Save, Key } from "lucide-react";
-import { getCurrentUser } from "../../services/currentUser"; // 👈 import API
+import { getCurrentUser } from "../../services/currentUser";
+import { ChangeName, ChangePassword, ChangePasswordDto } from "../../services/updateProfile";
+import { useNavigate } from "react-router-dom";
 
 type MeetVerseUser = {
   id: string;
@@ -11,11 +13,28 @@ type MeetVerseUser = {
   email: string;
 };
 
+type changePassword = {
+  oldPassword: string;
+  newPassword: string;
+  confirmNewPassword: string;
+};
+
+type changeUsername = {
+  firstName: string;
+  lastName: string;
+};
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<MeetVerseUser | null>(null); // 👈 store user data
+  // const navigate = useNavigate();
 
-  // 👇 Add this temporarily in ProfilePage to debug
+  const [user, setUser] = useState<MeetVerseUser | null>(null);
+  const [changePassword, setChangePassword] = useState<changePassword>({ oldPassword: "", newPassword: "", confirmNewPassword: "" });
+
+  const [changeUsername, setChangeUsername] = useState<changeUsername>({
+    firstName: localStorage.getItem("username")?.split(' ')[0] ?? "",
+    lastName: localStorage.getItem("username")?.split(' ').slice(1).join() ?? "",
+  });
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -32,6 +51,56 @@ export default function ProfilePage() {
     initial: { opacity: 0, y: 20 },
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.5 },
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    const key = name as keyof changePassword;
+
+    setChangePassword((prev) => ({
+      ...prev,
+      [key]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    const key = name as keyof changeUsername;
+    setChangeUsername((prev) => ({
+      ...prev,
+      [key]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handlePasswordChangeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await ChangePassword(changePassword.oldPassword, changePassword.newPassword, changePassword.confirmNewPassword);
+      window.location.reload();
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        alert(error.message);
+      }
+      else {
+        alert("network error");
+      }
+    }
+  };
+
+  const handleNameChangeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await ChangeName(changeUsername.firstName, changeUsername.lastName);
+      window.location.reload();
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        alert(error.message);
+      }
+      else {
+        alert("network error");
+      }
+    }
+    // navigate("/profile");
   };
 
   return (
@@ -62,7 +131,7 @@ export default function ProfilePage() {
               <div className="relative inline-block group cursor-pointer">
                 <div className="w-32 h-32 rounded-[2.5rem] bg-gradient-to-tr from-blue-600 to-indigo-700 flex items-center justify-center text-5xl font-bold shadow-2xl mb-6 transform group-hover:scale-105 transition-transform duration-300 text-white">
                   {/* 👇 first letter of full name */}
-                  {user?.name?.charAt(0).toUpperCase() ?? "?"}
+                  {localStorage.getItem("username")?.charAt(0).toUpperCase() ?? "?"}
                 </div>
                 <div className="absolute inset-0 bg-black/40 rounded-[2.5rem] opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300">
                   <Camera className="text-white w-8 h-8" />
@@ -71,11 +140,11 @@ export default function ProfilePage() {
 
               {/* 👇 only this line changed — shows full name from API */}
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                {user?.name ?? "Loading..."}
+                {localStorage.getItem("username") ?? "Loading..."}
               </h3>
 
               <p className="text-slate-500 dark:text-[#A8B0C2] text-sm mb-6">
-                you@example.com
+                {user?.email ?? "Loading..."}
               </p>
 
               <div className="flex justify-center gap-2 mb-8">
@@ -137,8 +206,11 @@ export default function ProfilePage() {
                       First Name
                     </label>
                     <input
+                      name="firstName"
                       type="text"
-                      defaultValue="Your"
+                      autoComplete="off"
+                      defaultValue={changeUsername.firstName}
+                      onChange={handleUsernameChange}
                       className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-5 py-4 text-sm text-slate-900 dark:text-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none"
                     />
                   </div>
@@ -147,8 +219,11 @@ export default function ProfilePage() {
                       Last Name
                     </label>
                     <input
+                      name="lastName"
                       type="text"
-                      defaultValue="Name"
+                      autoComplete="off"
+                      defaultValue={changeUsername.lastName}
+                      onChange={handleUsernameChange}
                       className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-5 py-4 text-sm text-slate-900 dark:text-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none"
                     />
                   </div>
@@ -160,13 +235,17 @@ export default function ProfilePage() {
                   </label>
                   <input
                     type="text"
-                    defaultValue="You_MeetVerse"
+                    readOnly
+                    value={changeUsername.firstName + " " + changeUsername.lastName}
                     className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-5 py-4 text-sm text-slate-900 dark:text-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none"
                   />
                 </div>
 
                 <div className="pt-4">
-                  <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl transition-all shadow-lg shadow-blue-900/20 font-bold text-sm">
+                  <button
+                    onClick={handleNameChangeSubmit}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl transition-all shadow-lg shadow-blue-900/20 font-bold text-sm"
+                  >
                     <Save size={18} />
                     Save Profile Changes
                   </button>
@@ -192,8 +271,11 @@ export default function ProfilePage() {
                   </label>
                   <div className="relative">
                     <input
+                      name="oldPassword"
                       type="password"
                       placeholder="••••••••••••"
+                      value={changePassword.oldPassword}
+                      onChange={handlePasswordChange}
                       className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-5 py-4 text-sm text-slate-900 dark:text-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none"
                     />
                     <Key
@@ -209,7 +291,10 @@ export default function ProfilePage() {
                       New Password
                     </label>
                     <input
+                      name="newPassword"
                       type="password"
+                      value={changePassword.newPassword}
+                      onChange={handlePasswordChange}
                       className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-5 py-4 text-sm text-slate-900 dark:text-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none"
                     />
                   </div>
@@ -218,14 +303,20 @@ export default function ProfilePage() {
                       Confirm Password
                     </label>
                     <input
+                      name="confirmNewPassword"
                       type="password"
+                      value={changePassword.confirmNewPassword}
+                      onChange={handlePasswordChange}
                       className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-5 py-4 text-sm text-slate-900 dark:text-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="pt-4">
-                  <button className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-8 py-4 rounded-2xl transition-all shadow-lg shadow-blue-900/20 font-bold text-sm">
+                  <button
+                    onClick={handlePasswordChangeSubmit}
+                    className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-8 py-4 rounded-2xl transition-all shadow-lg shadow-blue-900/20 font-bold text-sm"
+                  >
                     <Shield size={18} />
                     Update Credentials
                   </button>
