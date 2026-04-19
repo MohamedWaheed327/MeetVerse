@@ -25,6 +25,7 @@ export default function LoginPage() {
       // save token and redirect
       localStorage.setItem("token", response.token);
       var user = await getCurrentUser();
+      localStorage.setItem("userid", user.id);
       localStorage.setItem("username", user.name);
       navigate("/home");
     } catch (err: unknown) {
