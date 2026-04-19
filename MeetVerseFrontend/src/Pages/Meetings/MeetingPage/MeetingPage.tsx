@@ -18,6 +18,7 @@ import { createProcessedMicTrack } from "./NoiseCancellation/createProcessedMicT
 
 type Message = {
   id: string;
+  senderId: string;
   senderName: string;
   content: string;
 };
@@ -938,7 +939,7 @@ export default function MeetingPage() {
                   </div>
                 ) : (
                   messages.map((msg, index) => {
-                    const isMe = false && (msg.senderName === localStorage.getItem("username"));
+                    const isMe = (msg.senderId === localStorage.getItem("userid"));
 
                     return (
                       <div
