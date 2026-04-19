@@ -16,12 +16,15 @@ public class ProfileController : ControllerBase
 {
     private readonly MeetVerseDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly ITokenService _tokenService;
+
 
     // Injected IPasswordHasher here
-    public ProfileController(MeetVerseDbContext db, IPasswordHasher passwordHasher)
+    public ProfileController(MeetVerseDbContext db, IPasswordHasher passwordHasher, ITokenService tokenService)
     {
         _db = db;
         _passwordHasher = passwordHasher;
+        _tokenService = tokenService;
     }
 
     [HttpGet("me")]
@@ -37,7 +40,7 @@ public class ProfileController : ControllerBase
 
     // Change password
     [HttpPut("password")]
-    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto request)
+    public async Task<ActionResult<AuthResponse>> ChangePassword([FromBody] ChangePasswordDto request)
     {
         var userId = GetUserId();
         var user = await _db.Users.FindAsync(userId);
@@ -52,7 +55,8 @@ public class ProfileController : ControllerBase
         user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
         await _db.SaveChangesAsync();
 
-        return Ok(new { message = "Password updated successfully." });
+        var token = _tokenService.GenerateAccessToken(user);
+        return new AuthResponse { Token = token };
     }
 
     // Change name
