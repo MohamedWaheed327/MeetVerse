@@ -2,31 +2,58 @@
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
 import { Users, Plus, Search, ArrowRight, Hash } from "lucide-react";
+import { useEffect, useState } from "react";
+import { getMyGroups } from "../../services/getGroups";
+
+type group = {
+  id: string;
+  name: string;
+  memberCount: number;
+  currentUserRole: string;
+  description: string;
+};
 
 export default function GroupsListPage() {
-  const groups = [
-    {
-      id: "G-10",
-      name: "AI Study Group",
-      members: 12,
-      role: "Admin",
-      desc: "Discussions about neural networks and deep learning.",
-    },
-    {
-      id: "G-22",
-      name: "Company All Hands",
-      members: 48,
-      role: "Member",
-      desc: "General announcements and monthly sync-ups.",
-    },
-    {
-      id: "G-35",
-      name: "Web Dev Squad",
-      members: 9,
-      role: "Member",
-      desc: "Frontend and Backend collaboration space.",
-    },
-  ];
+  const [groups, setGroups] = useState<group[]>([]);
+
+  useEffect(() => {
+    const loadGroups = async () => {
+      try {
+        const myGroups = await getMyGroups();
+        console.log(myGroups);
+
+        setGroups(myGroups || []);
+      } catch (err) {
+        console.error("Failed to load groups:", err);
+      }
+    };
+
+    loadGroups();
+  }, []);
+
+  // const groups = [
+  //   {
+  //     id: "G-10",
+  //     name: "AI Study Group",
+  //     memberCount: 12,
+  //     currentUserRole: "Admin",
+  //     description: "Discussions about neural networks and deep learning.",
+  //   },
+  //   {
+  //     id: "G-22",
+  //     name: "Company All Hands",
+  //     memberCount: 48,
+  //     currentUserRole: "Member",
+  //     description: "General announcements and monthly sync-ups.",
+  //   },
+  //   {
+  //     id: "G-35",
+  //     name: "Web Dev Squad",
+  //     memberCount: 9,
+  //     currentUserRole: "Member",
+  //     description: "Frontend and Backend collaboration space.",
+  //   },
+  // ];
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300">
@@ -84,13 +111,13 @@ export default function GroupsListPage() {
           </div>
           <div className="flex items-center gap-2 px-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            {groups.length} Active Communities
+            {groups?.length ?? 0} Active Communities
           </div>
         </motion.div>
 
         {/* Groups Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {groups.map((g, idx) => (
+          {groups!.map((g, idx) => (
             <motion.a
               key={g.id}
               href={`/groups/${g.id}`}
@@ -106,7 +133,7 @@ export default function GroupsListPage() {
                     <Users size={24} />
                   </div>
                   <span className="text-[10px] font-bold px-3 py-1 bg-slate-100 dark:bg-[#2A2E3B] rounded-full uppercase tracking-wider">
-                    {g.role}
+                    {g.currentUserRole}
                   </span>
                 </div>
                 <div>
@@ -114,7 +141,7 @@ export default function GroupsListPage() {
                     {g.name}
                   </h3>
                   <p className="text-slate-500 dark:text-[#A8B0C2] text-xs mt-2 line-clamp-2 leading-relaxed">
-                    {g.desc}
+                    {g.description}
                   </p>
                 </div>
                 <div className="pt-4 mt-auto border-t border-slate-50 dark:border-[#2A2E3B] flex items-center justify-between">
@@ -123,7 +150,7 @@ export default function GroupsListPage() {
                     {g.id}
                   </span>
                   <div className="flex items-center gap-2 text-xs font-bold text-blue-600">
-                    {g.members} Members <ArrowRight size={14} />
+                    {g.memberCount} Members <ArrowRight size={14} />
                   </div>
                 </div>
               </div>
