@@ -3,7 +3,7 @@ namespace MeetVerse.Api.Dtos;
 
 public class CreateMeetingRequest
 {
-    const string GlobalGroupId = "11111111-1111-1111-1111-111111111111";
+    public const string GlobalGroupId = "11111111-1111-1111-1111-111111111111";
     public string Title { get; set; } = default!;
     public string? Description { get; set; }
     public DateTime ScheduledStart { get; set; }

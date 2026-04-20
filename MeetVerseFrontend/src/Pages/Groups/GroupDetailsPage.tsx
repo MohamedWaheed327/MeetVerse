@@ -265,7 +265,7 @@ export default function GroupDetailsPage() {
               {/* زر إنشاء ميتنج */}
               <div className="mt-6 pt-6 border-t border-slate-100 dark:border-[#2A2E3B]">
                 <button
-                  onClick={() => navigate("/meetings/create")}
+                  onClick={() => navigate(`/meetings/create?groupId=${groupId}`)}
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white p-5 rounded-[2rem] shadow-xl shadow-blue-500/20 transition-all flex items-center justify-between group active:scale-95"
                 >
                   <div className="flex items-center gap-3">

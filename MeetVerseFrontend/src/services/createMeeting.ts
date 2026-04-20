@@ -4,6 +4,7 @@ type MeetingCreateData = {
     title: string;
     date: string;
     time: string;
+    groupId: string | null;
     scheduledStart: string;
 };
 

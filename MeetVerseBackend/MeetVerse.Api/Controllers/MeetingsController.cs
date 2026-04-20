@@ -131,7 +131,7 @@ public class MeetingsController : ControllerBase
             Id = Guid.NewGuid(),
             HostId = userId!.Value,
             Host = x,
-            GroupId = creatMeetingRequest.GroupId,
+            GroupId = creatMeetingRequest.GroupId ?? new Guid(CreateMeetingRequest.GlobalGroupId),
             Title = creatMeetingRequest.Title,
             Description = creatMeetingRequest.Description,
             ScheduledStart = creatMeetingRequest.ScheduledStart,

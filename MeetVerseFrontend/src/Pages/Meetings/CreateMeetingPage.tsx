@@ -12,7 +12,7 @@ import {
   Save,
   Zap,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { createMeeting } from "../../services/createMeeting"
 
 type MeetingFormData = {
@@ -31,8 +31,10 @@ export default function CreateMeetingPage() {
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.5 },
   };
-  
+
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const groupId = searchParams.get("groupId");
 
   const [formData, setFormData] = useState<MeetingFormData>({
     title: "",
@@ -57,6 +59,7 @@ export default function CreateMeetingPage() {
     const processedData = {
       ...data,
       scheduledStart: `${data.date}T${data.time}:00`,
+      groupId: groupId
     };
     createMeeting(processedData);
   };
