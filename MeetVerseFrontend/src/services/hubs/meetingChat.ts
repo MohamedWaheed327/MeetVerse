@@ -1,4 +1,4 @@
-import connection from "./connections";
+import { meeting_chat_connection } from "./connections";
 
 type Message = {
     id: string;
@@ -8,21 +8,21 @@ type Message = {
 };
 
 export const subscribeToMeeting = async (meetingId: string) => {
-    await connection.invoke("Subscribe", meetingId);
+    await meeting_chat_connection.invoke("Subscribe", meetingId);
 };
 
 export const unsubscribeFromMeeting = async (meetingId: string) => {
-    await connection.invoke("UnSubscribe", meetingId);
+    await meeting_chat_connection.invoke("UnSubscribe", meetingId);
 };
 
 export const onMessageReceived = (callback: (payload: Message) => void) => {
-    connection.on("MessageSent", (payload: Message) => {
+    meeting_chat_connection.on("MessageSent", (payload: Message) => {
         callback(payload);
     });
 };
 
 export const onError = (callback: (message: string) => void) => {
-    connection.on("Error", (message: string) => {
+    meeting_chat_connection.on("Error", (message: string) => {
         callback(message);
     });
 };

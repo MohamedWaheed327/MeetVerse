@@ -17,6 +17,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getGroupMembers } from "../../services/getGroupMembers";
 import { GetGroupChat } from "../../services/getGroupChat";
 import { getCurrentUser } from "../../services/currentUser";
+import { sendGroupMessage } from "../../services/sendGroupMessage";
+import { onError, onMessageReceived, subscribeToGroup, unsubscribeFromGroup } from "../../services/hubs/groupChat";
+import { group_chat_connection } from "../../services/hubs/connections";
 
 type member = {
   userId: string;
@@ -24,6 +27,7 @@ type member = {
   role: string;
   status: string;
 };
+
 
 type GroupChat = {
   id: string;
@@ -35,12 +39,14 @@ type GroupChat = {
   sentAt: string;
 };
 
+
 export default function GroupDetailsPage() {
   const navigate = useNavigate();
   const { groupId } = useParams();
 
   const [members, setMembers] = useState<member[]>([]);
   const [groupChat, setGroupChat] = useState<GroupChat[]>([]);
+  const [newMessage, setNewMessage] = useState("");
 
   useEffect(() => {
     const loadGroupMembers = async () => {
@@ -71,6 +77,37 @@ export default function GroupDetailsPage() {
     }
   }, [groupId]);
 
+  function handleSendMessage() {
+    if (newMessage.trim().length == 0) return;
+    console.log("send group message: ");
+    group_chat_connection.invoke("SendMessage", groupId!, newMessage);
+    setNewMessage("");
+  }
+
+  useEffect(() => {
+    const start = async () => {
+      if (group_chat_connection.state === "Disconnected") {
+        await group_chat_connection.start();
+      }
+
+      await subscribeToGroup(groupId!);
+
+      onMessageReceived((payload: GroupChat) => {
+        setGroupChat((prev) => [...prev, payload]);
+      });
+
+      onError((err: unknown) => {
+        console.error("SignalR Error:", err);
+      });
+    };
+
+    start();
+    return () => {
+      unsubscribeFromGroup(groupId!);
+      group_chat_connection.off("ReceiveMessage");
+      group_chat_connection.off("Error");
+    };
+  }, []);
 
   // const members = [
   //   { name: "You", role: "Admin", status: "Online" },
@@ -172,10 +209,19 @@ export default function GroupDetailsPage() {
             <div className="p-6 bg-slate-50 dark:bg-[#0D0F16]/50">
               <div className="relative">
                 <input
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleSendMessage();
+                    }
+                  }}
                   className="w-full bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl py-4 pl-6 pr-24 text-sm outline-none focus:border-blue-600 transition-all shadow-inner"
                   placeholder="Drop a message..."
                 />
-                <button className="absolute right-2 top-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all">
+                <button
+                  onClick={handleSendMessage}
+                  className="absolute right-2 top-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all">
                   <Send size={14} /> Send
                 </button>
               </div>

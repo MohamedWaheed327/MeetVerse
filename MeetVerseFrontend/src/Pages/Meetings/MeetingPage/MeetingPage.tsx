@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Participant, Room, RoomEvent, Track, TrackPublication } from "livekit-client";
 import { sendChatMessage } from "../../../services/hubs/sendMeetingMessage";
-import connection from "../../../services/hubs/connections";
+import { meeting_chat_connection } from "../../../services/hubs/connections";
 import { subscribeToMeeting, unsubscribeFromMeeting, onMessageReceived, onError, } from "../../../services/hubs/meetingChat";
 import { GetMeetingChat } from "../../../services/getMeetingChat";
 import { getLivekitToken } from "./getLivekitToken";
@@ -511,8 +511,8 @@ export default function MeetingPage() {
   useEffect(() => {
     const start = async () => {
       try {
-        if (connection.state === "Disconnected") {
-          await connection.start();
+        if (meeting_chat_connection.state === "Disconnected") {
+          await meeting_chat_connection.start();
         }
 
         await subscribeToMeeting(meetingId ?? "");
@@ -533,8 +533,8 @@ export default function MeetingPage() {
 
     return () => {
       unsubscribeFromMeeting(meetingId ?? "");
-      connection.off("MessageSent");
-      connection.off("Error");
+      meeting_chat_connection.off("MessageSent");
+      meeting_chat_connection.off("Error");
     };
   }, [meetingId]);
 

@@ -1,9 +1,9 @@
 // sendChatMessage.js
-import connection from "./connections";
+import { meeting_chat_connection } from "./connections";
 
 export const sendChatMessage = async (meetingId: string, content: string) => {
     try {
-        await connection.invoke("SendMessage", meetingId, content);
+        await meeting_chat_connection.invoke("SendMessage", meetingId, content);
     } catch (error) {
         throw error;
     }
