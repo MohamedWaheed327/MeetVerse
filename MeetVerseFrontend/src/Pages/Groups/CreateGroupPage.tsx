@@ -2,8 +2,16 @@
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
 import { Users, Info, ShieldCheck, ArrowRight, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { createGroup } from "../../services/CreateGroup";
+import { useNavigate } from "react-router-dom";
 
 export default function CreateGroupPage() {
+  const navigate = useNavigate();
+
+  const [groupName, setGroupName] = useState("");
+  const [groupDescription, setGroupDescription] = useState("");
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300">
       <Navbar />
@@ -37,6 +45,8 @@ export default function CreateGroupPage() {
               </label>
               <input
                 type="text"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
                 placeholder="e.g. AI Visionaries Group"
                 className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-6 py-4 text-sm focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none"
               />
@@ -48,6 +58,8 @@ export default function CreateGroupPage() {
               </label>
               <textarea
                 rows={4}
+                value={groupDescription}
+                onChange={(e) => setGroupDescription(e.target.value)}
                 placeholder="What is this community about?"
                 className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-6 py-4 text-sm focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-all outline-none resize-none"
               />
@@ -70,7 +82,14 @@ export default function CreateGroupPage() {
               </div>
             </label>
 
-            <button className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-3xl font-bold text-sm shadow-xl shadow-blue-900/20 transition-all active:scale-95">
+            <button
+              onClick={async (e) => {
+                e.preventDefault();
+                await createGroup(groupName, groupDescription);
+                navigate("/groups");
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-3xl font-bold text-sm shadow-xl shadow-blue-900/20 transition-all active:scale-95"
+            >
               Launch Community Space <ArrowRight size={18} />
             </button>
           </form>
