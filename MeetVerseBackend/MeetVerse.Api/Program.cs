@@ -121,7 +121,7 @@ if (app.Environment.IsDevelopment() || true)
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-app.UseWebSockets();
+app.UseWebSockets(); // add comment
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
