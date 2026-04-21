@@ -381,4 +381,24 @@ public class GroupsController : ControllerBase
             EditedAt = msg.EditedAt
         });
     }
+
+    [HttpPost("request/{id:guid}")]
+    public async Task<ActionResult> RequestJoinGroup(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+        if (!(await _db.Groups.AnyAsync(g => g.Id == id))) return NotFound();
+
+        var request = new JoinGroupRequest
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId.Value,
+            GroupId = id
+        };
+
+        _db.JoinGroupRequests.Add(request);
+        await _db.SaveChangesAsync();
+
+        return Ok();
+    }
 }
