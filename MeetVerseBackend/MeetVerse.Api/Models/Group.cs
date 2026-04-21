@@ -14,4 +14,5 @@ public class Group
     public ICollection<UserGroup> UserGroups { get; set; } = new List<UserGroup>();
     public ICollection<Meeting> Meetings { get; set; } = new List<Meeting>();
     public ICollection<GroupMessage> Messages { get; set; } = new List<GroupMessage>();
+    public ICollection<JoinGroupRequest> JoinGroupRequests { get; set; } = new List<JoinGroupRequest>();
 }

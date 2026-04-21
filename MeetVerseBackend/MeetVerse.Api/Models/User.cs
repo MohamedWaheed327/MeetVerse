@@ -17,6 +17,8 @@ public class User
     public ICollection<UserGroup> UserGroups { get; set; } = new List<UserGroup>();
     public ICollection<Group> CreatedGroups { get; set; } = new List<Group>();
     public ICollection<GroupMessage> GroupMessagesSent { get; set; } = new List<GroupMessage>();
+    public ICollection<JoinGroupRequest> JoinGroupRequests { get; set; } = new List<JoinGroupRequest>();
+
 }
 
 

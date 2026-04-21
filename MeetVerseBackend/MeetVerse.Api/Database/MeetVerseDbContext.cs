@@ -5,9 +5,7 @@ namespace MeetVerse.Api.Database;
 
 public class MeetVerseDbContext : DbContext
 {
-    public MeetVerseDbContext(DbContextOptions<MeetVerseDbContext> options) : base(options)
-    {
-    }
+    public MeetVerseDbContext(DbContextOptions<MeetVerseDbContext> options) : base(options) { }
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Meeting> Meetings => Set<Meeting>();
@@ -23,6 +21,7 @@ public class MeetVerseDbContext : DbContext
     public DbSet<Group> Groups => Set<Group>();
     public DbSet<UserGroup> UserGroups => Set<UserGroup>();
     public DbSet<GroupMessage> GroupMessages => Set<GroupMessage>();
+    public DbSet<JoinGroupRequest> JoinGroupRequests => Set<JoinGroupRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
