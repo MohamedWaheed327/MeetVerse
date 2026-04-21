@@ -7,7 +7,7 @@ public class RegisterRequest
     public string Email { get; set; } = default!;
     public string Password { get; set; } = default!;
     public string? Name { get; set; }
-    public UserRole Role { get; set; } = UserRole.Participant;
+    public UserRole Role { get; set; } = UserRole.User;
 }
 
 public class LoginRequest
