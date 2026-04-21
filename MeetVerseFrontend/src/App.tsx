@@ -12,6 +12,7 @@ import GroupsListPage from "./Pages/Groups/GroupsListPage";
 import CreateGroupPage from "./Pages/Groups/CreateGroupPage";
 import JoinGroupPage from "./Pages/Groups/JoinGroupPage";
 import GroupDetailsPage from "./Pages/Groups/GroupDetailsPage";
+import GroupRequestsPage from "./Pages/Groups/GroupRequestsPage"; // الصفحة الجديدة
 import ProfilePage from "./Pages/Profile/ProfilePage";
 import ResetPassword from "./Pages/Auth/ResetPassword";
 import OTPVerification from "./Pages/Auth/OTPVerification";
@@ -103,6 +104,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <GroupDetailsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/groups/:groupId/requests"
+        element={
+          <ProtectedRoute>
+            <GroupRequestsPage />
           </ProtectedRoute>
         }
       />

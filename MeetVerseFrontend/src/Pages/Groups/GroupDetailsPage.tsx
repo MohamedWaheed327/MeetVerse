@@ -18,7 +18,12 @@ import { getGroupMembers } from "../../services/getGroupMembers";
 import { GetGroupChat } from "../../services/getGroupChat";
 import { getCurrentUser } from "../../services/currentUser";
 import { sendGroupMessage } from "../../services/sendGroupMessage";
-import { onError, onMessageReceived, subscribeToGroup, unsubscribeFromGroup } from "../../services/hubs/groupChat";
+import {
+  onError,
+  onMessageReceived,
+  subscribeToGroup,
+  unsubscribeFromGroup,
+} from "../../services/hubs/groupChat";
 import { group_chat_connection } from "../../services/hubs/connections";
 
 type member = {
@@ -27,7 +32,6 @@ type member = {
   role: string;
   status: string;
 };
-
 
 type GroupChat = {
   id: string;
@@ -38,7 +42,6 @@ type GroupChat = {
   content: string;
   sentAt: string;
 };
-
 
 export default function GroupDetailsPage() {
   const navigate = useNavigate();
@@ -163,7 +166,7 @@ export default function GroupDetailsPage() {
 
             <div className="flex-1 overflow-y-auto p-8 space-y-6">
               {groupChat.map((msg, idx) => {
-                const isMe = (msg.senderId === localStorage.getItem("userid"));
+                const isMe = msg.senderId === localStorage.getItem("userid");
 
                 return (
                   <div
@@ -180,12 +183,14 @@ export default function GroupDetailsPage() {
 
                     {/* Message */}
                     <div
-                      className={`space-y-1 max-w-[70%] ${isMe ? "text-right" : ""
-                        }`}
+                      className={`space-y-1 max-w-[70%] ${
+                        isMe ? "text-right" : ""
+                      }`}
                     >
                       <p
-                        className={`text-[10px] font-bold ${isMe ? "text-blue-500" : "text-slate-400"
-                          }`}
+                        className={`text-[10px] font-bold ${
+                          isMe ? "text-blue-500" : "text-slate-400"
+                        }`}
                       >
                         {isMe ? "You" : msg.senderName} •{" "}
                         {new Date(msg.sentAt).toLocaleString()}
@@ -193,10 +198,11 @@ export default function GroupDetailsPage() {
 
                       <div
                         className={`p-4 rounded-3xl text-sm leading-relaxed
-            ${isMe
-                            ? "bg-blue-600 text-white rounded-tr-none"
-                            : "bg-slate-100 dark:bg-[#0D0F16] rounded-tl-none"
-                          }`}
+            ${
+              isMe
+                ? "bg-blue-600 text-white rounded-tr-none"
+                : "bg-slate-100 dark:bg-[#0D0F16] rounded-tl-none"
+            }`}
                       >
                         {msg.content}
                       </div>
@@ -221,7 +227,8 @@ export default function GroupDetailsPage() {
                 />
                 <button
                   onClick={handleSendMessage}
-                  className="absolute right-2 top-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all">
+                  className="absolute right-2 top-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all"
+                >
                   <Send size={14} /> Send
                 </button>
               </div>
@@ -262,11 +269,28 @@ export default function GroupDetailsPage() {
                 ))}
               </div>
 
-              {/* زر إنشاء ميتنج */}
+              {members.find((m) => m.userId === localStorage.getItem("userid"))
+                ?.role === "Admin" && (
+                <button
+                  onClick={() => navigate(`/groups/${groupId}/requests`)}
+                  className="mt-4 w-full flex items-center justify-between p-4 bg-blue-600/10 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-600/20 rounded-2xl transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <UserPlus size={18} />
+                    <span className="text-sm font-bold">Join Requests</span>
+                  </div>
+                  <span className="bg-blue-600 group-hover:bg-white group-hover:text-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                    5 
+                  </span>
+                </button>
+              )}
+              
               <div className="mt-6 pt-6 border-t border-slate-100 dark:border-[#2A2E3B]">
                 <button
-                  onClick={() => navigate(`/meetings/create?groupId=${groupId}`)}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white p-5 rounded-[2rem] shadow-xl shadow-blue-500/20 transition-all flex items-center justify-between group active:scale-95"
+                  onClick={() =>
+                    navigate(`/meetings/create?groupId=${groupId}`)
+                  }
+                  className="w-full bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white p-5 rounded-4xl shadow-xl shadow-blue-500/20 transition-all flex items-center justify-between group active:scale-95"
                 >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-white/20 rounded-xl group-hover:rotate-12 transition-transform">
