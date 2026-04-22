@@ -69,3 +69,10 @@ public class CreateGroupMeetingRequest
     public DateTime ScheduledStart { get; set; }
     public DateTime? ScheduledEnd { get; set; }
 }
+
+public class GroupRequestsResponse
+{
+    public Guid SenderId { get; set; }
+    public string SenderName { get; set; } = default!;
+    public DateTime SentAt;
+}

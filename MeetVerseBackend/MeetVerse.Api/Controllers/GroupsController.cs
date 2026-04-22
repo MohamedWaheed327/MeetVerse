@@ -382,18 +382,18 @@ public class GroupsController : ControllerBase
         });
     }
 
-    [HttpPost("request/{id:guid}")]
-    public async Task<ActionResult> RequestJoinGroup(Guid id)
+    [HttpPost("{groupId:guid}/requests")]
+    public async Task<ActionResult> RequestJoinGroup(Guid groupId)
     {
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
-        if (!(await _db.Groups.AnyAsync(g => g.Id == id))) return NotFound();
+        if (!await _db.Groups.AnyAsync(g => g.Id == groupId)) return NotFound();
 
         var request = new JoinGroupRequest
         {
             Id = Guid.NewGuid(),
             UserId = userId.Value,
-            GroupId = id
+            GroupId = groupId
         };
 
         _db.JoinGroupRequests.Add(request);
@@ -401,4 +401,74 @@ public class GroupsController : ControllerBase
 
         return Ok();
     }
+
+    [HttpGet("{groupId:guid}/requests")]
+    public async Task<ActionResult<ICollection<GroupRequestsResponse>>> GetGroupRequests(Guid groupId)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+        if (!await _db.Groups.AnyAsync(g => g.Id == groupId)) return NotFound();
+        if (!await CanManageGroup(groupId, userId.Value)) return Forbid();
+
+        var res = await _db.JoinGroupRequests
+            .Where(jgr => jgr.GroupId == groupId)
+            .Select((jgr) => new GroupRequestsResponse { SenderId = userId.Value, SenderName = jgr.User.Name! })
+            .ToListAsync();
+        return Ok(res);
+    }
+
+    [HttpPost("{groupId:guid}/request/{requesterId:guid}/accept")]
+    public async Task<ActionResult> AcceptJoinGroupRequest(Guid groupId, Guid requesterId)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+        if (!await _db.Groups.AnyAsync(g => g.Id == groupId)) return NotFound();
+        if (!await CanManageGroup(groupId, userId.Value)) return Forbid();
+
+        using var transaction = await _db.Database.BeginTransactionAsync();
+
+        try
+        {
+            if (await _db.UserGroups.AnyAsync(ug => ug.GroupId == groupId && ug.UserId == requesterId))
+                return BadRequest("User is already a member");
+
+            _db.UserGroups.Add(new UserGroup
+            {
+                UserId = requesterId,
+                GroupId = groupId,
+                Role = GroupMemberRole.Member,
+                JoinedAt = DateTime.UtcNow
+            });
+
+            var request = await _db.JoinGroupRequests.Where(jgr => jgr.GroupId == groupId && jgr.UserId == requesterId).ToListAsync();
+            _db.JoinGroupRequests.RemoveRange(request);
+
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync(); // all succeed
+        }
+        catch
+        {
+            await transaction.RollbackAsync(); // anything fails
+            throw;
+        }
+
+        return Ok();
+    }
+
+    [HttpPost("{groupId:guid}/request/{requesterId:guid}/reject")]
+    public async Task<ActionResult> RejectJoinGroupRequest(Guid groupId, Guid requesterId)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+        if (!await _db.Groups.AnyAsync(g => g.Id == groupId)) return NotFound();
+        if (!await CanManageGroup(groupId, userId.Value)) return Forbid();
+
+        var request = await _db.JoinGroupRequests.Where(jgr => jgr.GroupId == groupId && jgr.UserId == requesterId).ToListAsync();
+        _db.JoinGroupRequests.RemoveRange(request);
+        await _db.SaveChangesAsync();
+
+        return Ok();
+    }
+
 }
+

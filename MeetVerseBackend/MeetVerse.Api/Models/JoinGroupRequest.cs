@@ -9,4 +9,5 @@ public class JoinGroupRequest
 
     public Guid UserId { get; set; }
     public User User { get; set; } = default!;
+    public DateTime SentAt { get; set; } = DateTime.UtcNow;
 }
