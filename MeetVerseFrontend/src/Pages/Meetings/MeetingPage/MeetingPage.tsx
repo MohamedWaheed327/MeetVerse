@@ -97,7 +97,7 @@ export default function MeetingPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const WS_URL = 'ws://localhost:5279/ws/transcribe';
+  const WS_URL = import.meta.env.DEV ? import.meta.env.VITE_BACKEND_DEV : import.meta.env.VITE_BACKEND_PROD;
 
   const startRecording = async () => {
     try {
