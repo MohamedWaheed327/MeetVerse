@@ -6,3 +6,45 @@
   font-family: "Roboto", sans-serif;
   scroll-behavior: smooth;
 }
+
+@layer components {
+  /* Scrollbar حديث وناعم */
+
+  .scrollbar-custom {
+    scrollbar-width: thin;            /* Firefox */
+    scrollbar-color: #94a3b8 transparent;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar {
+    width: 6px;                       /* السمك */
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-track {
+    background: transparent;          /* مفيش لون للـ track */
+    border-radius: 999px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;        /* slate-300 */
+    border-radius: 999px;
+    border: 2px solid transparent;    /* يدي إحساس إنه “منفصل” */
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;        /* slate-400 */
+  }
+
+  /* Dark mode */
+  .dark .scrollbar-custom {
+    scrollbar-color: #4b5563 transparent;
+  }
+
+  .dark .scrollbar-custom::-webkit-scrollbar-thumb {
+    background-color: #4b5563;        /* slate-600 */
+    border: 2px solid transparent;
+  }
+
+  .dark .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    background-color: #9ca3af;        /* slate-400 أفتح شوية */
+  }
+}

@@ -18,6 +18,7 @@ import ResetPassword from "./Pages/Auth/ResetPassword";
 import OTPVerification from "./Pages/Auth/OTPVerification";
 import NotFound from "./Pages/NotFoundPage.tsx/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute";
+import GroupInvitePage from "./Pages/Groups/GroupInvitePage";
 
 export default function App() {
   return (
@@ -112,6 +113,15 @@ export default function App() {
         element={
           <ProtectedRoute>
             <GroupRequestsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/groups/:groupId/invite"
+        element={
+          <ProtectedRoute>
+            <GroupInvitePage />
           </ProtectedRoute>
         }
       />
