@@ -1,6 +1,6 @@
 import { Track } from "livekit-client";
 
-export const attachVideoTrackToElement = (track: Track, participantId: string, videoRefs: React.RefObject<Record<string, HTMLDivElement | null>>) => {
+export const attachCameraTrackToElement = (track: Track, participantId: string, videoRefs: React.RefObject<Record<string, HTMLDivElement | null>>) => {
     const container = videoRefs.current[participantId];
     if (!container || track.kind !== "video") return;
 
@@ -21,7 +21,7 @@ export const attachVideoTrackToElement = (track: Track, participantId: string, v
     container.appendChild(element);
 };
 
-export const removeVideoElement = (participantId: string, videoRefs: React.RefObject<Record<string, HTMLDivElement | null>>) => {
+export const removeCameraElement = (participantId: string, videoRefs: React.RefObject<Record<string, HTMLDivElement | null>>) => {
     const container = videoRefs.current[participantId];
     if (!container) return;
 

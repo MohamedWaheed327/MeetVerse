@@ -1,5 +1,5 @@
 import { removeAudioElement } from "./attachAndRemoveAudioElement";
-import { removeVideoElement } from "./attachAndRemoveCameraElement";
+import { removeCameraElement } from "./attachAndRemoveCameraElement";
 import { removeScreenShareElement } from "./screenShare";
 
 
@@ -9,7 +9,7 @@ export const cleanupMediaElements = (
     , screenShareContainerRef: React.RefObject<HTMLDivElement | null>
 ) => {
     Object.keys(videoRefs.current).forEach((participantId) => {
-        removeVideoElement(participantId, videoRefs);
+        removeCameraElement(participantId, videoRefs);
     });
 
     Object.keys(audioRefs.current).forEach((participantId) => {

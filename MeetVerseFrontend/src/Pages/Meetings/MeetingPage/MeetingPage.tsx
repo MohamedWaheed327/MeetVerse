@@ -17,7 +17,7 @@ import { getActiveScreenShare } from "./getActiveScreenShare";
 import { createProcessedMicTrack } from "./NoiseCancellation/createProcessedMicTrack";
 import { getPreferredParticipantVideoPublication } from "./getPreferredParticipantVideoPublication";
 import { attachScreenShareTrackToArea, removeScreenShareElement } from "./screenShare";
-import { attachVideoTrackToElement, removeVideoElement } from "./attachAndRemoveCameraElement";
+import { attachCameraTrackToElement, removeCameraElement } from "./attachAndRemoveCameraElement";
 import { attachAudioTrack, removeAudioElement } from "./attachAndRemoveAudioElement";
 import { cleanupMediaElements } from "./cleanupMediaElements";
 
@@ -248,11 +248,11 @@ export default function MeetingPage() {
           getPreferredParticipantVideoPublication(participant);
 
         if (!preferredVideoPub?.track) {
-          removeVideoElement(participant.identity, videoRefs);
+          removeCameraElement(participant.identity, videoRefs);
           return;
         }
 
-        attachVideoTrackToElement(
+        attachCameraTrackToElement(
           preferredVideoPub.track,
           participant.identity, videoRefs
         );
@@ -260,7 +260,7 @@ export default function MeetingPage() {
 
       Object.keys(videoRefs.current).forEach((participantId) => {
         if (!activeIds.has(participantId)) {
-          removeVideoElement(participantId, videoRefs);
+          removeCameraElement(participantId, videoRefs);
         }
       });
 
@@ -305,7 +305,7 @@ export default function MeetingPage() {
           }
 
           if (publication.source == Track.Source.Camera) {
-            removeVideoElement(participant.identity, videoRefs);
+            removeCameraElement(participant.identity, videoRefs);
           }
 
           if (publication.source == Track.Source.ScreenShare) {
@@ -323,7 +323,7 @@ export default function MeetingPage() {
 
         const handleParticipantDisconnected = (participant: Participant) => {
           console.log("participantDisconnected:", participant.identity);
-          removeVideoElement(participant.identity, videoRefs);
+          removeCameraElement(participant.identity, videoRefs);
           removeAudioElement(participant.identity, audioRefs);
           syncParticipants(newRoom);
         };
@@ -337,7 +337,7 @@ export default function MeetingPage() {
           console.log("trackUnpublished:", participant.identity, publication.kind, publication.source);
 
           if (publication.source == Track.Source.Camera) {
-            removeVideoElement(participant.identity, videoRefs);
+            removeCameraElement(participant.identity, videoRefs);
           }
 
           if (publication.source == Track.Source.ScreenShare) {
@@ -351,7 +351,7 @@ export default function MeetingPage() {
           console.log("trackMuted:", participant.identity, publication.kind, publication.source);
 
           if (publication.source == Track.Source.Camera) {
-            removeVideoElement(participant.identity, videoRefs);
+            removeCameraElement(participant.identity, videoRefs);
           }
 
           if (publication.source == Track.Source.ScreenShare) {
@@ -379,7 +379,7 @@ export default function MeetingPage() {
           console.log("localTrackUnpublished:", publication.kind, publication.source);
 
           if (publication.source == Track.Source.Camera) {
-            removeVideoElement(newRoom.localParticipant.identity, videoRefs);
+            removeCameraElement(newRoom.localParticipant.identity, videoRefs);
           }
 
           if (publication.source == Track.Source.ScreenShare) {
