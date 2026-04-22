@@ -11,30 +11,30 @@
   /* Scrollbar حديث وناعم */
 
   .scrollbar-custom {
-    scrollbar-width: thin;            /* Firefox */
+    scrollbar-width: thin;           
     scrollbar-color: #94a3b8 transparent;
   }
 
   .scrollbar-custom::-webkit-scrollbar {
-    width: 6px;                       /* السمك */
+    width: 6px;                     
   }
 
   .scrollbar-custom::-webkit-scrollbar-track {
-    background: transparent;          /* مفيش لون للـ track */
+    background: transparent;        
     border-radius: 999px;
   }
 
   .scrollbar-custom::-webkit-scrollbar-thumb {
-    background-color: #cbd5e1;        /* slate-300 */
+    background-color: #cbd5e1;       
     border-radius: 999px;
-    border: 2px solid transparent;    /* يدي إحساس إنه “منفصل” */
+    border: 2px solid transparent;   
   }
 
   .scrollbar-custom::-webkit-scrollbar-thumb:hover {
-    background-color: #94a3b8;        /* slate-400 */
+    background-color: #94a3b8;        
   }
 
-  /* Dark mode */
+  
   .dark .scrollbar-custom {
     scrollbar-color: #4b5563 transparent;
   }
