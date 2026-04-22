@@ -25,6 +25,7 @@ import {
   unsubscribeFromGroup,
 } from "../../services/hubs/groupChat";
 import { group_chat_connection } from "../../services/hubs/connections";
+import { getJoinGroupRequests } from "../../services/getJoinGroupRequests";
 
 type member = {
   userId: string;
@@ -50,6 +51,16 @@ export default function GroupDetailsPage() {
   const [members, setMembers] = useState<member[]>([]);
   const [groupChat, setGroupChat] = useState<GroupChat[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [joinRequestsCount, setJoinRequestsCount] = useState(0);
+
+  useEffect(() => {
+    const loadRequests = async () => {
+      const requests = await getJoinGroupRequests(groupId ?? "");
+      setJoinRequestsCount(requests.length);
+    };
+
+    loadRequests();
+  }, [groupId]);
 
   useEffect(() => {
     const loadGroupMembers = async () => {
@@ -183,14 +194,12 @@ export default function GroupDetailsPage() {
 
                     {/* Message */}
                     <div
-                      className={`space-y-1 max-w-[70%] ${
-                        isMe ? "text-right" : ""
-                      }`}
+                      className={`space-y-1 max-w-[70%] ${isMe ? "text-right" : ""
+                        }`}
                     >
                       <p
-                        className={`text-[10px] font-bold ${
-                          isMe ? "text-blue-500" : "text-slate-400"
-                        }`}
+                        className={`text-[10px] font-bold ${isMe ? "text-blue-500" : "text-slate-400"
+                          }`}
                       >
                         {isMe ? "You" : msg.senderName} •{" "}
                         {new Date(msg.sentAt).toLocaleString()}
@@ -198,11 +207,10 @@ export default function GroupDetailsPage() {
 
                       <div
                         className={`p-4 rounded-3xl text-sm leading-relaxed
-            ${
-              isMe
-                ? "bg-blue-600 text-white rounded-tr-none"
-                : "bg-slate-100 dark:bg-[#0D0F16] rounded-tl-none"
-            }`}
+            ${isMe
+                            ? "bg-blue-600 text-white rounded-tr-none"
+                            : "bg-slate-100 dark:bg-[#0D0F16] rounded-tl-none"
+                          }`}
                       >
                         {msg.content}
                       </div>
@@ -269,22 +277,22 @@ export default function GroupDetailsPage() {
                 ))}
               </div>
 
-              {members.find((m) => m.userId === localStorage.getItem("userid"))
-                ?.role === "Admin" && (
-                <button
-                  onClick={() => navigate(`/groups/${groupId}/requests`)}
-                  className="mt-4 w-full flex items-center justify-between p-4 bg-blue-600/10 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-600/20 rounded-2xl transition-all group"
-                >
-                  <div className="flex items-center gap-3">
-                    <UserPlus size={18} />
-                    <span className="text-sm font-bold">Join Requests</span>
-                  </div>
-                  <span className="bg-blue-600 group-hover:bg-white group-hover:text-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
-                    5 
-                  </span>
-                </button>
-              )}
-              
+              {(members.find((m) => m.userId === localStorage.getItem("userid"))?.role === "Admin"
+                || members.find((m) => m.userId === localStorage.getItem("userid"))?.role === "Owner") && (
+                  <button
+                    onClick={() => navigate(`/groups/${groupId}/requests`)}
+                    className="mt-4 w-full flex items-center justify-between p-4 bg-blue-600/10 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-600/20 rounded-2xl transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <UserPlus size={18} />
+                      <span className="text-sm font-bold">Join Requests</span>
+                    </div>
+                    <span className="bg-blue-600 group-hover:bg-white group-hover:text-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                    {joinRequestsCount}
+                    </span>
+                  </button>
+                )}
+
               <div className="mt-6 pt-6 border-t border-slate-100 dark:border-[#2A2E3B]">
                 <button
                   onClick={() =>

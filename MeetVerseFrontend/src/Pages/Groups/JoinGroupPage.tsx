@@ -2,8 +2,12 @@
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
 import { Hash, Search, ArrowRight, Shield } from "lucide-react";
+import { requestJoinGroup } from "../../services/requestJoinGroup";
+import { useState } from "react";
 
 export default function JoinGroupPage() {
+  const [groupId, setGroupId] = useState("");
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300">
       <Navbar />
@@ -39,13 +43,18 @@ export default function JoinGroupPage() {
                 />
                 <input
                   type="text"
+                  value={groupId}
+                  onChange={(e) => setGroupId(e.target.value)}
                   placeholder="G-XXXX"
                   className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl py-5 pl-14 pr-6 text-sm font-mono focus:border-blue-800 transition-all outline-none"
                 />
               </div>
             </div>
 
-            <button className="w-full flex items-center justify-center gap-2 bg-blue-800 hover:bg-blue-900 cursor-pointer text-white py-5 rounded-[1.5rem] font-bold text-sm shadow-xl shadow-blue-900/20 transition-all active:scale-95">
+            <button
+              onClick={() => requestJoinGroup(groupId)}
+              className="w-full flex items-center justify-center gap-2 bg-blue-800 hover:bg-blue-900 cursor-pointer text-white py-5 rounded-[1.5rem] font-bold text-sm shadow-xl shadow-blue-900/20 transition-all active:scale-95"
+            >
               Connect to Space <ArrowRight size={18} />
             </button>
           </form>
