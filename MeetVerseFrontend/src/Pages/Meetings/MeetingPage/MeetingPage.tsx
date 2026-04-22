@@ -203,8 +203,6 @@ export default function MeetingPage() {
 
   ////////////////////
 
-
-
   const detachTrack = (track: Track) => {
     if (!track) return;
 
@@ -292,7 +290,7 @@ export default function MeetingPage() {
         const handleTrackSubscribed = (track: Track, publication: TrackPublication, participant: Participant) => {
           console.log("trackSubscribed:", participant.identity, track.kind, publication?.source);
 
-          if (track.kind === "audio") {
+          if (publication.source == Track.Source.Microphone) {
             attachAudioTrack(track, participant.identity, audioRefs);
           }
 
@@ -302,18 +300,16 @@ export default function MeetingPage() {
         const handleTrackUnsubscribed = (track: Track, publication: TrackPublication, participant: Participant) => {
           console.log("trackUnsubscribed:", participant.identity, track.kind, publication?.source);
 
-          if (track.kind === Track.Kind.Audio) {
+          if (publication.source == Track.Source.Microphone) {
             removeAudioElement(participant.identity, audioRefs);
           }
 
-          if (track.kind === Track.Kind.Video) {
-            if (isCameraSource(publication?.source || track?.source)) {
-              removeVideoElement(participant.identity, videoRefs);
-            }
+          if (publication.source == Track.Source.Camera) {
+            removeVideoElement(participant.identity, videoRefs);
+          }
 
-            if (isScreenShareSource(publication?.source || track?.source)) {
-              removeScreenShareElement(screenShareContainerRef);
-            }
+          if (publication.source == Track.Source.ScreenShare) {
+            removeScreenShareElement(screenShareContainerRef);
           }
 
           detachTrack(track);
@@ -340,14 +336,12 @@ export default function MeetingPage() {
         const handleTrackUnpublished = (publication: TrackPublication, participant: Participant) => {
           console.log("trackUnpublished:", participant.identity, publication.kind, publication.source);
 
-          if (publication.kind === Track.Kind.Video) {
-            if (isCameraSource(publication.source)) {
-              removeVideoElement(participant.identity, videoRefs);
-            }
+          if (publication.source == Track.Source.Camera) {
+            removeVideoElement(participant.identity, videoRefs);
+          }
 
-            if (isScreenShareSource(publication.source)) {
-              removeScreenShareElement(screenShareContainerRef);
-            }
+          if (publication.source == Track.Source.ScreenShare) {
+            removeScreenShareElement(screenShareContainerRef);
           }
 
           syncParticipants(newRoom);
@@ -356,14 +350,12 @@ export default function MeetingPage() {
         const handleTrackMuted = (publication: TrackPublication, participant: Participant) => {
           console.log("trackMuted:", participant.identity, publication.kind, publication.source);
 
-          if (publication.kind === Track.Kind.Video) {
-            if (isCameraSource(publication.source)) {
-              removeVideoElement(participant.identity, videoRefs);
-            }
+          if (publication.source == Track.Source.Camera) {
+            removeVideoElement(participant.identity, videoRefs);
+          }
 
-            if (isScreenShareSource(publication.source)) {
-              removeScreenShareElement(screenShareContainerRef);
-            }
+          if (publication.source == Track.Source.ScreenShare) {
+            removeScreenShareElement(screenShareContainerRef);
           }
 
           syncParticipants(newRoom);
