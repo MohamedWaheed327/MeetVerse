@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useState } from "react";
 import Video from "../../../assets/Logo/icon2.png";
 import { Link, NavLink, useLocation } from "react-router-dom";
@@ -9,7 +10,8 @@ export default function Navbar() {
   const location = useLocation();
 
   const isLanding = location.pathname === "/";
-  const isLoggedIn = localStorage.getItem("token");
+  // التأكد من وجود توكن (اليوزر مسجل دخول)
+  const isLoggedIn = !!localStorage.getItem("token");
 
   const closeMobile = () => setMobileMenuOpen(false);
 
@@ -26,7 +28,7 @@ export default function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-[#0D0F16]/80 backdrop-blur-md border-b border-gray-200 dark:border-[#2A2E3B] transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" onClick={closeMobile}>
+          <Link to={isLoggedIn ? "/home" : "/"} onClick={closeMobile}>
             <div className="flex items-center gap-2">
               <img src={Video} className="w-10 h-10" alt="Logo" />
               <span className="text-gray-900 dark:text-[#F1F5F9] font-semibold text-2xl tracking-tight">
@@ -36,54 +38,43 @@ export default function Navbar() {
           </Link>
 
           <div className="hidden md:flex items-center gap-6">
-            {isLanding && (
+            {/* 1. لو اليوزر مش مسجل وهو في اللاندنج بيدج -> اظهر لينكات الاقسام */}
+            {!isLoggedIn && isLanding && (
               <>
                 <a
                   href="#features"
-                  className={`${linkClasses} ${isActiveSection("#features")
-                    ? activeClasses
-                    : inactiveClasses
-                    }`}
+                  className={`${linkClasses} ${isActiveSection("#features") ? activeClasses : inactiveClasses}`}
                 >
                   Features
                 </a>
                 <a
                   href="#how-it-works"
-                  className={`${linkClasses} ${isActiveSection("#how-it-works")
-                    ? activeClasses
-                    : inactiveClasses
-                    }`}
+                  className={`${linkClasses} ${isActiveSection("#how-it-works") ? activeClasses : inactiveClasses}`}
                 >
                   How It Works
                 </a>
                 <a
                   href="#Overview"
-                  className={`${linkClasses} ${isActiveSection("#Overview")
-                    ? activeClasses
-                    : inactiveClasses
-                    }`}
+                  className={`${linkClasses} ${isActiveSection("#Overview") ? activeClasses : inactiveClasses}`}
                 >
                   Overview
                 </a>
                 <a
                   href="#our-audience"
-                  className={`${linkClasses} ${isActiveSection("#our-audience")
-                    ? activeClasses
-                    : inactiveClasses
-                    }`}
+                  className={`${linkClasses} ${isActiveSection("#our-audience") ? activeClasses : inactiveClasses}`}
                 >
                   Our Audience
                 </a>
               </>
             )}
 
-            {isLoggedIn && !isLanding && (
+            {/* 2. لو اليوزر مسجل دخول -> اظهر لينكات التحكم دايماً */}
+            {isLoggedIn && (
               <>
                 <NavLink
                   to="/home"
                   className={({ isActive }) =>
-                    `${linkClasses} ${isActive ? activeClasses : inactiveClasses
-                    }`
+                    `${linkClasses} ${isActive ? activeClasses : inactiveClasses}`
                   }
                 >
                   Dashboard
@@ -91,8 +82,7 @@ export default function Navbar() {
                 <NavLink
                   to="/meetings"
                   className={({ isActive }) =>
-                    `${linkClasses} ${isActive ? activeClasses : inactiveClasses
-                    }`
+                    `${linkClasses} ${isActive ? activeClasses : inactiveClasses}`
                   }
                 >
                   Meetings
@@ -100,8 +90,7 @@ export default function Navbar() {
                 <NavLink
                   to="/groups"
                   className={({ isActive }) =>
-                    `${linkClasses} ${isActive ? activeClasses : inactiveClasses
-                    }`
+                    `${linkClasses} ${isActive ? activeClasses : inactiveClasses}`
                   }
                 >
                   Groups
@@ -109,8 +98,7 @@ export default function Navbar() {
                 <NavLink
                   to="/profile"
                   className={({ isActive }) =>
-                    `${linkClasses} ${isActive ? activeClasses : inactiveClasses
-                    }`
+                    `${linkClasses} ${isActive ? activeClasses : inactiveClasses}`
                   }
                 >
                   Profile
@@ -142,7 +130,7 @@ export default function Navbar() {
                     localStorage.removeItem("userid");
                     window.location.href = "/";
                   }}
-                  className="text-red-500 font-bold text-sm"
+                  className="text-red-500 font-bold text-sm hover:underline"
                 >
                   Logout
                 </button>
@@ -164,9 +152,10 @@ export default function Navbar() {
         </div>
       </div>
 
+      {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden absolute top-16 left-0 right-0 bg-white dark:bg-[#0D0F16] shadow-lg border-b flex flex-col gap-4 px-6 py-8 z-40">
-          {isLanding ? (
+          {!isLoggedIn && isLanding ? (
             <>
               {["#features", "#how-it-works", "#Overview", "#our-audience"].map(
                 (hash) => (
@@ -174,10 +163,7 @@ export default function Navbar() {
                     key={hash}
                     href={hash}
                     onClick={closeMobile}
-                    className={`text-lg font-semibold ${isActiveSection(hash)
-                      ? "text-blue-600"
-                      : "text-gray-800 dark:text-[#F1F5F9]"
-                      }`}
+                    className={`text-lg font-semibold ${isActiveSection(hash) ? "text-blue-600" : "text-gray-800 dark:text-[#F1F5F9]"}`}
                   >
                     {hash.replace("#", "").toUpperCase()}
                   </a>
@@ -192,15 +178,23 @@ export default function Navbar() {
                 to={path}
                 onClick={closeMobile}
                 className={({ isActive }) =>
-                  `text-lg font-semibold ${isActive
-                    ? "text-blue-600"
-                    : "text-gray-800 dark:text-[#F1F5F9]"
-                  }`
+                  `text-lg font-semibold ${isActive ? "text-blue-600" : "text-gray-800 dark:text-[#F1F5F9]"}`
                 }
               >
                 {path.replace("/", "").toUpperCase()}
               </NavLink>
             ))
+          )}
+          {isLoggedIn && (
+            <button
+              onClick={() => {
+                localStorage.removeItem("token");
+                window.location.href = "/";
+              }}
+              className="text-left text-red-500 font-bold text-lg"
+            >
+              LOGOUT
+            </button>
           )}
         </div>
       )}

@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
   Settings,
@@ -11,13 +11,13 @@ import {
   LogOut,
   Video,
   ArrowRight,
+  Clock,
+  X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getGroupMembers } from "../../services/getGroupMembers";
 import { GetGroupChat } from "../../services/getGroupChat";
-import { getCurrentUser } from "../../services/currentUser";
-import { sendGroupMessage } from "../../services/sendGroupMessage";
 import {
   onError,
   onMessageReceived,
@@ -52,13 +52,27 @@ export default function GroupDetailsPage() {
   const [groupChat, setGroupChat] = useState<GroupChat[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [joinRequestsCount, setJoinRequestsCount] = useState(0);
+  const [isChatOpenMobile, setIsChatOpenMobile] = useState(false);
+
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [groupChat, isChatOpenMobile]);
 
   useEffect(() => {
     const loadRequests = async () => {
-      const requests = await getJoinGroupRequests(groupId ?? "");
-      setJoinRequestsCount(requests.length);
+      try {
+        const requests = await getJoinGroupRequests(groupId ?? "");
+        setJoinRequestsCount(requests.length);
+      } catch (err) {
+        console.error(err);
+      }
     };
-
     loadRequests();
   }, [groupId]);
 
@@ -68,32 +82,26 @@ export default function GroupDetailsPage() {
         const GroupMembers = await getGroupMembers(groupId ?? "");
         setMembers(GroupMembers || []);
       } catch (err) {
-        console.error("Failed to load group members:", err);
+        console.error(err);
       }
     };
-
     loadGroupMembers();
-  }, []);
+  }, [groupId]);
 
   useEffect(() => {
     const loadHistory = async () => {
       try {
         const history = await GetGroupChat(groupId ?? "");
         setGroupChat(history || []);
-        console.log(groupChat);
       } catch (err) {
-        console.error("Failed to load chat history:", err);
+        console.error(err);
       }
     };
-
-    if (groupId) {
-      loadHistory();
-    }
+    if (groupId) loadHistory();
   }, [groupId]);
 
   function handleSendMessage() {
-    if (newMessage.trim().length == 0) return;
-    console.log("send group message: ");
+    if (newMessage.trim().length === 0) return;
     group_chat_connection.invoke("SendMessage", groupId!, newMessage);
     setNewMessage("");
   }
@@ -103,230 +111,358 @@ export default function GroupDetailsPage() {
       if (group_chat_connection.state === "Disconnected") {
         await group_chat_connection.start();
       }
-
       await subscribeToGroup(groupId!);
-
       onMessageReceived((payload: GroupChat) => {
         setGroupChat((prev) => [...prev, payload]);
       });
-
-      onError((err: unknown) => {
-        console.error("SignalR Error:", err);
-      });
+      onError((err: unknown) => console.error(err));
     };
-
     start();
     return () => {
       unsubscribeFromGroup(groupId!);
       group_chat_connection.off("ReceiveMessage");
-      group_chat_connection.off("Error");
     };
-  }, []);
+  }, [groupId]);
 
-  // const members = [
-  //   { name: "You", role: "Admin", status: "Online" },
-  //   { name: "Sarah", role: "Member", status: "Away" },
-  //   { name: "Omar", role: "Member", status: "Online" },
-  //   { name: "Mona", role: "Member", status: "Offline" },
-  // ];
+  const currentUserId =
+    typeof window !== "undefined" ? localStorage.getItem("userid") : null;
+  const currentUserRole = members.find((m) => m.userId === currentUserId)?.role;
+  const isAdminOrOwner =
+    currentUserRole === "Admin" || currentUserRole === "Owner";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300">
+    // نخلي الصفحة كلها بارتفاع الشاشة عشان الاسكرول يبقى جوه الكونتينت مش البودي
+    <div className="h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300 flex flex-col">
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16 space-y-8">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
-        >
-          <div className="space-y-1">
-            <span className="text-emerald-600 font-bold uppercase tracking-[0.3em] text-[10px]">
-              Active Community
-            </span>
-            <h1 className="text-4xl font-extrabold tracking-tight">
-              AI Study Group
-            </h1>
-            <p className="text-slate-500 dark:text-[#A8B0C2] text-sm">
-              G-10 • {members.length} Intellectuals • Weekly deep dives
-            </p>
+
+      {/* ده الكونتينر الرئيسي بعد النافبار: flex-1 + overflow-hidden عشان اللي جوه هو اللي يعمل scroll */}
+      <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-4 md:px-6 pt-24 pb-6 flex flex-col gap-4 sm:gap-6 overflow-hidden">
+        {/* Header Section */}
+        <div className="relative flex items-center justify-between bg-white dark:bg-[#181B26] px-4 sm:px-5 md:px-6 py-4 rounded-[2rem] border border-slate-200 dark:border-[#2A2E3B] shadow-sm shrink-0">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div className="size-9 sm:size-10 md:size-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/20">
+              <Users size={22} className="sm:size-6" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[9px] sm:text-[10px] font-bold text-blue-600 uppercase tracking-[0.22em]">
+                Space
+              </span>
+              <div className="flex items-center gap-2 min-w-0">
+                <h1 className="text-base sm:text-lg md:text-2xl font-black truncate max-w-[130px] xs:max-w-[180px] sm:max-w-[220px] md:max-w-full">
+                  AI Study Group
+                </h1>
+                <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-[#0D0F16] text-[10px] font-semibold text-slate-500 dark:text-slate-300 px-2 py-0.5">
+                  <Clock size={10} /> Live
+                </span>
+              </div>
+              <p className="hidden sm:block text-[11px] md:text-xs text-slate-500 dark:text-slate-400 truncate">
+                Collaborate, chat and learn AI together in real-time.
+              </p>
+            </div>
           </div>
-          <button className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl text-sm font-bold shadow-sm hover:bg-slate-50 dark:hover:bg-[#2A2E3B] transition-all">
-            <Settings size={18} className="text-blue-500" /> Group Settings
-          </button>
-        </motion.div>
 
-        <div className="grid lg:grid-cols-12 gap-8 h-[600px]">
-          {/* Chat Section */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-8 bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] rounded-[3rem] flex flex-col overflow-hidden shadow-xl"
-          >
-            <div className="p-6 border-b border-slate-100 dark:border-[#2A2E3B] flex items-center justify-between bg-slate-50/50 dark:bg-[#0D0F16]/20">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-600 text-white rounded-xl">
-                  <MessageSquare size={18} />
-                </div>
-                <h3 className="font-bold">Team Discussion</h3>
-              </div>
-              <div className="flex items-center gap-2 text-[10px] text-blue-600 font-bold uppercase bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full">
-                <Pin size={12} /> Thursday at 7 PM
-              </div>
-            </div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            {isAdminOrOwner && (
+              <button
+                onClick={() => navigate(`/groups/${groupId}/requests`)}
+                className="inline-flex lg:hidden items-center gap-1 rounded-full bg-blue-600/10 text-blue-700 dark:text-blue-300 px-2.5 py-1 text-[10px] font-semibold border border-blue-500/20"
+              >
+                <UserPlus size={12} />
+                <span>Requests</span>
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-blue-600 text-white text-[9px]">
+                  {joinRequestsCount}
+                </span>
+              </button>
+            )}
 
-            <div className="flex-1 overflow-y-auto p-8 space-y-6">
-              {groupChat.map((msg, idx) => {
-                const isMe = msg.senderId === localStorage.getItem("userid");
+            <button
+              onClick={() => setIsChatOpenMobile(true)}
+              className="lg:hidden size-9 sm:size-10 flex items-center justify-center bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-600/40 active:scale-95 transition-transform"
+            >
+              <MessageSquare size={18} className="sm:size-5" />
+            </button>
 
-                return (
-                  <div
-                    key={msg.id ?? idx}
-                    className={`flex gap-4 ${isMe ? "flex-row-reverse" : ""}`}
-                  >
-                    {/* Avatar */}
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold
-          ${isMe ? "bg-blue-600 text-white" : "bg-slate-200 dark:bg-[#2A2E3B]"}`}
-                    >
-                      {msg.senderName?.[0]}
-                    </div>
+            <button className="hidden sm:inline-flex items-center gap-1.5 md:gap-2 px-3.5 md:px-5 py-2 bg-slate-100 dark:bg-[#2A2E3B] border border-slate-200 dark:border-transparent rounded-xl text-[11px] md:text-xs font-bold hover:bg-slate-200 dark:hover:bg-[#232838] transition-all">
+              <Settings size={14} className="md:size-4" />
+              <span className="hidden md:inline">Settings</span>
+            </button>
+          </div>
+        </div>
 
-                    {/* Message */}
-                    <div
-                      className={`space-y-1 max-w-[70%] ${isMe ? "text-right" : ""
-                        }`}
-                    >
-                      <p
-                        className={`text-[10px] font-bold ${isMe ? "text-blue-500" : "text-slate-400"
-                          }`}
-                      >
-                        {isMe ? "You" : msg.senderName} •{" "}
-                        {new Date(msg.sentAt).toLocaleString()}
-                      </p>
-
-                      <div
-                        className={`p-4 rounded-3xl text-sm leading-relaxed
-            ${isMe
-                            ? "bg-blue-600 text-white rounded-tr-none"
-                            : "bg-slate-100 dark:bg-[#0D0F16] rounded-tl-none"
-                          }`}
-                      >
-                        {msg.content}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="p-6 bg-slate-50 dark:bg-[#0D0F16]/50">
-              <div className="relative">
-                <input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleSendMessage();
-                    }
-                  }}
-                  className="w-full bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl py-4 pl-6 pr-24 text-sm outline-none focus:border-blue-600 transition-all shadow-inner"
-                  placeholder="Drop a message..."
-                />
-                <button
-                  onClick={handleSendMessage}
-                  className="absolute right-2 top-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all"
-                >
-                  <Send size={14} /> Send
-                </button>
-              </div>
-            </div>
-          </motion.div>
-
+        {/* الكونتينر اللي ماسك الأعضاء + الشات: لازم يبقى min-h-0 + overflow-hidden عشان الأطفال يقدروا يعملوا scroll */}
+        <div className="flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6 overflow-hidden relative min-h-0">
           {/* Members Sidebar */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-4 flex flex-col gap-6"
-          >
-            <div className="bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] rounded-[2.5rem] p-8 flex-1 flex flex-col shadow-xl">
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="font-bold flex items-center gap-2">
-                  <Users size={18} className="text-blue-500" /> Community
-                </h3>
-                <button className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1">
-                  <UserPlus size={14} /> Invite
-                </button>
-              </div>
-              <div className="flex-1 space-y-3 overflow-y-auto">
-                {members.map((m, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-4 bg-slate-50 dark:bg-[#0D0F16] border border-slate-100 dark:border-[#2A2E3B] rounded-2xl"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-2 h-2 rounded-full ${m.status === "Online" ? "bg-emerald-500" : "bg-slate-400"}`}
-                      />
-                      <span className="text-sm font-bold">{m.name}</span>
-                    </div>
-                    <span className="text-[9px] font-bold px-2 py-0.5 border border-slate-200 dark:border-[#2A2E3B] rounded uppercase tracking-wider text-slate-400">
-                      {m.role}
+          <aside className="w-full lg:w-[320px] xl:w-[350px] bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] rounded-[2rem] sm:rounded-[2.5rem] p-4 sm:p-5 md:p-6 flex flex-col shadow-xl overflow-hidden relative">
+            <div className="flex items-center justify-between mb-4 sm:mb-5 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="inline-flex size-7 items-center justify-center rounded-xl bg-blue-600/10 text-blue-600">
+                  <Users size={16} />
+                </div>
+                <div className="flex flex-col">
+                  <h3 className="font-semibold text-sm sm:text-base flex items-center gap-1.5">
+                    Members
+                    <span className="text-[10px] font-bold text-slate-400">
+                      · {members.length} total
                     </span>
-                  </div>
-                ))}
+                  </h3>
+                </div>
               </div>
-
-              {(members.find((m) => m.userId === localStorage.getItem("userid"))?.role === "Admin"
-                || members.find((m) => m.userId === localStorage.getItem("userid"))?.role === "Owner") && (
-                  <button
-                    onClick={() => navigate(`/groups/${groupId}/requests`)}
-                    className="mt-4 w-full flex items-center justify-between p-4 bg-blue-600/10 hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-600/20 rounded-2xl transition-all group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <UserPlus size={18} />
-                      <span className="text-sm font-bold">Join Requests</span>
-                    </div>
-                    <span className="bg-blue-600 group-hover:bg-white group-hover:text-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
-                    {joinRequestsCount}
-                    </span>
-                  </button>
-                )}
-
-              <div className="mt-6 pt-6 border-t border-slate-100 dark:border-[#2A2E3B]">
-                <button
-                  onClick={() =>
-                    navigate(`/meetings/create?groupId=${groupId}`)
-                  }
-                  className="w-full bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white p-5 rounded-4xl shadow-xl shadow-blue-500/20 transition-all flex items-center justify-between group active:scale-95"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/20 rounded-xl group-hover:rotate-12 transition-transform">
-                      <Video size={18} />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-[11px] font-black uppercase tracking-widest leading-none">
-                        Start Group Meeting
-                      </p>
-                      <p className="text-[9px] text-blue-100 mt-1 opacity-80">
-                        Launch session for G-10 members
-                      </p>
-                    </div>
-                  </div>
-                  <ArrowRight
-                    size={18}
-                    className="group-hover:translate-x-1 transition-transform"
-                  />
-                </button>
-              </div>
-
-              <button className="mt-4 flex items-center justify-center gap-2 py-4 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all">
-                <LogOut size={16} /> Leave Community
+              <button
+                onClick={() => navigate(`/groups/${groupId}/invite`)}
+                className="text-[10px] font-black text-blue-600 hover:underline flex items-center gap-1 uppercase tracking-widest"
+              >
+                <UserPlus size={14} /> Invite
               </button>
             </div>
-          </motion.div>
+
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 sm:pr-2 custom-scrollbar scrollbar-custom">
+              {members.map((m, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between p-2.5 sm:p-3.5 bg-slate-50 dark:bg-[#0D0F16] border border-transparent dark:border-slate-800/50 rounded-2xl hover:border-blue-500/60 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-all group"
+                >
+                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                    <div
+                      className={`relative size-2.5 rounded-full ${
+                        m.status === "Online"
+                          ? "bg-emerald-500 shadow-[0_0_10px_#10b981aa]"
+                          : "bg-slate-400"
+                      }`}
+                    />
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs sm:text-sm font-semibold truncate">
+                        {m.name}
+                      </span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                        {m.status}
+                      </span>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide border ${
+                      m.role === "Owner"
+                        ? "bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-300"
+                        : m.role === "Admin"
+                          ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-300"
+                          : "bg-white dark:bg-[#2A2E3B] border-slate-200 dark:border-slate-700 text-slate-400"
+                    }`}
+                  >
+                    {m.role}
+                  </span>
+                </div>
+              ))}
+              {members.length === 0 && (
+                <div className="text-center text-xs text-slate-400 py-6">
+                  No members yet.
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 sm:mt-5 pt-3 sm:pt-4 border-t border-slate-100 dark:border-[#2A2E3B] space-y-2.5 sm:space-y-3 shrink-0">
+              {isAdminOrOwner && (
+                <button
+                  onClick={() => navigate(`/groups/${groupId}/requests`)}
+                  className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-blue-600/10 hover:bg-blue-600 text-blue-700 dark:text-white rounded-2xl transition-all group font-semibold text-xs sm:text-sm border border-blue-500/30 hover:border-blue-600"
+                >
+                  <span className="flex items-center gap-2">
+                    <UserPlus size={16} />
+                    <span>Manage Requests</span>
+                  </span>
+                  <span className="bg-blue-600 group-hover:bg-white group-hover:text-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                    {joinRequestsCount}
+                  </span>
+                </button>
+              )}
+
+              <button
+                onClick={() => navigate(`/meetings/create?groupId=${groupId}`)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3.5 sm:p-4 rounded-2xl shadow-lg transition-all flex items-center justify-between group active:scale-[0.98]"
+              >
+                <div className="flex flex-col items-start">
+                  <span className="text-xs sm:text-sm font-bold">
+                    Start Meeting
+                  </span>
+                  <span className="hidden sm:inline text-[10px] text-blue-100">
+                    Create an instant video session for this space.
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Video size={18} />
+                  <ArrowRight
+                    size={14}
+                    className="group-hover:translate-x-0.5 transition-transform"
+                  />
+                </div>
+              </button>
+
+              <button className="w-full py-3 text-[10px] sm:text-[11px] text-red-500 dark:text-red-400 font-black uppercase tracking-[0.22em] hover:bg-red-50 dark:hover:bg-red-900/10 rounded-2xl transition-all flex items-center justify-center gap-1.5">
+                <LogOut size={14} />
+                Leave Space
+              </button>
+            </div>
+          </aside>
+
+          <AnimatePresence>
+            {(isChatOpenMobile ||
+              (typeof window !== "undefined" && window.innerWidth >= 1024)) && (
+              <motion.div
+                initial={
+                  isChatOpenMobile ? { y: "100%" } : { opacity: 0, y: 10 }
+                }
+                animate={isChatOpenMobile ? { y: 0 } : { opacity: 1, y: 0 }}
+                exit={isChatOpenMobile ? { y: "100%" } : { opacity: 0, y: 10 }}
+                transition={{
+                  type: "spring",
+                  damping: 30,
+                  stiffness: 260,
+                  mass: 0.9,
+                }}
+                className={`
+                  flex-1 bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] rounded-t-3xl rounded-b-none lg:rounded-[2rem] flex flex-col overflow-hidden shadow-2xl z-[90] min-h-0
+                  ${
+                    isChatOpenMobile
+                      ? "fixed inset-x-0 bottom-0 top-[64px] sm:top-[72px] lg:static lg:rounded-[2rem]"
+                      : "hidden lg:flex"
+                  }
+                `}
+              >
+                <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-[#2A2E3B] flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2.5 sm:gap-3">
+                    <div className="inline-flex size-8 sm:size-9 items-center justify-center rounded-2xl bg-blue-600/10 text-blue-600">
+                      <MessageSquare size={18} className="sm:size-5" />
+                    </div>
+                    <div className="flex flex-col">
+                      <h3 className="font-semibold text-sm sm:text-base">
+                        Team Chat
+                      </h3>
+                      <span className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500">
+                        Stay in sync with your group in real time.
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="hidden md:flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase bg-slate-50 dark:bg-[#0D0F16] px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800">
+                      <Pin size={12} />
+                      <span>Sync: Thu 7PM</span>
+                    </div>
+                    <button
+                      onClick={() => setIsChatOpenMobile(false)}
+                      className="lg:hidden p-2 bg-slate-100 dark:bg-[#2A2E3B] text-slate-500 rounded-full border border-slate-200 dark:border-slate-800"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* هنا المهم: flex-1 + overflow-y-auto + scrollbar-custom في كل الشاشات، فالشات نفسه دايماً له scroll حتى على الشاشات الكبيرة */}
+                <div className="flex-1 overflow-y-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6 custom-scrollbar scrollbar-custom">
+                  {groupChat.length === 0 && (
+                    <div className="h-full flex flex-col items-center justify-center text-center text-xs sm:text-sm text-slate-400 gap-2">
+                      <div className="inline-flex items-center justify-center rounded-2xl bg-slate-100 dark:bg-[#0D0F16] size-12 mb-2">
+                        <MessageSquare size={20} className="text-slate-400" />
+                      </div>
+                      <p className="font-medium">No messages yet.</p>
+                      <p className="max-w-xs">
+                        Start the conversation and keep everyone aligned with
+                        what&apos;s happening in the space.
+                      </p>
+                    </div>
+                  )}
+
+                  {groupChat.map((msg, idx) => {
+                    const isMe = msg.senderId === currentUserId;
+                    return (
+                      <motion.div
+                        key={msg.id ?? idx}
+                        initial={{
+                          opacity: 0,
+                          x: isMe ? 18 : -18,
+                          scale: 0.98,
+                        }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        transition={{ duration: 0.18 }}
+                        className={`flex gap-2.5 sm:gap-3 ${
+                          isMe ? "flex-row-reverse" : "flex-row"
+                        }`}
+                      >
+                        <div
+                          className={`size-8 sm:size-9 rounded-2xl flex items-center justify-center text-[10px] sm:text-xs font-black shadow shrink-0 ${
+                            isMe
+                              ? "bg-blue-600 text-white"
+                              : "bg-slate-200 dark:bg-[#2A2E3B] text-blue-600 dark:text-blue-300"
+                          }`}
+                        >
+                          {msg.senderName?.[0]?.toUpperCase()}
+                        </div>
+                        <div
+                          className={`flex flex-col gap-1 max-w-[85%] sm:max-w-[80%] ${
+                            isMe ? "items-end" : "items-start"
+                          }`}
+                        >
+                          <div
+                            className={`flex items-center gap-2 ${
+                              isMe ? "flex-row-reverse" : "flex-row"
+                            }`}
+                          >
+                            <span className="text-[9px] sm:text-[10px] font-bold opacity-70">
+                              {isMe ? "You" : msg.senderName}
+                            </span>
+                            <span className="text-[8px] sm:text-[9px] opacity-50 uppercase">
+                              {new Date(msg.sentAt).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          </div>
+                          <div
+                            className={`px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm leading-relaxed break-words ${
+                              isMe
+                                ? "bg-blue-600 text-white rounded-2xl rounded-tr-none shadow-lg shadow-blue-900/20"
+                                : "bg-slate-100 dark:bg-[#0D0F16] text-slate-800 dark:text-slate-200 rounded-2xl rounded-tl-none border border-slate-200/60 dark:border-slate-800/70"
+                            }`}
+                          >
+                            {msg.content}
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                  <div ref={chatEndRef} />
+                </div>
+
+                <div className="p-3 sm:p-4 md:p-5 border-t border-slate-100 dark:border-[#2A2E3B] shrink-0 bg-white dark:bg-[#181B26]">
+                  <div className="flex flex-col gap-2">
+                    <div className="relative group">
+                      <input
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleSendMessage()
+                        }
+                        className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl py-3.5 sm:py-4 pl-4 sm:pl-5 pr-12 sm:pr-14 text-xs sm:text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                        placeholder="Type a message..."
+                      />
+                      <button
+                        onClick={handleSendMessage}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 size-9 sm:size-10 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-600/40 active:scale-95 flex items-center justify-center transition-all"
+                      >
+                        <Send size={16} className="sm:size-[18px]" />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 px-1">
+                      <span>Press Enter to send</span>
+                      <span className="hidden sm:inline-flex items-center gap-1">
+                        <Clock size={10} />
+                        Messages are live and synced instantly.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
