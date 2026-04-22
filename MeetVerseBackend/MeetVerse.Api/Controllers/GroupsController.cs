@@ -389,6 +389,11 @@ public class GroupsController : ControllerBase
         if (userId is null) return Unauthorized();
         if (!await _db.Groups.AnyAsync(g => g.Id == groupId)) return NotFound();
 
+        if (await _db.UserGroups.AnyAsync(ug => ug.GroupId == groupId && ug.UserId == userId))
+        {
+            return BadRequest("User is already a member");
+        }
+
         var request = new JoinGroupRequest
         {
             Id = Guid.NewGuid(),
