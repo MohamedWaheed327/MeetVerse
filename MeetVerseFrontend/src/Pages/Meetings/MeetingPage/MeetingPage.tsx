@@ -10,7 +10,6 @@ import { subscribeToMeeting, unsubscribeFromMeeting, onMessageReceived, onError,
 import { GetMeetingChat } from "../../../services/getMeetingChat";
 import { getLivekitToken } from "./getLivekitToken";
 import { buildParticipantsList } from "./buildParticipantsList";
-import { isCameraSource, isScreenShareSource } from "./isSource";
 import { getAudioPublications, getCameraPublications, getScreenSharePublications } from "./getParticipantPublications";
 import { getParticipantDisplayName } from "./getParticipantDisplayName";
 import { getActiveScreenShare } from "./getActiveScreenShare";
