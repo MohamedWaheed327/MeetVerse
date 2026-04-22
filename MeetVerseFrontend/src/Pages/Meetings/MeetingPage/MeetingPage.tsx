@@ -18,6 +18,8 @@ import { createProcessedMicTrack } from "./NoiseCancellation/createProcessedMicT
 import { getPreferredParticipantVideoPublication } from "./getPreferredParticipantVideoPublication";
 import { attachScreenShareTrackToArea, removeScreenShareElement } from "./screenShare";
 import { attachVideoTrackToElement, removeVideoElement } from "./attachAndRemoveCameraElement";
+import { attachAudioTrack, removeAudioElement } from "./attachAndRemoveAudioElement";
+import { cleanupMediaElements } from "./cleanupMediaElements";
 
 type Message = {
   id: string;
@@ -202,31 +204,6 @@ export default function MeetingPage() {
   ////////////////////
 
 
-  const attachAudioTrack = (track: Track, participantId: string) => {
-    if (track.kind !== "audio") return;
-
-    removeAudioElement(participantId);
-
-    const audioElement = track.attach() as HTMLAudioElement;
-    audioElement.autoplay = true;
-    audioElement.style.display = "none";
-    audioElement.setAttribute("data-participant-id", participantId);
-
-    document.body.appendChild(audioElement);
-    audioRefs.current[participantId] = audioElement;
-  };
-
-  const removeAudioElement = (participantId: string) => {
-    const audioElement = audioRefs.current[participantId];
-    if (!audioElement) return;
-
-    try {
-      audioElement.srcObject = null;
-    } catch { }
-
-    audioElement.remove();
-    delete audioRefs.current[participantId];
-  };
 
   const detachTrack = (track: Track) => {
     if (!track) return;
@@ -237,18 +214,6 @@ export default function MeetingPage() {
       } catch { }
       el.remove();
     });
-  };
-
-  const cleanupMediaElements = () => {
-    Object.keys(videoRefs.current).forEach((participantId) => {
-      removeVideoElement(participantId, videoRefs);
-    });
-
-    Object.keys(audioRefs.current).forEach((participantId) => {
-      removeAudioElement(participantId);
-    });
-
-    removeScreenShareElement(screenShareContainerRef);
   };
 
   const syncParticipants = (liveRoom: Room) => {
@@ -333,7 +298,7 @@ export default function MeetingPage() {
           );
 
           if (track.kind === "audio") {
-            attachAudioTrack(track, participant.identity);
+            attachAudioTrack(track, participant.identity, audioRefs);
           }
 
           syncParticipants(newRoom);
@@ -348,7 +313,7 @@ export default function MeetingPage() {
           );
 
           if (track.kind === "audio") {
-            removeAudioElement(participant.identity);
+            removeAudioElement(participant.identity, audioRefs);
           }
 
           if (track.kind === "video") {
@@ -373,7 +338,7 @@ export default function MeetingPage() {
         const handleParticipantDisconnected = (participant: Participant) => {
           console.log("participantDisconnected:", participant.identity);
           removeVideoElement(participant.identity, videoRefs);
-          removeAudioElement(participant.identity);
+          removeAudioElement(participant.identity, audioRefs);
           syncParticipants(newRoom);
         };
 
@@ -525,7 +490,7 @@ export default function MeetingPage() {
       }
 
       // cleanupRef.current?.();
-      cleanupMediaElements();
+      cleanupMediaElements(audioRefs, videoRefs, screenShareContainerRef);
       roomRef.current = null;
     };
   }, [meetingId]);
@@ -686,7 +651,7 @@ export default function MeetingPage() {
     } catch (err) {
       console.error("Leave meeting disconnect error:", err);
     } finally {
-      cleanupMediaElements();
+      cleanupMediaElements(audioRefs, videoRefs, screenShareContainerRef);
       navigate("/meetings");
     }
   };
