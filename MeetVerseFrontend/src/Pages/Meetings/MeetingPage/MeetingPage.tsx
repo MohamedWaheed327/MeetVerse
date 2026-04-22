@@ -97,7 +97,7 @@ export default function MeetingPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const WS_URL = 'ws://localhost:5279/ws/transcribe';
+  const WS_URL = import.meta.env.DEV ? import.meta.env.VITE_BACKEND_DEV : import.meta.env.VITE_BACKEND_PROD;
 
   const startRecording = async () => {
     try {
@@ -203,17 +203,6 @@ export default function MeetingPage() {
 
   ////////////////////
 
-  const detachTrack = (track: Track) => {
-    if (!track) return;
-
-    track.detach().forEach((el) => {
-      try {
-        el.srcObject = null;
-      } catch { }
-      el.remove();
-    });
-  };
-
   const syncParticipants = (liveRoom: Room) => {
     if (!liveRoom || !mountedRef.current) return;
 
@@ -224,14 +213,7 @@ export default function MeetingPage() {
     setCameraOff(!liveRoom.localParticipant.isCameraEnabled);
     setMuted(!liveRoom.localParticipant.isMicrophoneEnabled);
     setScreenShareOff(!activeScreenShare);
-    setScreenShareOwner(
-      activeScreenShare
-        ? getParticipantDisplayName(
-          activeScreenShare.participant as Participant,
-          activeScreenShare.isLocal
-        )
-        : ""
-    );
+    setScreenShareOwner(activeScreenShare ? getParticipantDisplayName(activeScreenShare.participant as Participant, activeScreenShare.isLocal) : "");
 
     runAfterRender(() => {
       if (!mountedRef.current || !liveRoom) return;
@@ -241,23 +223,18 @@ export default function MeetingPage() {
         ...Array.from(liveRoom.remoteParticipants.values()),
       ];
 
-      const activeIds = new Set(allParticipants.map((p) => p.identity));
-
       allParticipants.forEach((participant) => {
-        const preferredVideoPub =
-          getPreferredParticipantVideoPublication(participant);
+        const preferredVideoPub = getPreferredParticipantVideoPublication(participant);
 
         if (!preferredVideoPub?.track) {
           removeCameraElement(participant.identity, videoRefs);
           return;
         }
 
-        attachCameraTrackToElement(
-          preferredVideoPub.track,
-          participant.identity, videoRefs
-        );
+        attachCameraTrackToElement(preferredVideoPub.track, participant.identity, videoRefs);
       });
 
+      const activeIds = new Set(allParticipants.map((p) => p.identity));
       Object.keys(videoRefs.current).forEach((participantId) => {
         if (!activeIds.has(participantId)) {
           removeCameraElement(participantId, videoRefs);
@@ -304,15 +281,6 @@ export default function MeetingPage() {
             removeAudioElement(participant.identity, audioRefs);
           }
 
-          if (publication.source == Track.Source.Camera) {
-            removeCameraElement(participant.identity, videoRefs);
-          }
-
-          if (publication.source == Track.Source.ScreenShare) {
-            removeScreenShareElement(screenShareContainerRef);
-          }
-
-          detachTrack(track);
           syncParticipants(newRoom);
         };
 
@@ -323,8 +291,6 @@ export default function MeetingPage() {
 
         const handleParticipantDisconnected = (participant: Participant) => {
           console.log("participantDisconnected:", participant.identity);
-          removeCameraElement(participant.identity, videoRefs);
-          removeAudioElement(participant.identity, audioRefs);
           syncParticipants(newRoom);
         };
 
@@ -335,29 +301,11 @@ export default function MeetingPage() {
 
         const handleTrackUnpublished = (publication: TrackPublication, participant: Participant) => {
           console.log("trackUnpublished:", participant.identity, publication.kind, publication.source);
-
-          if (publication.source == Track.Source.Camera) {
-            removeCameraElement(participant.identity, videoRefs);
-          }
-
-          if (publication.source == Track.Source.ScreenShare) {
-            removeScreenShareElement(screenShareContainerRef);
-          }
-
           syncParticipants(newRoom);
         };
 
         const handleTrackMuted = (publication: TrackPublication, participant: Participant) => {
           console.log("trackMuted:", participant.identity, publication.kind, publication.source);
-
-          if (publication.source == Track.Source.Camera) {
-            removeCameraElement(participant.identity, videoRefs);
-          }
-
-          if (publication.source == Track.Source.ScreenShare) {
-            removeScreenShareElement(screenShareContainerRef);
-          }
-
           syncParticipants(newRoom);
         };
 
@@ -377,15 +325,6 @@ export default function MeetingPage() {
 
         const handleLocalTrackUnpublished = (publication: TrackPublication) => {
           console.log("localTrackUnpublished:", publication.kind, publication.source);
-
-          if (publication.source == Track.Source.Camera) {
-            removeCameraElement(newRoom.localParticipant.identity, videoRefs);
-          }
-
-          if (publication.source == Track.Source.ScreenShare) {
-            removeScreenShareElement(screenShareContainerRef);
-          }
-
           syncParticipants(newRoom);
         };
 
@@ -514,16 +453,11 @@ export default function MeetingPage() {
   const toggleScreenShare = async () => {
     const liveRoom = roomRef.current;
     if (!liveRoom || isTogglingScreenShareRef.current) return;
-
     isTogglingScreenShareRef.current = true;
-
     try {
       const shouldEnable = !liveRoom.localParticipant.isScreenShareEnabled;
-
       await liveRoom.localParticipant.setScreenShareEnabled(shouldEnable);
-
       setScreenShareOff(!shouldEnable);
-
       console.log("🖥️ Screen share state:", shouldEnable);
     } catch (err) {
       console.error("❌ Failed to toggle screen share:", err);
@@ -535,14 +469,11 @@ export default function MeetingPage() {
   const toggleCamera = async () => {
     const liveRoom = roomRef.current;
     if (!liveRoom || isTogglingCameraRef.current) return;
-
     isTogglingCameraRef.current = true;
-
     try {
       const shouldEnable = !liveRoom.localParticipant.isCameraEnabled;
       await liveRoom.localParticipant.setCameraEnabled(shouldEnable);
       setCameraOff(!shouldEnable);
-
       console.log("📷 Camera state:", shouldEnable);
     } catch (err) {
       console.error("❌ Failed to toggle camera:", err);
@@ -554,12 +485,9 @@ export default function MeetingPage() {
   const toggleMic = async () => {
     const liveRoom = roomRef.current;
     if (!liveRoom || isTogglingMicRef.current) return;
-
     isTogglingMicRef.current = true;
-
     try {
       const shouldEnable = !liveRoom.localParticipant.isMicrophoneEnabled;
-
       // if (shouldEnable) {
       //   const { localAudioTrack, cleanup } = await createProcessedMicTrack();
       //   cleanupRef.current = cleanup;
@@ -575,10 +503,8 @@ export default function MeetingPage() {
       //     }
       //   });
       // }
-
       await liveRoom.localParticipant.setMicrophoneEnabled(shouldEnable);
       setMuted(!shouldEnable);
-
       console.log("🎤 Mic state:", shouldEnable);
     } catch (err) {
       console.error("❌ Failed to toggle microphone:", err);

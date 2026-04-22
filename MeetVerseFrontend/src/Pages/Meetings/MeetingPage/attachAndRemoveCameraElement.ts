@@ -4,12 +4,7 @@ export const attachCameraTrackToElement = (track: Track, participantId: string, 
     const container = videoRefs.current[participantId];
     if (!container || track.kind !== "video") return;
 
-    container.querySelectorAll("video").forEach((el) => {
-        try {
-            el.srcObject = null;
-        } catch { }
-        el.remove();
-    });
+    removeCameraElement(participantId, videoRefs);
 
     const element = track.attach() as HTMLVideoElement;
     element.id = `video-player-${participantId}`;
