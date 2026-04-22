@@ -19,6 +19,7 @@ import { attachScreenShareTrackToArea, removeScreenShareElement } from "./screen
 import { attachCameraTrackToElement, removeCameraElement } from "./attachAndRemoveCameraElement";
 import { attachAudioTrack, removeAudioElement } from "./attachAndRemoveAudioElement";
 import { cleanupMediaElements } from "./cleanupMediaElements";
+import { HubConnectionState } from "@microsoft/signalr";
 
 type Message = {
   id: string;
@@ -472,7 +473,7 @@ export default function MeetingPage() {
   useEffect(() => {
     const start = async () => {
       try {
-        if (meeting_chat_connection.state === "Disconnected") {
+        if (meeting_chat_connection.state === HubConnectionState.Disconnected) {
           await meeting_chat_connection.start();
         }
 

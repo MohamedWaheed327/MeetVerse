@@ -1,15 +1,14 @@
-import { Participant } from "livekit-client";
-import { isCameraSource, isScreenShareSource } from "./isSource";
+import { Participant, Track } from "livekit-client";
 
 export const getCameraPublications = (participant: Participant) => {
   return Array.from(participant?.videoTrackPublications?.values?.() || []).filter(
-    (pub) => isCameraSource(pub.source)
+    (pub) => pub.source == Track.Source.Camera
   );
 };
 
 export const getScreenSharePublications = (participant: Participant) => {
   return Array.from(participant?.videoTrackPublications?.values?.() || []).filter(
-    (pub) => isScreenShareSource(pub.source)
+    (pub) => pub.source == Track.Source.ScreenShare
   );
 };
 
