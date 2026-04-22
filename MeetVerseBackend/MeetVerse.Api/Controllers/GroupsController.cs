@@ -412,7 +412,7 @@ public class GroupsController : ControllerBase
 
         var res = await _db.JoinGroupRequests
             .Where(jgr => jgr.GroupId == groupId)
-            .Select((jgr) => new GroupRequestsResponse { SenderId = userId.Value, SenderName = jgr.User.Name! })
+            .Select((jgr) => new GroupRequestsResponse { SenderId = jgr.UserId, SenderName = jgr.User.Name!, SentAt = DateTime.UtcNow, SenderEmail = jgr.User.Email })
             .ToListAsync();
         return Ok(res);
     }
@@ -425,13 +425,14 @@ public class GroupsController : ControllerBase
         if (!await _db.Groups.AnyAsync(g => g.Id == groupId)) return NotFound();
         if (!await CanManageGroup(groupId, userId.Value)) return Forbid();
 
-        using var transaction = await _db.Database.BeginTransactionAsync();
+        if (await _db.UserGroups.AnyAsync(ug => ug.GroupId == groupId && ug.UserId == requesterId))
+        {
+            return BadRequest("User is already a member");
+        }
 
+        using var transaction = await _db.Database.BeginTransactionAsync();
         try
         {
-            if (await _db.UserGroups.AnyAsync(ug => ug.GroupId == groupId && ug.UserId == requesterId))
-                return BadRequest("User is already a member");
-
             _db.UserGroups.Add(new UserGroup
             {
                 UserId = requesterId,
