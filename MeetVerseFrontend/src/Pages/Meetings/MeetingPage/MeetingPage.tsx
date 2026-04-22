@@ -15,6 +15,9 @@ import { getAudioPublications, getCameraPublications, getScreenSharePublications
 import { getParticipantDisplayName } from "./getParticipantDisplayName";
 import { getActiveScreenShare } from "./getActiveScreenShare";
 import { createProcessedMicTrack } from "./NoiseCancellation/createProcessedMicTrack";
+import { getPreferredParticipantVideoPublication } from "./getPreferredParticipantVideoPublication";
+import { attachScreenShareTrackToArea, removeScreenShareElement } from "./screenShare";
+import { attachVideoTrackToElement, removeVideoElement } from "./attachAndRemoveCameraElement";
 
 type Message = {
   id: string;
@@ -153,7 +156,7 @@ export default function MeetingPage() {
           if (msg.type === 'transcript') {
             if (msg.isFinal) {
               console.log(msg.text);
-              setFinalLines((prev) => [ msg.text]);
+              setFinalLines((prev) => [msg.text]);
               // setFinalLines(msg.text);
               setInterimText('');
             } else {
@@ -196,84 +199,8 @@ export default function MeetingPage() {
     }
   };
 
-
   ////////////////////
 
-  const getPreferredParticipantVideoPublication = (participant: Participant) => {
-    return (
-      getCameraPublications(participant).find(
-        (pub) => pub.track && !pub.isMuted
-      ) ||
-      // participant.getTrackPublication(Track.Source.Camera) as TrackPublication ||
-      null
-    );
-  };
-
-  const attachScreenShareTrackToArea = (track: Track) => {
-    const container = screenShareContainerRef.current;
-    if (!container || track.kind !== "video") return;
-
-    container.querySelectorAll("video").forEach((el) => {
-      try {
-        el.srcObject = null;
-      } catch { }
-      el.remove();
-    });
-
-    const element = track.attach() as HTMLVideoElement;
-    element.autoplay = true;
-    element.playsInline = true;
-    element.className = "absolute inset-0 w-full h-full object-contain bg-black";
-
-    container.appendChild(element);
-  };
-
-  const removeScreenShareElement = () => {
-    const container = screenShareContainerRef.current;
-    if (!container) return;
-
-    container.querySelectorAll("video").forEach((video) => {
-      try {
-        video.srcObject = null;
-      } catch { }
-      video.remove();
-    });
-  };
-
-  const attachVideoTrackToElement = (track: Track, participantId: string) => {
-    const container = videoRefs.current[participantId];
-    if (!container || track.kind !== "video") return;
-
-    container.querySelectorAll("video").forEach((el) => {
-      try {
-        el.srcObject = null;
-      } catch { }
-      el.remove();
-    });
-
-    const element = track.attach() as HTMLVideoElement;
-    element.id = `video-player-${participantId}`;
-    element.autoplay = true;
-    element.playsInline = true;
-    element.muted =
-      participantId === roomRef.current?.localParticipant?.identity;
-    element.className =
-      "absolute inset-0 w-full h-full object-cover rounded-[2.5rem]";
-
-    container.appendChild(element);
-  };
-
-  const removeVideoElement = (participantId: string) => {
-    const container = videoRefs.current[participantId];
-    if (!container) return;
-
-    container.querySelectorAll("video").forEach((video) => {
-      try {
-        video.srcObject = null;
-      } catch { }
-      video.remove();
-    });
-  };
 
   const attachAudioTrack = (track: Track, participantId: string) => {
     if (track.kind !== "audio") return;
@@ -314,14 +241,14 @@ export default function MeetingPage() {
 
   const cleanupMediaElements = () => {
     Object.keys(videoRefs.current).forEach((participantId) => {
-      removeVideoElement(participantId);
+      removeVideoElement(participantId, videoRefs);
     });
 
     Object.keys(audioRefs.current).forEach((participantId) => {
       removeAudioElement(participantId);
     });
 
-    removeScreenShareElement();
+    removeScreenShareElement(screenShareContainerRef);
   };
 
   const syncParticipants = (liveRoom: Room) => {
@@ -358,26 +285,26 @@ export default function MeetingPage() {
           getPreferredParticipantVideoPublication(participant);
 
         if (!preferredVideoPub?.track) {
-          removeVideoElement(participant.identity);
+          removeVideoElement(participant.identity, videoRefs);
           return;
         }
 
         attachVideoTrackToElement(
           preferredVideoPub.track,
-          participant.identity
+          participant.identity, videoRefs
         );
       });
 
       Object.keys(videoRefs.current).forEach((participantId) => {
         if (!activeIds.has(participantId)) {
-          removeVideoElement(participantId);
+          removeVideoElement(participantId, videoRefs);
         }
       });
 
       if (activeScreenShare?.publication?.track) {
-        attachScreenShareTrackToArea(activeScreenShare.publication.track);
+        attachScreenShareTrackToArea(activeScreenShare.publication.track, screenShareContainerRef);
       } else {
-        removeScreenShareElement();
+        removeScreenShareElement(screenShareContainerRef);
       }
     });
   };
@@ -426,11 +353,11 @@ export default function MeetingPage() {
 
           if (track.kind === "video") {
             if (isCameraSource(publication?.source || track?.source)) {
-              removeVideoElement(participant.identity);
+              removeVideoElement(participant.identity, videoRefs);
             }
 
             if (isScreenShareSource(publication?.source || track?.source)) {
-              removeScreenShareElement();
+              removeScreenShareElement(screenShareContainerRef);
             }
           }
 
@@ -445,7 +372,7 @@ export default function MeetingPage() {
 
         const handleParticipantDisconnected = (participant: Participant) => {
           console.log("participantDisconnected:", participant.identity);
-          removeVideoElement(participant.identity);
+          removeVideoElement(participant.identity, videoRefs);
           removeAudioElement(participant.identity);
           syncParticipants(newRoom);
         };
@@ -470,11 +397,11 @@ export default function MeetingPage() {
 
           if (publication.kind === Track.Kind.Video) {
             if (isCameraSource(publication.source)) {
-              removeVideoElement(participant.identity);
+              removeVideoElement(participant.identity, videoRefs);
             }
 
             if (isScreenShareSource(publication.source)) {
-              removeScreenShareElement();
+              removeScreenShareElement(screenShareContainerRef);
             }
           }
 
@@ -491,11 +418,11 @@ export default function MeetingPage() {
 
           if (publication.kind === Track.Kind.Video) {
             if (isCameraSource(publication.source)) {
-              removeVideoElement(participant.identity);
+              removeVideoElement(participant.identity, videoRefs);
             }
 
             if (isScreenShareSource(publication.source)) {
-              removeScreenShareElement();
+              removeScreenShareElement(screenShareContainerRef);
             }
           }
 
@@ -534,11 +461,11 @@ export default function MeetingPage() {
 
           if (publication.kind === Track.Kind.Video) {
             if (isCameraSource(publication.source)) {
-              removeVideoElement(newRoom.localParticipant.identity);
+              removeVideoElement(newRoom.localParticipant.identity, videoRefs);
             }
 
             if (isScreenShareSource(publication.source)) {
-              removeScreenShareElement();
+              removeScreenShareElement(screenShareContainerRef);
             }
           }
 
@@ -746,10 +673,10 @@ export default function MeetingPage() {
 
   const toggleTranscript = async () => {
     if (isRecording) {
-    stopRecording();
+      stopRecording();
     }
     else {
-    startRecording();
+      startRecording();
     }
   };
 
@@ -1165,7 +1092,7 @@ export default function MeetingPage() {
           </div>
         </div>
       </div>
-      
+
     </div>
   );
 }
