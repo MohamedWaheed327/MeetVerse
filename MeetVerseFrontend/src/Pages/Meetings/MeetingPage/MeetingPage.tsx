@@ -290,12 +290,7 @@ export default function MeetingPage() {
         roomRef.current = newRoom;
 
         const handleTrackSubscribed = (track: Track, publication: TrackPublication, participant: Participant) => {
-          console.log(
-            "trackSubscribed:",
-            participant.identity,
-            track.kind,
-            publication?.source
-          );
+          console.log("trackSubscribed:", participant.identity, track.kind, publication?.source);
 
           if (track.kind === "audio") {
             attachAudioTrack(track, participant.identity, audioRefs);
@@ -305,18 +300,13 @@ export default function MeetingPage() {
         };
 
         const handleTrackUnsubscribed = (track: Track, publication: TrackPublication, participant: Participant) => {
-          console.log(
-            "trackUnsubscribed:",
-            participant.identity,
-            track.kind,
-            publication?.source
-          );
+          console.log("trackUnsubscribed:", participant.identity, track.kind, publication?.source);
 
-          if (track.kind === "audio") {
+          if (track.kind === Track.Kind.Audio) {
             removeAudioElement(participant.identity, audioRefs);
           }
 
-          if (track.kind === "video") {
+          if (track.kind === Track.Kind.Video) {
             if (isCameraSource(publication?.source || track?.source)) {
               removeVideoElement(participant.identity, videoRefs);
             }
@@ -343,22 +333,12 @@ export default function MeetingPage() {
         };
 
         const handleTrackPublished = (publication: TrackPublication, participant: Participant) => {
-          console.log(
-            "trackPublished:",
-            participant.identity,
-            publication.kind,
-            publication.source
-          );
+          console.log("trackPublished:", participant.identity, publication.kind, publication.source);
           syncParticipants(newRoom);
         };
 
         const handleTrackUnpublished = (publication: TrackPublication, participant: Participant) => {
-          console.log(
-            "trackUnpublished:",
-            participant.identity,
-            publication.kind,
-            publication.source
-          );
+          console.log("trackUnpublished:", participant.identity, publication.kind, publication.source);
 
           if (publication.kind === Track.Kind.Video) {
             if (isCameraSource(publication.source)) {
@@ -374,12 +354,7 @@ export default function MeetingPage() {
         };
 
         const handleTrackMuted = (publication: TrackPublication, participant: Participant) => {
-          console.log(
-            "trackMuted:",
-            participant.identity,
-            publication.kind,
-            publication.source
-          );
+          console.log("trackMuted:", participant.identity, publication.kind, publication.source);
 
           if (publication.kind === Track.Kind.Video) {
             if (isCameraSource(publication.source)) {
@@ -395,12 +370,7 @@ export default function MeetingPage() {
         };
 
         const handleTrackUnmuted = (publication: TrackPublication, participant: Participant) => {
-          console.log(
-            "trackUnmuted:",
-            participant.identity,
-            publication.kind,
-            publication.source
-          );
+          console.log("trackUnmuted:", participant.identity, publication.kind, publication.source);
           syncParticipants(newRoom);
         };
 
@@ -409,29 +379,19 @@ export default function MeetingPage() {
         };
 
         const handleLocalTrackPublished = (publication: TrackPublication) => {
-          console.log(
-            "localTrackPublished:",
-            publication.kind,
-            publication.source
-          );
+          console.log("localTrackPublished:", publication.kind, publication.source);
           syncParticipants(newRoom);
         };
 
         const handleLocalTrackUnpublished = (publication: TrackPublication) => {
-          console.log(
-            "localTrackUnpublished:",
-            publication.kind,
-            publication.source
-          );
+          console.log("localTrackUnpublished:", publication.kind, publication.source);
 
-          if (publication.kind === Track.Kind.Video) {
-            if (isCameraSource(publication.source)) {
-              removeVideoElement(newRoom.localParticipant.identity, videoRefs);
-            }
+          if (publication.source == Track.Source.Camera) {
+            removeVideoElement(newRoom.localParticipant.identity, videoRefs);
+          }
 
-            if (isScreenShareSource(publication.source)) {
-              removeScreenShareElement(screenShareContainerRef);
-            }
+          if (publication.source == Track.Source.ScreenShare) {
+            removeScreenShareElement(screenShareContainerRef);
           }
 
           syncParticipants(newRoom);
@@ -448,7 +408,6 @@ export default function MeetingPage() {
         newRoom.on(RoomEvent.ActiveSpeakersChanged, handleActiveSpeakersChanged);
         newRoom.on(RoomEvent.LocalTrackPublished, handleLocalTrackPublished);
         newRoom.on(RoomEvent.LocalTrackUnpublished, handleLocalTrackUnpublished);
-
         await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
 
         // if (muted) {
