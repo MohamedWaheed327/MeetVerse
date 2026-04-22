@@ -80,6 +80,125 @@ export default function MeetingPage() {
     });
   };
 
+  ///////////////////////
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [interimText, setInterimText] = useState('');
+  const [finalLines, setFinalLines] = useState<any[]>([]);
+  const [status, setStatus] = useState('Idle');
+  const [error, setError] = useState('');
+
+  const socketRef = useRef<WebSocket | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const WS_URL = 'ws://localhost:5279/ws/transcribe';
+
+  const startRecording = async () => {
+    try {
+      setError('');
+      setStatus('Requesting microphone...');
+      setFinalLines([]);
+      setInterimText('');
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      const socket = new WebSocket(WS_URL);
+      socket.binaryType = 'arraybuffer';
+      socketRef.current = socket;
+
+      socket.onopen = async () => {
+        setStatus('Connected. Listening...');
+
+        let options = undefined;
+
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          options = { mimeType: 'audio/webm;codecs=opus' };
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          options = { mimeType: 'audio/webm' };
+        }
+
+        const mediaRecorder = new MediaRecorder(stream, options);
+        mediaRecorderRef.current = mediaRecorder;
+
+        mediaRecorder.ondataavailable = async (event) => {
+          if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+            const arrayBuffer = await event.data.arrayBuffer();
+            socket.send(arrayBuffer);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          setTimeout(() => {
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.close();
+            }
+          }, 300);
+
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+          }
+        };
+
+        // emit chunks every 250ms
+        mediaRecorder.start(250);
+        setIsRecording(true);
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+
+          if (msg.type === 'transcript') {
+            if (msg.isFinal) {
+              console.log(msg.text);
+              setFinalLines((prev) => [ msg.text]);
+              // setFinalLines(msg.text);
+              setInterimText('');
+            } else {
+              setInterimText(msg.text);
+            }
+          }
+        } catch (err) {
+          console.error('Invalid WS message:', err);
+        }
+      };
+
+      socket.onerror = () => {
+        setError('WebSocket connection failed');
+        setStatus('Error');
+      };
+
+      socket.onclose = () => {
+        setStatus('Stopped');
+        setIsRecording(false);
+      };
+    } catch (err) {
+      console.error(err);
+      setError('Microphone access denied or unavailable');
+      setStatus('Error');
+    }
+  };
+
+  const stopRecording = () => {
+    setStatus('Stopping...');
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    } else {
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        socketRef.current.close();
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      setIsRecording(false);
+    }
+  };
+
+
+  ////////////////////
+
   const getPreferredParticipantVideoPublication = (participant: Participant) => {
     return (
       getCameraPublications(participant).find(
@@ -625,6 +744,15 @@ export default function MeetingPage() {
     }
   };
 
+  const toggleTranscript = async () => {
+    if (isRecording) {
+    stopRecording();
+    }
+    else {
+    startRecording();
+    }
+  };
+
   const handleLeaveMeeting = () => {
     try {
       roomRef.current?.disconnect();
@@ -869,7 +997,10 @@ export default function MeetingPage() {
               </button>
 
               <button
-                onClick={() => setIsCaptionsOn((prev) => !prev)}
+                onClick={() => {
+                  toggleTranscript();
+                  setIsCaptionsOn((prev) => !prev);
+                }}
                 className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${isCaptionsOn
                   ? "bg-blue-600 text-white shadow-blue-600/30"
                   : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
@@ -1005,6 +1136,36 @@ export default function MeetingPage() {
           )}
         </AnimatePresence>
       </main>
+
+      <div className="px-4 md:px-6 pb-3">
+        <div className="max-w-4xl mx-auto bg-white/80 dark:bg-[#181B26]/80 backdrop-blur-md border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-4 py-3 shadow-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+            <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+              Live Transcript
+            </h3>
+          </div>
+
+          <div className="text-sm text-slate-700 dark:text-slate-200 leading-6 max-h-24 overflow-y-auto">
+            {finalLines.length > 0 && (
+              <span>{finalLines[finalLines.length - 1]}</span>
+            )}
+
+            {interimText && (
+              <span className="italic text-slate-400 dark:text-slate-500 ml-2">
+                {interimText}
+              </span>
+            )}
+
+            {!finalLines.length && !interimText && (
+              <span className="text-slate-400 dark:text-slate-500">
+                No transcript yet...
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      
     </div>
   );
 }
