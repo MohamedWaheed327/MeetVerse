@@ -98,7 +98,6 @@ export default function MeetingPage() {
   const streamRef = useRef<MediaStream | null>(null);
 
   const WS_URL = 'wss://d278p5zvdcqqh2.cloudfront.net/ws/transcribe';
-  
 
   const startRecording = async () => {
     try {
@@ -252,8 +251,6 @@ export default function MeetingPage() {
 
   useEffect(() => {
     mountedRef.current = true;
-
-    let activeRoom: Room;
     let cancelled = false;
 
     const joinRoom = async () => {
@@ -261,8 +258,6 @@ export default function MeetingPage() {
         const token = await getLivekitToken(meetingId ?? "", state?.displayName);
         if (cancelled) return;
         const newRoom = new Room({ adaptiveStream: true, dynacast: true, });
-
-        activeRoom = newRoom;
         roomRef.current = newRoom;
 
         const handleTrackSubscribed = (track: Track, publication: TrackPublication, participant: Participant) => {
@@ -315,7 +310,8 @@ export default function MeetingPage() {
           syncParticipants(newRoom);
         };
 
-        const handleActiveSpeakersChanged = () => {
+        const handleActiveSpeakersChanged = (activeSpeakers: Array<Participant>) => {
+          console.log("ActiveSpeakersChanged:", activeSpeakers);
           syncParticipants(newRoom);
         };
 
@@ -369,20 +365,7 @@ export default function MeetingPage() {
 
     return () => {
       cancelled = true;
-      mountedRef.current = false;
-      clearScheduledRenderSync();
-
-      if (activeRoom) {
-        try {
-          activeRoom.disconnect();
-        } catch (err) {
-          console.error("Room disconnect error:", err);
-        }
-      }
-
-      // cleanupRef.current?.();
-      cleanupMediaElements(audioRefs, videoRefs, screenShareContainerRef);
-      roomRef.current = null;
+      handleLeaveMeeting();
     };
   }, [meetingId]);
 
@@ -524,14 +507,21 @@ export default function MeetingPage() {
   };
 
   const handleLeaveMeeting = () => {
-    try {
-      roomRef.current?.disconnect();
-    } catch (err) {
-      console.error("Leave meeting disconnect error:", err);
-    } finally {
-      cleanupMediaElements(audioRefs, videoRefs, screenShareContainerRef);
-      navigate("/meetings");
+    // cancelled = true;
+    mountedRef.current = false;
+    clearScheduledRenderSync();
+
+    if (roomRef.current) {
+      try {
+        roomRef.current.disconnect();
+      } catch (err) {
+        console.error("Room disconnect error:", err);
+      }
     }
+
+    // cleanupRef.current?.();
+    cleanupMediaElements(audioRefs, videoRefs, screenShareContainerRef);
+    roomRef.current = null;
   };
 
   return (
@@ -796,7 +786,10 @@ export default function MeetingPage() {
               </button>
 
               <button
-                onClick={handleLeaveMeeting}
+                onClick={() => {
+                  handleLeaveMeeting();
+                  navigate("/meetings");
+                }}
                 className="bg-red-600 hover:bg-red-700 px-6 md:px-8 py-4 rounded-2xl text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-red-900/30 flex items-center gap-3 active:scale-95 transition-all"
               >
                 <PhoneOff size={22} />
