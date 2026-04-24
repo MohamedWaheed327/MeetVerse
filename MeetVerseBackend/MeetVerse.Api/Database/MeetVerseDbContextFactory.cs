@@ -11,7 +11,7 @@ public class MeetVerseDbContextFactory : IDesignTimeDbContextFactory<MeetVerseDb
 
         // This connection string is strictly for EF Core design-time tools (migrations).
         // It does not override appsettings.json at runtime.
-        var connectionString = "Server=meetversedb.csfgc24ignv3.us-east-1.rds.amazonaws.com,1433;Database=MeetVerseDbFactory;User Id=admin;Password=^2^532Mxn4!%&3%B;TrustServerCertificate=True;Encrypt=True;";
+        var connectionString = "Server=tcp:meetverse-server2.database.windows.net,1433;Initial Catalog=MeetVerseDBFactory;Persist Security Info=False;User ID=admin1;Password=WRF09QWEC^a4yTxU;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;";
 
         optionsBuilder.UseSqlServer(connectionString);
 

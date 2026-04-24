@@ -31,63 +31,25 @@ public class DatabaseSeeder : IDatabaseSeeder
 
         var admin = new User
         {
-            Id = Guid.NewGuid(),
-            Email = "admin@meetverse.test",
+            Id = new Guid("11111111-1111-1111-1111-111111111111"),
+            Email = "admin@meetverse.com",
             PasswordHash = "stub",
-            Name = "Admin User",
+            Name = "MeetVerse Admin",
             Roles = UserRole.Admin
         };
 
-        var participant = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = "user@meetverse.test",
-            PasswordHash = "stub",
-            Name = "Demo User",
-            Roles = UserRole.Participant
-        };
-
-        _db.Users.AddRange(admin, participant);
+        _db.Users.AddRange(admin);
 
         var demoGroup = new Group
         {
-            Id = Guid.NewGuid(),
-            Name = "Demo Community",
-            Description = "Sample group for testing",
+            Id = new Guid("11111111-1111-1111-1111-111111111111"),
+            Name = "MeetVerse Community",
+            Description = "Group for MeetVerse Members",
             CreatedById = admin.Id,
             CreatedAt = DateTime.UtcNow
         };
         _db.Groups.Add(demoGroup);
         _db.UserGroups.Add(new UserGroup { UserId = admin.Id, GroupId = demoGroup.Id, Role = GroupMemberRole.Owner, JoinedAt = DateTime.UtcNow });
-        _db.UserGroups.Add(new UserGroup { UserId = participant.Id, GroupId = demoGroup.Id, Role = GroupMemberRole.Member, JoinedAt = DateTime.UtcNow });
-
-        var meeting = new Meeting
-        {
-            Id = Guid.NewGuid(),
-            HostId = admin.Id,
-            GroupId = demoGroup.Id,
-            Title = "Demo Meeting",
-            Description = "Seeded demo meeting",
-            ScheduledStart = DateTime.UtcNow.AddMinutes(-5),
-            ScheduledEnd = DateTime.UtcNow.AddMinutes(25),
-            Status = MeetingStatus.Live
-        };
-
-        _db.Meetings.Add(meeting);
-        Console.WriteLine("============================================");
-        Console.WriteLine($"TEST MEETING ID: {meeting.Id}");
-        Console.WriteLine("============================================");
-        var participantLink = new MeetingParticipant
-        {
-            Id = Guid.NewGuid(),
-            MeetingId = meeting.Id,
-            UserId = participant.Id,
-            Role = MeetingParticipantRole.Participant,
-            JoinedAt = DateTime.UtcNow.AddMinutes(-2),
-            IsActive = true
-        };
-
-        _db.MeetingParticipants.Add(participantLink);
 
         await _db.SaveChangesAsync();
     }

@@ -8,7 +8,7 @@ namespace MeetVerse.Api.Services;
 
 public class CustomLogger
 {
-    const string ConnectionString = "Server=meetversedb.csfgc24ignv3.us-east-1.rds.amazonaws.com,1433;Database=MeetVerseDb;User Id=admin;Password=^2^532Mxn4!%&3%B;TrustServerCertificate=True;Encrypt=True;";
+    const string ConnectionString = "Server=tcp:meetverse-server2.database.windows.net,1433;Initial Catalog=MeetVerseDB;Persist Security Info=False;User ID=admin1;Password=WRF09QWEC^a4yTxU;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;";
 
     public CustomLogger()
     {
@@ -19,13 +19,13 @@ public class CustomLogger
         using var connection = new SqlConnection(ConnectionString);
         connection.Open();
 
-        string sql = "INSERT INTO logs (message, sent_at) VALUES (@message, @sent_at)";
+        // string sql = "INSERT INTO logs (message, sent_at) VALUES (@message, @sent_at)";
 
-        using var command = new SqlCommand(sql, connection);
-        command.Parameters.AddWithValue("@message", message);
-        command.Parameters.AddWithValue("@sent_at", DateTime.UtcNow);
+        // using var command = new SqlCommand(sql, connection);
+        // command.Parameters.AddWithValue("@message", message);
+        // command.Parameters.AddWithValue("@sent_at", DateTime.UtcNow);
 
-        command.ExecuteNonQuery();
+        // command.ExecuteNonQuery();
     }
 }
 

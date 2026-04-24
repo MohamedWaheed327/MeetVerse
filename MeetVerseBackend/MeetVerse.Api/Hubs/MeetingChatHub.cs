@@ -40,13 +40,13 @@ public class MeetingChatHub : Hub
             return;
         }
         await Groups.AddToGroupAsync(Context.ConnectionId, MeetingChatPrefix + meetingId);
-        await Clients.Caller.SendAsync("Subscriped", meetingId);
+        // await Clients.Caller.SendAsync("Subscriped", meetingId);
     }
 
     public async Task UnSubscribe(Guid meetingId)
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, MeetingChatPrefix + meetingId);
-        await Clients.Caller.SendAsync("UnSubscriped", meetingId);
+        // await Clients.Caller.SendAsync("UnSubscriped", meetingId);
     }
 
     public async Task SendMessage(Guid meetingId, string content)
