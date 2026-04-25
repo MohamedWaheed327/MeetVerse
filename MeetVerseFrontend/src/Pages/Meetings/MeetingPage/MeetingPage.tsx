@@ -100,58 +100,49 @@ export default function MeetingPage() {
   const [error, setError] = useState('');
 
   const socketRef = useRef<WebSocket | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const reff = useRef<Record<string, MediaRecorder>>({});
 
   const WS_URL = 'wss://meetversebackend-gkdqagd4fxhxc8bk.polandcentral-01.azurewebsites.net/ws/transcribe';
 
-  const startRecording = async () => {
+  const startTranscriping = async (track: Track) => {
     try {
+      let options = undefined;
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        options = { mimeType: 'audio/webm;codecs=opus' };
+      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+        options = { mimeType: 'audio/webm' };
+      }
       setError('');
       setStatus('Requesting microphone...');
       setFinalLines([]);
       setInterimText('');
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-
       const socket = new WebSocket(WS_URL);
       socket.binaryType = 'arraybuffer';
       socketRef.current = socket;
 
+      const mediaRecorder = new MediaRecorder(new MediaStream([track.mediaStreamTrack]), options);
+      reff.current[track.mediaStreamID] = mediaRecorder;
+
+      // media recorder events
+      mediaRecorder.ondataavailable = async (event) => {
+        if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+          const arrayBuffer = await event.data.arrayBuffer();
+          socket.send(arrayBuffer);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        setTimeout(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.close();
+          }
+        }, 300);
+      };
+
+      // socket events
       socket.onopen = async () => {
         setStatus('Connected. Listening...');
-
-        let options = undefined;
-
-        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-          options = { mimeType: 'audio/webm;codecs=opus' };
-        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-          options = { mimeType: 'audio/webm' };
-        }
-
-        const mediaRecorder = new MediaRecorder(stream, options);
-        mediaRecorderRef.current = mediaRecorder;
-
-        mediaRecorder.ondataavailable = async (event) => {
-          if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
-            const arrayBuffer = await event.data.arrayBuffer();
-            socket.send(arrayBuffer);
-          }
-        };
-
-        mediaRecorder.onstop = () => {
-          setTimeout(() => {
-            if (socket.readyState === WebSocket.OPEN) {
-              socket.close();
-            }
-          }, 300);
-
-          if (streamRef.current) {
-            streamRef.current.getTracks().forEach((track) => track.stop());
-          }
-        };
-
         // emit chunks every 250ms
         mediaRecorder.start(250);
         setIsRecording(true);
@@ -192,28 +183,40 @@ export default function MeetingPage() {
     }
   };
 
-  const stopRecording = () => {
+  const stopTranscriping = (track: Track) => {
     setStatus('Stopping...');
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
+    let id = track.mediaStreamID;
+    if (reff.current[id] && reff.current[id].state !== 'inactive') {
+      reff.current[id].stop();
     } else {
-      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        socketRef.current.close();
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-      }
+      // if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      //   socketRef.current.close();
+      // }
       setIsRecording(false);
     }
+    delete reff.current[id];
   };
 
   const toggleTranscript = async () => {
-    if (isRecording) {
-      stopRecording();
+    if (isCaptionsOn) {
+      let s = new Set();
+      for (var id in reff.current) {
+        if (reff.current[id] && reff.current[id].state !== 'inactive') {
+          reff.current[id].stop();
+        }
+        s.add(id);
+      }
     }
     else {
-      startRecording();
+      var allParticipants = roomRef.current?.remoteParticipants;
+      allParticipants!.forEach((participant) => {
+        const preferredVideoPub = participant.getTrackPublication(Track.Source.Microphone);
+        if (preferredVideoPub?.track && !preferredVideoPub?.track?.isMuted) {
+          startTranscriping(preferredVideoPub?.track);
+        }
+      });
     }
+    setIsCaptionsOn((prev) => !prev);
   };
 
   ////////////////////
@@ -278,6 +281,7 @@ export default function MeetingPage() {
           console.log("trackSubscribed:", participant.identity, track.kind, publication?.source);
 
           if (publication.source == Track.Source.Microphone) {
+            if (isCaptionsOn) startTranscriping(track);
             attachAudioTrack(track, participant.identity, audioRefs);
           }
 
@@ -288,6 +292,7 @@ export default function MeetingPage() {
           console.log("trackUnsubscribed:", participant.identity, track.kind, publication?.source);
 
           if (publication.source == Track.Source.Microphone) {
+            if (isCaptionsOn) stopTranscriping(track);
             removeAudioElement(participant.identity, audioRefs);
           }
 
@@ -628,7 +633,6 @@ export default function MeetingPage() {
               <button
                 onClick={() => {
                   toggleTranscript();
-                  setIsCaptionsOn((prev) => !prev);
                 }}
                 className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${isCaptionsOn
                   ? "bg-blue-600 text-white shadow-blue-600/30"
