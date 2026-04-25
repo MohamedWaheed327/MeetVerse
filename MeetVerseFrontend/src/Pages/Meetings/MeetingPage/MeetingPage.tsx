@@ -20,6 +20,13 @@ import { attachCameraTrackToElement, removeCameraElement } from "./attachAndRemo
 import { attachAudioTrack, removeAudioElement } from "./attachAndRemoveAudioElement";
 import { cleanupMediaElements } from "./cleanupMediaElements";
 import { HubConnectionState } from "@microsoft/signalr";
+import { loadChatHistoryEffect } from "./useEffects/loadChatHistoryEffect";
+import { subscripeToSingnalREffect } from "./useEffects/subscripeToSingnalREffect";
+import { handleSendMessage } from "./MeetingControls/sendMeetingChatMessage";
+import { toggleScreenShare } from "./MeetingControls/toggleScreenShare";
+import { toggleCamera } from "./MeetingControls/toggleCamera";
+import { handleLeaveMeeting } from "./MeetingControls/leaveMeeting";
+import { toggleMic } from "./MeetingControls/toggleMic";
 
 type Message = {
   id: string;
@@ -59,7 +66,6 @@ export default function MeetingPage() {
   const videoRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const screenShareContainerRef = useRef<HTMLDivElement | null>(null);
-  const mountedRef = useRef(false);
   const cleanupRef = useRef<null | (() => Promise<void>)>(null);
 
   const isTogglingCameraRef = useRef(false);
@@ -201,10 +207,19 @@ export default function MeetingPage() {
     }
   };
 
+  const toggleTranscript = async () => {
+    if (isRecording) {
+      stopRecording();
+    }
+    else {
+      startRecording();
+    }
+  };
+
   ////////////////////
 
   const syncParticipants = (liveRoom: Room) => {
-    if (!liveRoom || !mountedRef.current) return;
+    if (!liveRoom) return;
 
     const updatedUsers = buildParticipantsList(liveRoom);
     const activeScreenShare = getActiveScreenShare(liveRoom, null);
@@ -216,7 +231,7 @@ export default function MeetingPage() {
     setScreenShareOwner(activeScreenShare ? getParticipantDisplayName(activeScreenShare.participant as Participant, activeScreenShare.isLocal) : "");
 
     runAfterRender(() => {
-      if (!mountedRef.current || !liveRoom) return;
+      if (!liveRoom) return;
 
       const allParticipants = [
         liveRoom.localParticipant,
@@ -250,7 +265,6 @@ export default function MeetingPage() {
   };
 
   useEffect(() => {
-    mountedRef.current = true;
     let cancelled = false;
 
     const joinRoom = async () => {
@@ -365,164 +379,19 @@ export default function MeetingPage() {
 
     return () => {
       cancelled = true;
-      handleLeaveMeeting();
+      handleLeaveMeeting(roomRef, clearScheduledRenderSync, audioRefs, videoRefs, screenShareContainerRef);
     };
   }, [meetingId]);
 
-  useEffect(() => {
-    const loadHistory = async () => {
-      setIsLoading(true);
-      try {
-        const history = await GetMeetingChat({ meetingId: meetingId ?? "" });
-        setMessages(history || []);
-      } catch (err) {
-        console.error("Failed to load chat history:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
 
-    if (meetingId) {
-      loadHistory();
-    }
-  }, [meetingId]);
+  loadChatHistoryEffect(meetingId, setIsLoading, setMessages);
+  subscripeToSingnalREffect(meetingId, setMessages)
 
   useEffect(() => {
     if (isChatOpen) {
       scrollRef.current?.scrollIntoView({ behavior: "auto" });
     }
   }, [messages, isChatOpen]);
-
-  useEffect(() => {
-    const start = async () => {
-      try {
-        if (meeting_chat_connection.state === HubConnectionState.Disconnected) {
-          await meeting_chat_connection.start();
-        }
-
-        await subscribeToMeeting(meetingId ?? "");
-
-        onMessageReceived((payload: Message) => {
-          setMessages((prev) => [...prev, payload]);
-        });
-
-        onError((err: unknown) => {
-          console.error("SignalR Error:", err);
-        });
-      } catch (err) {
-        console.error("Connection error:", err);
-      }
-    };
-
-    start();
-
-    return () => {
-      unsubscribeFromMeeting(meetingId ?? "");
-      meeting_chat_connection.off("MessageSent");
-      meeting_chat_connection.off("Error");
-    };
-  }, [meetingId]);
-
-  const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
-
-    try {
-      await sendChatMessage(meetingId ?? "", newMessage.trim());
-      setNewMessage("");
-    } catch (err) {
-      console.error("Send failed:", err);
-    }
-  };
-
-  const toggleScreenShare = async () => {
-    const liveRoom = roomRef.current;
-    if (!liveRoom || isTogglingScreenShareRef.current) return;
-    isTogglingScreenShareRef.current = true;
-    try {
-      const shouldEnable = !liveRoom.localParticipant.isScreenShareEnabled;
-      await liveRoom.localParticipant.setScreenShareEnabled(shouldEnable);
-      setScreenShareOff(!shouldEnable);
-      console.log("🖥️ Screen share state:", shouldEnable);
-    } catch (err) {
-      console.error("❌ Failed to toggle screen share:", err);
-    } finally {
-      isTogglingScreenShareRef.current = false;
-    }
-  };
-
-  const toggleCamera = async () => {
-    const liveRoom = roomRef.current;
-    if (!liveRoom || isTogglingCameraRef.current) return;
-    isTogglingCameraRef.current = true;
-    try {
-      const shouldEnable = !liveRoom.localParticipant.isCameraEnabled;
-      await liveRoom.localParticipant.setCameraEnabled(shouldEnable);
-      setCameraOff(!shouldEnable);
-      console.log("📷 Camera state:", shouldEnable);
-    } catch (err) {
-      console.error("❌ Failed to toggle camera:", err);
-    } finally {
-      isTogglingCameraRef.current = false;
-    }
-  };
-
-  const toggleMic = async () => {
-    const liveRoom = roomRef.current;
-    if (!liveRoom || isTogglingMicRef.current) return;
-    isTogglingMicRef.current = true;
-    try {
-      const shouldEnable = !liveRoom.localParticipant.isMicrophoneEnabled;
-      // if (shouldEnable) {
-      //   const { localAudioTrack, cleanup } = await createProcessedMicTrack();
-      //   cleanupRef.current = cleanup;
-      //   await liveRoom.localParticipant.publishTrack(localAudioTrack, {
-      //     source: Track.Source.Microphone,
-      //     name: 'processed-mic',
-      //   });
-      // }
-      // else {
-      //   Array.from(liveRoom.localParticipant.trackPublications.values()).forEach(async (pub) => {
-      //     if (pub.track) {
-      //       await liveRoom.localParticipant.unpublishTrack(pub.track);
-      //     }
-      //   });
-      // }
-      await liveRoom.localParticipant.setMicrophoneEnabled(shouldEnable);
-      setMuted(!shouldEnable);
-      console.log("🎤 Mic state:", shouldEnable);
-    } catch (err) {
-      console.error("❌ Failed to toggle microphone:", err);
-    } finally {
-      isTogglingMicRef.current = false;
-    }
-  };
-
-  const toggleTranscript = async () => {
-    if (isRecording) {
-      stopRecording();
-    }
-    else {
-      startRecording();
-    }
-  };
-
-  const handleLeaveMeeting = () => {
-    // cancelled = true;
-    mountedRef.current = false;
-    clearScheduledRenderSync();
-
-    if (roomRef.current) {
-      try {
-        roomRef.current.disconnect();
-      } catch (err) {
-        console.error("Room disconnect error:", err);
-      }
-    }
-
-    // cleanupRef.current?.();
-    cleanupMediaElements(audioRefs, videoRefs, screenShareContainerRef);
-    roomRef.current = null;
-  };
 
   return (
     <div className="h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300 flex flex-col overflow-hidden font-sans">
@@ -723,7 +592,7 @@ export default function MeetingPage() {
           <div className="bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] p-4 rounded-[2.5rem] shadow-2xl flex items-center justify-between gap-4 mx-auto w-fit md:w-full max-w-4xl backdrop-blur-md">
             <div className="flex items-center gap-2 md:gap-4">
               <button
-                onClick={toggleMic}
+                onClick={() => toggleMic(roomRef, isTogglingMicRef, setMuted)}
                 className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${muted
                   ? "bg-red-500 text-white shadow-red-500/20"
                   : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
@@ -733,7 +602,7 @@ export default function MeetingPage() {
               </button>
 
               <button
-                onClick={toggleCamera}
+                onClick={() => toggleCamera(roomRef, isTogglingCameraRef, setCameraOff)}
                 className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${cameraOff
                   ? "bg-red-500 text-white shadow-red-500/20"
                   : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
@@ -743,7 +612,7 @@ export default function MeetingPage() {
               </button>
 
               <button
-                onClick={toggleScreenShare}
+                onClick={() => toggleScreenShare(roomRef, isTogglingScreenShareRef, setScreenShareOff)}
                 className={`hidden sm:flex p-4 rounded-2xl transition-all shadow-md active:scale-90 ${screenShareOff
                   ? "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-blue-600 hover:text-white"
                   : "bg-blue-600 text-white shadow-blue-600/30"
@@ -787,7 +656,7 @@ export default function MeetingPage() {
 
               <button
                 onClick={() => {
-                  handleLeaveMeeting();
+                  handleLeaveMeeting(roomRef, clearScheduledRenderSync, audioRefs, videoRefs, screenShareContainerRef);
                   navigate("/meetings");
                 }}
                 className="bg-red-600 hover:bg-red-700 px-6 md:px-8 py-4 rounded-2xl text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-red-900/30 flex items-center gap-3 active:scale-95 transition-all"
@@ -881,14 +750,14 @@ export default function MeetingPage() {
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
-                        handleSendMessage();
+                        handleSendMessage(newMessage, meetingId, setNewMessage);
                       }
                     }}
                     className="w-full bg-white dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl py-4 pl-5 pr-14 text-sm outline-none focus:border-blue-600 transition-all shadow-inner"
                     placeholder="Message team..."
                   />
                   <button
-                    onClick={handleSendMessage}
+                    onClick={() => handleSendMessage(newMessage, meetingId, setNewMessage)}
                     className="absolute right-2 top-2 p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg active:scale-90 transition-all"
                   >
                     <Send size={16} />
