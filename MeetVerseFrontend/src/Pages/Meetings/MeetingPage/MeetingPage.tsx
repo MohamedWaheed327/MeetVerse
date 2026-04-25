@@ -103,7 +103,7 @@ export default function MeetingPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const WS_URL = 'wss://d278p5zvdcqqh2.cloudfront.net/ws/transcribe';
+  const WS_URL = 'wss://meetversebackend-gkdqagd4fxhxc8bk.polandcentral-01.azurewebsites.net/ws/transcribe';
 
   const startRecording = async () => {
     try {
