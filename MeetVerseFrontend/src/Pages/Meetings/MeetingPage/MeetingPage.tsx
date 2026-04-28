@@ -45,6 +45,13 @@ type User = {
   hasVideo: boolean;
 };
 
+type TranscriptEntry = {
+  participantId: string;
+  participantName: string;
+  interim: string;
+  finals: string[];
+};
+
 export default function MeetingPage() {
   const { meetingId } = useParams();
   const navigate = useNavigate();
@@ -67,7 +74,7 @@ export default function MeetingPage() {
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const screenShareContainerRef = useRef<HTMLDivElement | null>(null);
   const cleanupRef = useRef<null | (() => Promise<void>)>(null);
-
+  
   const isTogglingCameraRef = useRef(false);
   const isTogglingMicRef = useRef(false);
   const isTogglingScreenShareRef = useRef(false);
@@ -93,38 +100,79 @@ export default function MeetingPage() {
 
   ///////////////////////
 
-  const [isRecording, setIsRecording] = useState(false);
-  const [interimText, setInterimText] = useState('');
-  const [finalLines, setFinalLines] = useState<any[]>([]);
-  const [status, setStatus] = useState('Idle');
-  const [error, setError] = useState('');
+  type CaptionState = {
+    participantId: string;
+    participantName: string;
+    interim: string;
+    finals: string[];
+    status: string;
+    error?: string;
+  };
 
-  const socketRef = useRef<WebSocket | null>(null);
-  const reff = useRef<Record<string, MediaRecorder>>({});
+  const [captions, setCaptions] = useState<Record<string, CaptionState>>({});
+  const recorderRef = useRef<Record<string, MediaRecorder>>({});
+  const socketMapRef = useRef<Record<string, WebSocket>>({});
 
+  const getTrackKey = (track: Track) => {
+    return (track as any).sid ?? track.mediaStreamID;
+  };
+
+  const updateCaption = (
+    trackKey: string,
+    updater: (prev: CaptionState | undefined) => CaptionState
+  ) => {
+    setCaptions((prev) => ({
+      ...prev,
+      [trackKey]: updater(prev[trackKey]),
+    }));
+  };
+
+  const removeCaption = (trackKey: string) => {
+    setCaptions((prev) => {
+      const copy = { ...prev };
+      delete copy[trackKey];
+      return copy;
+    });
+  };
+
+  // const WS_URL = 'ws://localhost:5279/ws/transcribe';
   const WS_URL = 'wss://meetversebackend-gkdqagd4fxhxc8bk.polandcentral-01.azurewebsites.net/ws/transcribe';
 
-  const startTranscriping = async (track: Track) => {
+  const startTranscriping = async (track: Track, participantId: string, participantName: string) => {
+    const trackKey = getTrackKey(track);
+
+    if (recorderRef.current[trackKey]) return;
+
     try {
-      let options = undefined;
+      let options: MediaRecorderOptions | undefined = undefined;
+
       if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
         options = { mimeType: 'audio/webm;codecs=opus' };
       } else if (MediaRecorder.isTypeSupported('audio/webm')) {
         options = { mimeType: 'audio/webm' };
       }
-      setError('');
-      setStatus('Requesting microphone...');
-      setFinalLines([]);
-      setInterimText('');
+
+      updateCaption(trackKey, () => ({
+        participantId,
+        participantName,
+        interim: '',
+        finals: [],
+        status: 'Connecting...',
+        error: '',
+      }));
 
       const socket = new WebSocket(WS_URL);
       socket.binaryType = 'arraybuffer';
-      socketRef.current = socket;
+      socketMapRef.current[trackKey] = socket;
 
-      const mediaRecorder = new MediaRecorder(new MediaStream([track.mediaStreamTrack]), options);
-      reff.current[track.mediaStreamID] = mediaRecorder;
+      const mediaTrack = (track as any).mediaStreamTrack as MediaStreamTrack | undefined;
+      if (!mediaTrack) {
+        throw new Error('No mediaStreamTrack found on subscribed track');
+      }
 
-      // media recorder events
+      const mediaRecorder = new MediaRecorder(new MediaStream([mediaTrack]), options);
+      recorderRef.current[trackKey] = mediaRecorder;
+
       mediaRecorder.ondataavailable = async (event) => {
         if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
           const arrayBuffer = await event.data.arrayBuffer();
@@ -140,12 +188,17 @@ export default function MeetingPage() {
         }, 300);
       };
 
-      // socket events
-      socket.onopen = async () => {
-        setStatus('Connected. Listening...');
-        // emit chunks every 250ms
+      socket.onopen = () => {
+        updateCaption(trackKey, (prev) => ({
+          participantId,
+          participantName,
+          interim: prev?.interim ?? '',
+          finals: prev?.finals ?? [],
+          status: 'Listening...',
+          error: '',
+        }));
+
         mediaRecorder.start(250);
-        setIsRecording(true);
       };
 
       socket.onmessage = (event) => {
@@ -154,12 +207,23 @@ export default function MeetingPage() {
 
           if (msg.type === 'transcript') {
             if (msg.isFinal) {
-              console.log(msg.text);
-              setFinalLines((prev) => [msg.text]);
-              // setFinalLines(msg.text);
-              setInterimText('');
+              updateCaption(trackKey, (prev) => ({
+                participantId,
+                participantName,
+                interim: '',
+                finals: [...(prev?.finals ?? []), msg.text],
+                status: 'Listening...',
+                error: '',
+              }));
             } else {
-              setInterimText(msg.text);
+              updateCaption(trackKey, (prev) => ({
+                participantId,
+                participantName,
+                interim: msg.text,
+                finals: prev?.finals ?? [],
+                status: 'Listening...',
+                error: '',
+              }));
             }
           }
         } catch (err) {
@@ -168,55 +232,87 @@ export default function MeetingPage() {
       };
 
       socket.onerror = () => {
-        setError('WebSocket connection failed');
-        setStatus('Error');
+        updateCaption(trackKey, (prev) => ({
+          participantId,
+          participantName,
+          interim: prev?.interim ?? '',
+          finals: prev?.finals ?? [],
+          status: 'Error',
+          error: 'WebSocket connection failed',
+        }));
       };
 
       socket.onclose = () => {
-        setStatus('Stopped');
-        setIsRecording(false);
+        updateCaption(trackKey, (prev) => ({
+          participantId,
+          participantName,
+          interim: prev?.interim ?? '',
+          finals: prev?.finals ?? [],
+          status: 'Stopped',
+          error: prev?.error ?? '',
+        }));
+
+        delete socketMapRef.current[trackKey];
+        delete recorderRef.current[trackKey];
       };
     } catch (err) {
       console.error(err);
-      setError('Microphone access denied or unavailable');
-      setStatus('Error');
+
+      updateCaption(trackKey, () => ({
+        participantId,
+        participantName,
+        interim: '',
+        finals: [],
+        status: 'Error',
+        error: 'Microphone/audio track unavailable',
+      }));
     }
   };
 
   const stopTranscriping = (track: Track) => {
-    setStatus('Stopping...');
-    let id = track.mediaStreamID;
-    if (reff.current[id] && reff.current[id].state !== 'inactive') {
-      reff.current[id].stop();
-    } else {
-      // if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      //   socketRef.current.close();
-      // }
-      setIsRecording(false);
+    const trackKey = getTrackKey(track);
+    const recorder = recorderRef.current[trackKey];
+    const socket = socketMapRef.current[trackKey];
+
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop();
+    } else if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.close();
     }
-    delete reff.current[id];
+
+    delete recorderRef.current[trackKey];
+    delete socketMapRef.current[trackKey];
   };
 
   const toggleTranscript = async () => {
+    if (!roomRef.current) return;
+
     if (isCaptionsOn) {
-      let s = new Set();
-      for (var id in reff.current) {
-        if (reff.current[id] && reff.current[id].state !== 'inactive') {
-          reff.current[id].stop();
-        }
-        s.add(id);
-      }
-    }
-    else {
-      var allParticipants = roomRef.current?.remoteParticipants;
-      allParticipants!.forEach((participant) => {
-        const preferredVideoPub = participant.getTrackPublication(Track.Source.Microphone);
-        if (preferredVideoPub?.track && !preferredVideoPub?.track?.isMuted) {
-          startTranscriping(preferredVideoPub?.track);
+      const allParticipants = roomRef.current.remoteParticipants;
+      allParticipants.forEach((participant) => {
+        const micPub = participant.getTrackPublication(Track.Source.Microphone);
+        if (micPub?.track) {
+          stopTranscriping(micPub.track);
         }
       });
+
+      setCaptions({});
+      setIsCaptionsOn(false);
+      return;
     }
-    setIsCaptionsOn((prev) => !prev);
+
+    roomRef.current.remoteParticipants.forEach((participant) => {
+      const micPub = participant.getTrackPublication(Track.Source.Microphone);
+      if (micPub?.track && !micPub.track.isMuted) {
+        startTranscriping(
+          micPub.track,
+          participant.identity,
+          getParticipantDisplayName(participant, false)
+        );
+      }
+    });
+
+    setIsCaptionsOn(true);
   };
 
   ////////////////////
@@ -281,7 +377,13 @@ export default function MeetingPage() {
           console.log("trackSubscribed:", participant.identity, track.kind, publication?.source);
 
           if (publication.source == Track.Source.Microphone) {
-            if (isCaptionsOn) startTranscriping(track);
+            if (isCaptionsOn) {
+              startTranscriping(
+                track,
+                participant.identity,
+                getParticipantDisplayName(participant, false)
+              );
+            }
             attachAudioTrack(track, participant.identity, audioRefs);
           }
 
@@ -384,6 +486,13 @@ export default function MeetingPage() {
 
     return () => {
       cancelled = true;
+      Object.values(recorderRef.current).forEach((recorder) => {
+        if (recorder.state !== 'inactive') recorder.stop();
+      });
+
+      Object.values(socketMapRef.current).forEach((socket) => {
+        if (socket.readyState === WebSocket.OPEN) socket.close();
+      });
       handleLeaveMeeting(roomRef, clearScheduledRenderSync, audioRefs, videoRefs, screenShareContainerRef);
     };
   }, [meetingId]);
@@ -782,22 +891,30 @@ export default function MeetingPage() {
             </h3>
           </div>
 
-          <div className="text-sm text-slate-700 dark:text-slate-200 leading-6 max-h-24 overflow-y-auto">
-            {finalLines.length > 0 && (
-              <span>{finalLines[finalLines.length - 1]}</span>
-            )}
-
-            {interimText && (
-              <span className="italic text-slate-400 dark:text-slate-500 ml-2">
-                {interimText}
-              </span>
-            )}
-
-            {!finalLines.length && !interimText && (
+          <div className="text-sm text-slate-700 dark:text-slate-200 leading-6 max-h-40 overflow-y-auto space-y-3">
+            {Object.entries(captions).length === 0 && (
               <span className="text-slate-400 dark:text-slate-500">
                 No transcript yet...
               </span>
             )}
+
+            {Object.entries(captions).map(([trackKey, caption]) => (
+              <div key={trackKey} className="border-b border-slate-200 dark:border-slate-700 pb-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-blue-600 mb-1">
+                  {caption.participantName}
+                </div>
+
+                {caption.finals.length > 0 && (
+                  <div>{caption.finals[caption.finals.length - 1]}</div>
+                )}
+
+                {caption.interim && (
+                  <div className="italic text-slate-400 dark:text-slate-500">
+                    {caption.interim}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>
