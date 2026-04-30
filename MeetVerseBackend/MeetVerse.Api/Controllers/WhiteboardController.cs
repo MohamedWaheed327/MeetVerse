@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using MeetVerse.Api.Database;
 using MeetVerse.Api.Dtos;
 using MeetVerse.Api.Models;
+using MeetVerse.Api.Services;
 
 namespace MeetVerse.Api.Controllers;
 
@@ -14,10 +15,12 @@ namespace MeetVerse.Api.Controllers;
 public class WhiteboardController : ControllerBase
 {
     private readonly MeetVerseDbContext _db;
+    private readonly IMiroWhiteboardService _miro;
 
-    public WhiteboardController(MeetVerseDbContext db)
+    public WhiteboardController(MeetVerseDbContext db, IMiroWhiteboardService miro)
     {
         _db = db;
+        _miro = miro;
     }
 
     private Guid? GetCurrentUserId()
@@ -29,9 +32,7 @@ public class WhiteboardController : ControllerBase
     private async Task<bool> CanAccessMeeting(Guid meetingId, Guid userId)
     {
         var meeting = await _db.Meetings.FindAsync(meetingId);
-        if (meeting is null) return false;
-        if (meeting.HostId == userId) return true;
-        return await _db.MeetingParticipants.AnyAsync(mp => mp.MeetingId == meetingId && mp.UserId == userId);
+        return meeting != null;
     }
 
     /// <summary>Get or create the current whiteboard session for the meeting.</summary>
@@ -49,11 +50,28 @@ public class WhiteboardController : ControllerBase
 
         if (session is null)
         {
+            // Create a Miro board for this meeting whiteboard session
+            var meeting = await _db.Meetings.FindAsync(meetingId);
+            var boardName = $"MeetVerse – {meeting?.Title ?? "Meeting"} Whiteboard";
+
+            MiroBoardResult? board = null;
+            try
+            {
+                board = await _miro.CreateBoardAsync(boardName, $"Whiteboard for meeting {meetingId}");
+            }
+            catch (Exception ex)
+            {
+                // Log but don't block session creation if Miro fails
+                Console.WriteLine($"[Miro] Failed to create board: {ex.Message}");
+            }
+
             session = new WhiteboardSession
             {
                 Id = Guid.NewGuid(),
                 MeetingId = meetingId,
-                StartedAt = DateTime.UtcNow
+                StartedAt = DateTime.UtcNow,
+                MiroBoardId = board?.Id,
+                MiroBoardViewUrl = board?.ViewLink
             };
             _db.WhiteboardSessions.Add(session);
             await _db.SaveChangesAsync();
@@ -66,7 +84,8 @@ public class WhiteboardController : ControllerBase
             MeetingId = session.MeetingId,
             StartedAt = session.StartedAt,
             EndedAt = session.EndedAt,
-            EventCount = eventCount
+            EventCount = eventCount,
+            MiroBoardUrl = session.MiroBoardViewUrl
         };
     }
 
