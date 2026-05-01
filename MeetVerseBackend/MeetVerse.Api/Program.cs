@@ -39,6 +39,7 @@ builder.Services.AddDbContext<MeetVerseDbContext>(options =>
 
 builder.Services.AddSignalR();
 builder.Services.AddControllers();
+builder.Services.AddHttpClient();
 
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 
@@ -96,6 +97,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
+builder.Services.AddScoped<IGitHubOAuthService, GitHubOAuthService>();
 builder.Services.AddScoped<ILiveKitTokenService, LiveKitTokenService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();

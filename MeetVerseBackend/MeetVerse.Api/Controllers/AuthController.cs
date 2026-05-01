@@ -29,17 +29,20 @@ public class AuthController : ControllerBase
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
     private readonly IConfiguration _configuration;
+    private readonly IGitHubOAuthService _gitHubOAuthService;
 
     public AuthController(
         MeetVerseDbContext db,
         IPasswordHasher passwordHasher,
         ITokenService tokenService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IGitHubOAuthService gitHubOAuthService)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
         _configuration = configuration;
+        _gitHubOAuthService = gitHubOAuthService;
     }
 
     [HttpPost("register")]
@@ -154,6 +157,57 @@ public class AuthController : ControllerBase
             }
 
             await _db.SaveChangesAsync();
+        }
+
+        var token = _tokenService.GenerateAccessToken(user);
+        return new AuthResponse { Token = token };
+    }
+
+    [HttpPost("github-login")]
+    public async Task<ActionResult<AuthResponse>> GitHubLogin(GithubLoginRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Code))
+        {
+            return BadRequest("GitHub code is required");
+        }
+
+        var gitHubUser = await _gitHubOAuthService.ExchangeCodeForUserAsync(request.Code, cancellationToken);
+        if (gitHubUser is null)
+        {
+            return Unauthorized("Unable to authenticate with GitHub");
+        }
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == gitHubUser.Email, cancellationToken);
+        if (user is null)
+        {
+            user = new User
+            {
+                Id = Guid.NewGuid(),
+                Email = gitHubUser.Email,
+                PasswordHash = string.Empty,
+                Name = gitHubUser.Name,
+                AvatarUrl = gitHubUser.AvatarUrl,
+                Roles = UserRole.User
+            };
+
+            _db.Users.Add(user);
+            JoinGlobalGroup(user.Id);
+            await _db.SaveChangesAsync(cancellationToken);
+            CustomLogger.Log($"{user.Name} ({user.Email}) registered with GitHub.");
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(user.Name) && !string.IsNullOrWhiteSpace(gitHubUser.Name))
+            {
+                user.Name = gitHubUser.Name;
+            }
+
+            if (string.IsNullOrWhiteSpace(user.AvatarUrl) && !string.IsNullOrWhiteSpace(gitHubUser.AvatarUrl))
+            {
+                user.AvatarUrl = gitHubUser.AvatarUrl;
+            }
+
+            await _db.SaveChangesAsync(cancellationToken);
         }
 
         var token = _tokenService.GenerateAccessToken(user);

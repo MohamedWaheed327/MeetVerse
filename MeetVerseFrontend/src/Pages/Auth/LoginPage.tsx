@@ -7,6 +7,7 @@ import { LogIn, Mail, Lock, ArrowRight, Github, Chrome } from "lucide-react";
 import { loginUser } from "../../services/login";
 import { getCurrentUser } from "../../services/currentUser";
 import { loginWithGoogle } from "../../services/googleLogin";
+import { loginWithGithub } from "../../services/githubLogin";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const githubClientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
   const isGoogleInitialized = useRef(false);
   const googleButtonContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -104,6 +106,29 @@ export default function LoginPage() {
     return () => window.clearInterval(pollGoogleScript);
   }, [googleClientId, navigate]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const githubCode = params.get("code");
+    if (!githubCode) {
+      return;
+    }
+
+    const handleGithubCallback = async () => {
+      setError(null);
+      setLoading(true);
+      try {
+        const authResponse = await loginWithGithub(githubCode);
+        await finishLogin(authResponse.token);
+      } catch {
+        setError("GitHub login failed");
+        setLoading(false);
+        navigate("/login", { replace: true });
+      }
+    };
+
+    void handleGithubCallback();
+  }, [navigate]);
+
   const handleGoogleLoginClick = () => {
     setError(null);
     const googleButton = document
@@ -116,6 +141,23 @@ export default function LoginPage() {
     }
 
     googleButton.click();
+  };
+
+  const handleGithubLoginClick = () => {
+    setError(null);
+    if (!githubClientId) {
+      setError("GitHub login is not configured");
+      return;
+    }
+
+    const redirectUri = `${window.location.origin}/login`;
+    const params = new URLSearchParams({
+      client_id: githubClientId,
+      scope: "user:email",
+      redirect_uri: redirectUri
+    });
+
+    window.location.assign(`https://github.com/login/oauth/authorize?${params.toString()}`);
   };
 
   return (
@@ -223,7 +265,12 @@ export default function LoginPage() {
               <Chrome size={18} />{" "}
               <span className="text-xs font-bold">Google</span>
             </button>
-            <button className="flex items-center justify-center gap-2 p-3 bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-xl hover:bg-slate-100 transition-all">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={handleGithubLoginClick}
+              className="flex items-center justify-center gap-2 p-3 bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-xl hover:bg-slate-100 transition-all"
+            >
               <Github size={18} />{" "}
               <span className="text-xs font-bold">Github</span>
             </button>
