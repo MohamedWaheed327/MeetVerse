@@ -7,6 +7,7 @@ public class WhiteboardSessionResponse
     public DateTime StartedAt { get; set; }
     public DateTime? EndedAt { get; set; }
     public int EventCount { get; set; }
+    public string? MiroBoardUrl { get; set; }
 }
 
 public class WhiteboardEventResponse

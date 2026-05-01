@@ -1,6 +1,6 @@
 import Navbar from "../../../components/LandingComponents/Navbar/Navbar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, MessageSquare, Waves, X, Send, ShieldCheck, Type, } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, MessageSquare, Waves, X, Send, ShieldCheck, Type, PenTool } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Participant, Room, RoomEvent, Track, TrackPublication } from "livekit-client";
@@ -27,6 +27,7 @@ import { toggleScreenShare } from "./MeetingControls/toggleScreenShare";
 import { toggleCamera } from "./MeetingControls/toggleCamera";
 import { handleLeaveMeeting } from "./MeetingControls/leaveMeeting";
 import { toggleMic } from "./MeetingControls/toggleMic";
+import WhiteboardPanel from "./Whiteboard/WhiteboardPanel";
 
 type Message = {
   id: string;
@@ -56,6 +57,7 @@ export default function MeetingPage() {
   const [screenShareOwner, setScreenShareOwner] = useState("");
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCaptionsOn, setIsCaptionsOn] = useState(false);
+  const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -526,9 +528,11 @@ export default function MeetingPage() {
             </div>
           </div>
 
-          {/* Video / Screen Share Layout */}
+          {/* Video / Screen Share / Whiteboard Layout */}
           <div className="flex-1 p-2 min-h-0 overflow-hidden">
-            {!screenShareOff ? (
+            {isWhiteboardOpen ? (
+              <WhiteboardPanel meetingId={meetingId ?? ""} />
+            ) : !screenShareOff ? (
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 w-full h-full">
                 {/* Screen share area */}
                 <div className="relative rounded-[2.5rem] border-2 border-white dark:border-[#2A2E3B] bg-black overflow-hidden shadow-xl min-h-[300px]">
@@ -730,6 +734,22 @@ export default function MeetingPage() {
 
               <button className="hidden sm:flex p-4 rounded-2xl bg-slate-100 dark:bg-[#2A2E3B] hover:bg-emerald-600 hover:text-white transition-all shadow-md">
                 <Waves size={22} />
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsWhiteboardOpen(!isWhiteboardOpen);
+                  if (screenShareOff === false) {
+                    toggleScreenShare(roomRef, isTogglingScreenShareRef, setScreenShareOff);
+                  }
+                }}
+                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${isWhiteboardOpen
+                  ? "bg-purple-600 text-white shadow-purple-600/30"
+                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
+                  }`}
+                title="Whiteboard"
+              >
+                <PenTool size={22} />
               </button>
 
               <button
