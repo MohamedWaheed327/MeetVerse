@@ -1,11 +1,12 @@
 /* eslint-disable no-unused-vars */
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { useNavigate } from "react-router-dom";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { LogIn, Mail, Lock, ArrowRight, Github, Chrome } from "lucide-react";
 import { loginUser } from "../../services/login";
 import { getCurrentUser } from "../../services/currentUser";
+import { loginWithGoogle } from "../../services/googleLogin";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -13,6 +14,17 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const isGoogleInitialized = useRef(false);
+  const googleButtonContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const finishLogin = async (token: string) => {
+    localStorage.setItem("token", token);
+    const user = await getCurrentUser();
+    localStorage.setItem("userid", user.id);
+    localStorage.setItem("username", user.name);
+    navigate("/home");
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -22,12 +34,7 @@ export default function LoginPage() {
     try {
       const data = { email, password };
       const response = await loginUser(data);
-      // save token and redirect
-      localStorage.setItem("token", response.token);
-      var user = await getCurrentUser();
-      localStorage.setItem("userid", user.id);
-      localStorage.setItem("username", user.name);
-      navigate("/home");
+      await finishLogin(response.token);
     } catch (err: unknown) {
       // loginUser throws the api error object
       if (err instanceof Error) {
@@ -37,6 +44,78 @@ export default function LoginPage() {
       }
       setLoading(false);
     }
+  };
+
+  const initializeGoogle = () => {
+    if (isGoogleInitialized.current || !googleClientId || !window.google?.accounts?.id) {
+      return false;
+    }
+
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: async (response: GoogleCredentialResponse) => {
+        if (!response.credential) {
+          setError("Google login failed");
+          return;
+        }
+
+        setError(null);
+        setLoading(true);
+        try {
+          const authResponse = await loginWithGoogle(response.credential);
+          await finishLogin(authResponse.token);
+        } catch {
+          setError("Google login failed");
+          setLoading(false);
+        }
+      },
+    });
+
+    if (googleButtonContainerRef.current) {
+      googleButtonContainerRef.current.innerHTML = "";
+      window.google.accounts.id.renderButton(googleButtonContainerRef.current, {
+        theme: "outline",
+        size: "medium",
+        shape: "pill",
+        text: "continue_with",
+        width: 150,
+      });
+    }
+
+    isGoogleInitialized.current = true;
+    return true;
+  };
+
+  useEffect(() => {
+    if (!googleClientId) {
+      return;
+    }
+
+    if (initializeGoogle()) {
+      return;
+    }
+
+    const pollGoogleScript = window.setInterval(() => {
+      if (initializeGoogle()) {
+        window.clearInterval(pollGoogleScript);
+      }
+    }, 300);
+
+    return () => window.clearInterval(pollGoogleScript);
+  }, [googleClientId, navigate]);
+
+  const handleGoogleLoginClick = () => {
+    setError(null);
+    const googleButton = document
+      .getElementById("google-button-container")
+      ?.querySelector("div[role='button']") as HTMLElement | null;
+
+    if (!googleButton) {
+      setError("Google login is still loading. Please try again.");
+      return;
+    }
+
+    googleButton.click();
   };
 
   return (
@@ -135,7 +214,12 @@ export default function LoginPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <button className="flex items-center justify-center gap-2 p-3 bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-xl hover:bg-slate-100 transition-all">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={handleGoogleLoginClick}
+              className="flex items-center justify-center gap-2 p-3 bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-xl hover:bg-slate-100 transition-all"
+            >
               <Chrome size={18} />{" "}
               <span className="text-xs font-bold">Google</span>
             </button>
@@ -154,6 +238,12 @@ export default function LoginPage() {
               Sign up
             </a>
           </p>
+          <div
+            id="google-button-container"
+            ref={googleButtonContainerRef}
+            style={{ display: "none" }}
+            aria-hidden="true"
+          />
         </motion.div>
       </div>
     </div>

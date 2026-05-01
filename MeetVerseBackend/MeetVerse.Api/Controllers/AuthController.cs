@@ -1,3 +1,4 @@
+using Google.Apis.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MeetVerse.Api.Database;
@@ -27,12 +28,18 @@ public class AuthController : ControllerBase
     private readonly MeetVerseDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
+    private readonly IConfiguration _configuration;
 
-    public AuthController(MeetVerseDbContext db, IPasswordHasher passwordHasher, ITokenService tokenService)
+    public AuthController(
+        MeetVerseDbContext db,
+        IPasswordHasher passwordHasher,
+        ITokenService tokenService,
+        IConfiguration configuration)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
+        _configuration = configuration;
     }
 
     [HttpPost("register")]
@@ -79,6 +86,76 @@ public class AuthController : ControllerBase
         }
 
         CustomLogger.Log($"{user.Name} ({user.Email}) logined successfully.");
+        var token = _tokenService.GenerateAccessToken(user);
+        return new AuthResponse { Token = token };
+    }
+
+    [HttpPost("google-login")]
+    public async Task<ActionResult<AuthResponse>> GoogleLogin(GoogleLoginRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.IdToken))
+        {
+            return BadRequest("Google token is required");
+        }
+
+        var clientId = _configuration["GoogleAuth:ClientId"];
+        if (string.IsNullOrWhiteSpace(clientId))
+        {
+            return Problem("Google authentication is not configured on the server.");
+        }
+
+        GoogleJsonWebSignature.Payload payload;
+        try
+        {
+            payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, new GoogleJsonWebSignature.ValidationSettings
+            {
+                Audience = [clientId]
+            });
+        }
+        catch
+        {
+            return Unauthorized("Invalid Google token");
+        }
+
+        if (!payload.EmailVerified)
+        {
+            return Unauthorized("Google account email is not verified");
+        }
+
+        var email = payload.Email;
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        if (user is null)
+        {
+            user = new User
+            {
+                Id = Guid.NewGuid(),
+                Email = email,
+                PasswordHash = string.Empty,
+                Name = payload.Name,
+                AvatarUrl = payload.Picture,
+                Roles = UserRole.User
+            };
+
+            _db.Users.Add(user);
+            JoinGlobalGroup(user.Id);
+            await _db.SaveChangesAsync();
+            CustomLogger.Log($"{user.Name} ({user.Email}) registered with Google.");
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(user.Name) && !string.IsNullOrWhiteSpace(payload.Name))
+            {
+                user.Name = payload.Name;
+            }
+
+            if (string.IsNullOrWhiteSpace(user.AvatarUrl) && !string.IsNullOrWhiteSpace(payload.Picture))
+            {
+                user.AvatarUrl = payload.Picture;
+            }
+
+            await _db.SaveChangesAsync();
+        }
+
         var token = _tokenService.GenerateAccessToken(user);
         return new AuthResponse { Token = token };
     }
