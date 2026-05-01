@@ -104,6 +104,9 @@ builder.Services.AddScoped<IAudioTranscriptionService, StubAudioTranscriptionSer
 builder.Services.AddScoped<IAudioSummarizationService, StubAudioSummarizationService>();
 builder.Services.AddHostedService<MeetingProcessingWorker>();
 
+builder.Services.Configure<MeetVerse.Api.Configuration.MiroSettings>(builder.Configuration.GetSection("Miro"));
+builder.Services.AddHttpClient<IMiroWhiteboardService, MiroWhiteboardService>();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
