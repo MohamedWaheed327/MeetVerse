@@ -45,13 +45,6 @@ type User = {
   hasVideo: boolean;
 };
 
-type TranscriptEntry = {
-  participantId: string;
-  participantName: string;
-  interim: string;
-  finals: string[];
-};
-
 export default function MeetingPage() {
   const { meetingId } = useParams();
   const navigate = useNavigate();
