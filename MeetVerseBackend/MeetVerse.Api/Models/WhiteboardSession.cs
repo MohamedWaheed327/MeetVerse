@@ -1,5 +1,5 @@
 namespace MeetVerse.Api.Models;
-//TODO:Integrate With WB API
+
 public class WhiteboardSession
 {
     public Guid Id { get; set; }
@@ -9,6 +9,12 @@ public class WhiteboardSession
 
     public DateTime StartedAt { get; set; } = DateTime.UtcNow;
     public DateTime? EndedAt { get; set; }
+
+    /// <summary>Miro board ID linked to this session.</summary>
+    public string? MiroBoardId { get; set; }
+
+    /// <summary>Miro board view/embed URL.</summary>
+    public string? MiroBoardViewUrl { get; set; }
 
     public ICollection<WhiteboardEvent> Events { get; set; } = new List<WhiteboardEvent>();
 }
