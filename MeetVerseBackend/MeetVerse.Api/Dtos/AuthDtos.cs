@@ -16,6 +16,16 @@ public class LoginRequest
     public string Password { get; set; } = default!;
 }
 
+public class GoogleLoginRequest
+{
+    public string IdToken { get; set; } = default!;
+}
+
+public class GithubLoginRequest
+{
+    public string Code { get; set; } = default!;
+}
+
 public class AuthResponse
 {
     public string Token { get; set; } = default!;

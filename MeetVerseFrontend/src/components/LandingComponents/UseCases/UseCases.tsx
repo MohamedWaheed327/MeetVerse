@@ -38,7 +38,7 @@ const useCases = [
 export default function UseCases() {
   return (
     <section
-      className="py-24 px-4 sm:px-6 lg:px-8 bg-white dark:bg-[#0D0F16] transition-colors duration-300"
+      className="py-24 px-4 sm:px-6 lg:px-8 bg-transparent transition-colors duration-300"
       id="our-audience"
     >
       <div className="max-w-7xl mx-auto">
@@ -58,20 +58,20 @@ export default function UseCases() {
           {useCases.map((useCase, index) => (
             <div
               key={index}
-              className="group bg-white dark:bg-[#181B26] rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-[#2A2E3B]"
+              className="group bg-white/70 dark:bg-[#181B26]/85 rounded-2xl overflow-hidden shadow-md hover:shadow-2xl hover:shadow-slate-900/20 transition-all duration-500 border border-gray-100 dark:border-[#2A2E3B] backdrop-blur"
             >
               <div className="relative h-48 overflow-hidden">
                 <img
                   src={useCase.image}
                   alt={useCase.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                 />
-                <div className="absolute inset-0 bg-linear-to-t from-black/30 dark:from-black/50 to-transparent"></div>
+                <div className="absolute inset-0 bg-linear-to-t from-slate-950/55 via-slate-900/15 to-transparent"></div>
               </div>
 
-              <div className="p-6 lg:p-8">
+              <div className="p-6 lg:p-8 group-hover:bg-white/80 dark:group-hover:bg-[#1B2234]/90 transition-colors duration-300">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center transition-colors duration-300">
+                  <div className="w-12 h-12 bg-linear-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 rounded-lg flex items-center justify-center transition-all duration-300 group-hover:scale-110">
                     <useCase.icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <h3 className="text-gray-900 dark:text-[#F1F5F9] font-semibold text-lg">
