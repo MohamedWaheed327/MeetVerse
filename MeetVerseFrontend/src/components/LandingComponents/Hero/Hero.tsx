@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 export default function Hero() {
   return (
     <section
-      className="bg-white dark:bg-[#0D0F16] transition-all duration-300 "
+      className="bg-transparent transition-all duration-300 relative"
       id="hero"
     >
       <div className="max-w-[1440px] mx-auto px-6 lg:px-16 py-24">
@@ -13,11 +13,17 @@ export default function Hero() {
           {/* Left Text Section */}
           <div className="space-y-10">
             <div className="space-y-6">
-              <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 dark:text-[#F1F5F9] leading-tight">
-                Crystal Clear Meetings, Powered by AI.
+              <span className="inline-flex items-center rounded-full border border-blue-200/70 dark:border-blue-500/30 bg-white/70 dark:bg-[#111827]/70 px-4 py-1.5 text-xs font-semibold tracking-wide text-blue-700 dark:text-blue-300 backdrop-blur">
+                AI-Powered Collaboration
+              </span>
+              <h1 className="text-4xl lg:text-6xl font-extrabold text-gray-900 dark:text-[#F1F5F9] leading-tight">
+                Crystal Clear Meetings,
+                <span className="block mt-2 bg-linear-to-r from-blue-600 via-indigo-500 to-violet-500 bg-clip-text text-transparent">
+                  Beautifully Productive
+                </span>
               </h1>
 
-              <p className="text-xl text-gray-600 dark:text-[#A8B0C2] max-w-lg">
+              <p className="text-lg lg:text-xl text-gray-600 dark:text-[#A8B0C2] max-w-xl leading-relaxed">
                 Experience distraction-free video calls with real-time noise
                 cancellation, automated transcripts, and smart meeting
                 summaries.
@@ -27,12 +33,12 @@ export default function Hero() {
             {/* Buttons */}
             <div className="flex items-center gap-4 flex-wrap">
               <Link to="/Home" className="w-max">
-                <button className="bg-blue-700 hover:bg-blue-800 text-white px-8 py-4 rounded-lg text-lg font-semibold shadow-md hover:shadow-lg transition-all">
+                <button className="bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg shadow-blue-900/30 hover:shadow-blue-700/30 transition-all duration-300 hover:-translate-y-0.5">
                   Start Free Meeting
                 </button>
               </Link>
 
-              <button className="px-8 py-4 text-lg rounded-lg border border-gray-300 dark:border-[#2A2E3B] text-gray-700 dark:text-[#F1F5F9] hover:bg-gray-100 dark:hover:bg-[#232734] transition-all flex items-center gap-2">
+              <button className="px-8 py-4 text-lg rounded-xl border border-gray-300/80 dark:border-[#2A2E3B] text-gray-700 dark:text-[#F1F5F9] bg-white/70 dark:bg-[#111827]/60 hover:bg-white dark:hover:bg-[#1A2235] transition-all duration-300 flex items-center gap-2 backdrop-blur">
                 <Play className="w-5 h-5" />
                 Watch Demo
               </button>
@@ -62,15 +68,16 @@ export default function Hero() {
 
           {/* Right Image Section */}
           <div className="relative">
-            <div className="bg-transparent rounded-2xl p-6 lg:p-8  transition-colors duration-300">
+            <div className="absolute -inset-5 bg-linear-to-br from-blue-500/25 via-indigo-500/20 to-violet-500/25 rounded-3xl blur-2xl animate-pulse" />
+            <div className="relative bg-white/60 dark:bg-[#0F172A]/50 rounded-3xl p-6 lg:p-8 border border-white/70 dark:border-white/10 backdrop-blur-md transition-colors duration-300 shadow-2xl">
               <img
                 src={photo1}
                 alt="Video conferencing interface"
-                className="rounded-xl w-full shadow-md object-cover"
+                className="rounded-2xl w-full shadow-xl shadow-slate-900/20 object-cover transition-transform duration-500 hover:scale-[1.015]"
               />
 
               {/* Floating Badge */}
-              <div className="absolute top-10 right-10 bg-white dark:bg-[#0D0F16] border border-gray-200 dark:border-[#2A2E3B] rounded-xl shadow-lg px-5 py-3 flex items-center gap-3 transition-all">
+              <div className="absolute top-10 right-10 bg-white/90 dark:bg-[#0D0F16]/90 border border-gray-200 dark:border-[#2A2E3B] rounded-xl shadow-xl px-5 py-3 flex items-center gap-3 transition-all backdrop-blur animate-bounce [animation-duration:2.8s]">
                 <div className="size-3 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-sm font-semibold text-gray-900 dark:text-[#F1F5F9]">
                   Noise Suppression Active

@@ -25,7 +25,7 @@ export default function Navbar() {
   const isActiveSection = (hash: string) => location.hash === hash;
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-[#0D0F16]/80 backdrop-blur-md border-b border-gray-200 dark:border-[#2A2E3B] transition-colors duration-300">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/75 dark:bg-[#0D0F16]/75 backdrop-blur-xl border-b border-white/60 dark:border-[#2A2E3B] transition-colors duration-300 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Link to={isLoggedIn ? "/home" : "/"} onClick={closeMobile}>
@@ -117,7 +117,7 @@ export default function Navbar() {
                   </Link>
                   <Link
                     to="/signup"
-                    className="bg-blue-600 text-white rounded-xl px-5 py-2.5 font-bold text-sm"
+                    className="bg-linear-to-r from-blue-600 to-indigo-600 text-white rounded-xl px-5 py-2.5 font-bold text-sm shadow-md shadow-blue-900/25 hover:from-blue-500 hover:to-indigo-500 transition-all duration-300"
                   >
                     Get Started
                   </Link>

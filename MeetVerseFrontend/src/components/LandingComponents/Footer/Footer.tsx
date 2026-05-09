@@ -5,7 +5,7 @@ export default function Footer() {
   return (
     <footer
       id="contact"
-      className="bg-gray-50 dark:bg-[#0D0F16] text-gray-900 dark:text-gray-300 transition-colors duration-300 py-16 px-4 sm:px-6 lg:px-8"
+      className="bg-linear-to-b from-white/40 to-slate-100 dark:from-[#0A0E1A] dark:to-[#0B1222] text-gray-900 dark:text-gray-300 transition-colors duration-300 py-16 px-4 sm:px-6 lg:px-8 border-t border-white/50 dark:border-white/10"
     >
       <div className="max-w-7xl mx-auto">
         <div className="grid md:grid-cols-4 gap-12 mb-12">
@@ -29,7 +29,7 @@ export default function Footer() {
                 <a
                   key={idx}
                   href="#"
-                  className="w-10 h-10 bg-gray-200 dark:bg-[#1A1F2B] rounded-lg flex items-center justify-center hover:bg-gray-300 dark:hover:bg-[#2A2E3B] transition-colors"
+                  className="w-10 h-10 bg-white dark:bg-[#1A1F2B] rounded-lg flex items-center justify-center border border-gray-200 dark:border-[#2A2E3B] hover:-translate-y-0.5 hover:bg-blue-50 dark:hover:bg-[#2A2E3B] transition-all duration-300"
                 >
                   <Icon className="w-5 h-5 text-gray-900 dark:text-white" />
                 </a>
