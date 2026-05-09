@@ -496,6 +496,7 @@ export default function MeetingPage() {
   loadChatHistoryEffect(meetingId, setIsLoading, setMessages);
   subscripeToSingnalREffect(meetingId, setMessages)
 
+  
   useEffect(() => {
     if (isChatOpen) {
       scrollRef.current?.scrollIntoView({ behavior: "auto" });
