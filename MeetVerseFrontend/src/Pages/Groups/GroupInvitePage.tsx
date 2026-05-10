@@ -24,7 +24,7 @@ export default function GroupInvitePage() {
   const [isGuidelineOpen, setIsGuidelineOpen] = useState(false);
 
   // لينك تجريبي طويل للمعاينة
-  const inviteLink = `https://meetverse.app/groups/join?id=${groupId || "11111111-1111-1111-1111-111111111111"}`;
+  const inviteLink = `${window.location.origin}/groups/join?id=${groupId || "11111111-1111-1111-1111-111111111111"}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(inviteLink);

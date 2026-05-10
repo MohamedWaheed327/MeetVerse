@@ -3,10 +3,12 @@ import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
 import { Hash, Search, ArrowRight, Shield } from "lucide-react";
 import { requestJoinGroup } from "../../services/requestJoinGroup";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 
 export default function JoinGroupPage() {
-  const [groupId, setGroupId] = useState("");
+  const [searchParams] = useSearchParams();
+  const [groupId, setGroupId] = useState(searchParams.get("id") || "");
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300">
@@ -52,7 +54,15 @@ export default function JoinGroupPage() {
             </div>
 
             <button
-              onClick={() => requestJoinGroup(groupId)}
+              type="button"
+              onClick={async () => {
+                try {
+                  await requestJoinGroup(groupId);
+                  alert("Join request sent successfully!");
+                } catch (e: any) {
+                  alert(e.message || "Failed to send join request.");
+                }
+              }}
               className="w-full flex items-center justify-center gap-2 bg-blue-800 hover:bg-blue-900 cursor-pointer text-white py-5 rounded-[1.5rem] font-bold text-sm shadow-xl shadow-blue-900/20 transition-all active:scale-95"
             >
               Connect to Space <ArrowRight size={18} />

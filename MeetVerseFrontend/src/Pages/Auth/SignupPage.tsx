@@ -5,6 +5,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { UserPlus, Mail, Lock, User, ArrowRight } from "lucide-react";
 import { registerUser } from "../../services/register";
+import { getCurrentUser } from "../../services/currentUser";
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -31,7 +32,15 @@ export default function SignupPage() {
       console.log("register response", response);
       // save token and redirect
       localStorage.setItem("token", response.token);
-      localStorage.setItem("username", name);
+      
+      try {
+        const user = await getCurrentUser();
+        localStorage.setItem("userid", user.id);
+        localStorage.setItem("username", user.name);
+      } catch (err) {
+        console.error("Failed to fetch user details", err);
+        localStorage.setItem("username", name);
+      }
 
       navigate("/home");
     } catch (err: unknown) {
