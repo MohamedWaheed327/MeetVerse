@@ -18,26 +18,33 @@ public class MeetingProcessingWorker : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            using var scope = _services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<MeetVerseDbContext>();
-            var filter = scope.ServiceProvider.GetRequiredService<IAudioFilterService>();
-            var transcription = scope.ServiceProvider.GetRequiredService<IAudioTranscriptionService>();
-            var summarization = scope.ServiceProvider.GetRequiredService<IAudioSummarizationService>();
-
-            var pendingRecordings = await db.Recordings
-                .Where(r => !db.Transcripts.Any(t => t.RecordingId == r.Id))
-                .ToListAsync(stoppingToken);
-
-            foreach (var recording in pendingRecordings)
+            try
             {
-                string? filteredPath = await filter.FilterRecordingAsync(recording, stoppingToken);
-                Transcript transcript = await transcription.TranscribeRecordingAsync(recording, filteredPath, stoppingToken);
-                db.Transcripts.Add(transcript);
-                await db.SaveChangesAsync(stoppingToken);
+                using var scope = _services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<MeetVerseDbContext>();
+                var filter = scope.ServiceProvider.GetRequiredService<IAudioFilterService>();
+                var transcription = scope.ServiceProvider.GetRequiredService<IAudioTranscriptionService>();
+                var summarization = scope.ServiceProvider.GetRequiredService<IAudioSummarizationService>();
 
-                MeetingSummary summary = await summarization.GenerateSummaryAsync(transcript, stoppingToken);
-                db.MeetingSummaries.Add(summary);
-                await db.SaveChangesAsync(stoppingToken);
+                var pendingRecordings = await db.Recordings
+                    .Where(r => !db.Transcripts.Any(t => t.RecordingId == r.Id))
+                    .ToListAsync(stoppingToken);
+
+                foreach (var recording in pendingRecordings)
+                {
+                    string? filteredPath = await filter.FilterRecordingAsync(recording, stoppingToken);
+                    Transcript transcript = await transcription.TranscribeRecordingAsync(recording, filteredPath, stoppingToken);
+                    db.Transcripts.Add(transcript);
+                    await db.SaveChangesAsync(stoppingToken);
+
+                    MeetingSummary summary = await summarization.GenerateSummaryAsync(transcript, stoppingToken);
+                    db.MeetingSummaries.Add(summary);
+                    await db.SaveChangesAsync(stoppingToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MeetingProcessingWorker] Error: {ex.Message}");
             }
 
             await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);

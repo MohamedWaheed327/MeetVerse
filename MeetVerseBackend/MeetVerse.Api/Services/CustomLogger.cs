@@ -16,16 +16,7 @@ public class CustomLogger
 
     public static void Log(string message)
     {
-        using var connection = new SqlConnection(ConnectionString);
-        connection.Open();
-
-        // string sql = "INSERT INTO logs (message, sent_at) VALUES (@message, @sent_at)";
-
-        // using var command = new SqlCommand(sql, connection);
-        // command.Parameters.AddWithValue("@message", message);
-        // command.Parameters.AddWithValue("@sent_at", DateTime.UtcNow);
-
-        // command.ExecuteNonQuery();
+        Console.WriteLine($"[CustomLogger]: {message}");
     }
 }
 

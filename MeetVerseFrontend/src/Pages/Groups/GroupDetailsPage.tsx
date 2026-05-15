@@ -13,9 +13,13 @@ import {
   ArrowRight,
   Clock,
   X,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { getGroup, GroupDetails } from "../../services/getGroup";
+import { updateGroup } from "../../services/updateGroup";
+import { removeGroupMember } from "../../services/removeGroupMember";
 import { getGroupMembers } from "../../services/getGroupMembers";
 import { GetGroupChat } from "../../services/getGroupChat";
 import {
@@ -53,6 +57,10 @@ export default function GroupDetailsPage() {
   const [newMessage, setNewMessage] = useState("");
   const [joinRequestsCount, setJoinRequestsCount] = useState(0);
   const [isChatOpenMobile, setIsChatOpenMobile] = useState(false);
+  const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -99,6 +107,41 @@ export default function GroupDetailsPage() {
     };
     if (groupId) loadHistory();
   }, [groupId]);
+
+  useEffect(() => {
+    const loadGroupDetails = async () => {
+      try {
+        const details = await getGroup(groupId ?? "");
+        setGroupDetails(details);
+        setEditName(details.name);
+        setEditDescription(details.description || "");
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    if (groupId) loadGroupDetails();
+  }, [groupId]);
+
+  const handleUpdateGroup = async () => {
+    if (!editName.trim()) return;
+    try {
+      await updateGroup(groupId ?? "", { name: editName, description: editDescription });
+      setGroupDetails((prev) => prev ? { ...prev, name: editName, description: editDescription } : null);
+      setIsSettingsOpen(false);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!window.confirm("Are you sure you want to remove this member?")) return;
+    try {
+      await removeGroupMember(groupId ?? "", memberId);
+      setMembers((prev) => prev.filter((m) => m.userId !== memberId));
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   function handleSendMessage() {
     if (newMessage.trim().length === 0) return;
@@ -149,14 +192,14 @@ export default function GroupDetailsPage() {
               </span>
               <div className="flex items-center gap-2 min-w-0">
                 <h1 className="text-base sm:text-lg md:text-2xl font-black truncate max-w-[130px] xs:max-w-[180px] sm:max-w-[220px] md:max-w-full">
-                  AI Study Group
+                  {groupDetails?.name || "Loading..."}
                 </h1>
                 <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-[#0D0F16] text-[10px] font-semibold text-slate-500 dark:text-slate-300 px-2 py-0.5">
                   <Clock size={10} /> Live
                 </span>
               </div>
               <p className="hidden sm:block text-[11px] md:text-xs text-slate-500 dark:text-slate-400 truncate">
-                Collaborate, chat and learn AI together in real-time.
+                {groupDetails?.description || "Collaborate, chat and learn AI together in real-time."}
               </p>
             </div>
           </div>
@@ -182,10 +225,14 @@ export default function GroupDetailsPage() {
               <MessageSquare size={18} className="sm:size-5" />
             </button>
 
-            <button className="hidden sm:inline-flex items-center gap-1.5 md:gap-2 px-3.5 md:px-5 py-2 bg-slate-100 dark:bg-[#2A2E3B] border border-slate-200 dark:border-transparent rounded-xl text-[11px] md:text-xs font-bold hover:bg-slate-200 dark:hover:bg-[#232838] transition-all">
-              <Settings size={14} className="md:size-4" />
-              <span className="hidden md:inline">Settings</span>
-            </button>
+            {isAdminOrOwner && (
+              <button 
+                onClick={() => setIsSettingsOpen(true)}
+                className="hidden sm:inline-flex items-center gap-1.5 md:gap-2 px-3.5 md:px-5 py-2 bg-slate-100 dark:bg-[#2A2E3B] border border-slate-200 dark:border-transparent rounded-xl text-[11px] md:text-xs font-bold hover:bg-slate-200 dark:hover:bg-[#232838] transition-all">
+                <Settings size={14} className="md:size-4" />
+                <span className="hidden md:inline">Settings</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -238,17 +285,28 @@ export default function GroupDetailsPage() {
                       </span>
                     </div>
                   </div>
-                  <span
-                    className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide border ${
-                      m.role === "Owner"
-                        ? "bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-300"
-                        : m.role === "Admin"
-                          ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-300"
-                          : "bg-white dark:bg-[#2A2E3B] border-slate-200 dark:border-slate-700 text-slate-400"
-                    }`}
-                  >
-                    {m.role}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {isAdminOrOwner && m.userId !== currentUserId && m.role !== "Owner" && (
+                      <button 
+                        onClick={() => handleRemoveMember(m.userId)}
+                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                        title="Remove Member"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                    <span
+                      className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide border ${
+                        m.role === "Owner"
+                          ? "bg-amber-500/10 border-amber-500/40 text-amber-600 dark:text-amber-300"
+                          : m.role === "Admin"
+                            ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-300"
+                            : "bg-white dark:bg-[#2A2E3B] border-slate-200 dark:border-slate-700 text-slate-400"
+                      }`}
+                    >
+                      {m.role}
+                    </span>
+                  </div>
                 </div>
               ))}
               {members.length === 0 && (
@@ -463,6 +521,76 @@ export default function GroupDetailsPage() {
           </AnimatePresence>
         </div>
       </main>
+
+      <AnimatePresence>
+        {isSettingsOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-md bg-white dark:bg-[#181B26] rounded-[2rem] p-6 shadow-2xl border border-slate-200 dark:border-[#2A2E3B]"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Settings size={20} className="text-blue-600" /> Group Settings
+                </h2>
+                <button
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-full transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+                    Group Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+                    Description
+                  </label>
+                  <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={3}
+                    className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 transition-all resize-none"
+                  />
+                </div>
+                <div className="pt-4 flex justify-end gap-3">
+                  <button
+                    onClick={() => setIsSettingsOpen(false)}
+                    className="px-5 py-2.5 rounded-xl font-bold text-sm bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#34394A] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateGroup}
+                    disabled={!editName.trim()}
+                    className="px-5 py-2.5 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
