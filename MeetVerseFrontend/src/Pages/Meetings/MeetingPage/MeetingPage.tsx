@@ -28,6 +28,10 @@ import { toggleCamera } from "./MeetingControls/toggleCamera";
 import { handleLeaveMeeting } from "./MeetingControls/leaveMeeting";
 import { toggleMic } from "./MeetingControls/toggleMic";
 import WhiteboardPanel from "./Whiteboard/WhiteboardPanel";
+import { useToast } from "../../../Context/ToastContext";
+import { getMeeting } from "../../../services/getMeeting";
+import { getMeetingParticipants } from "../../../services/getMeetingParticipants";
+import { leaveMeetingAPI } from "../../../services/leaveMeetingAPI";
 
 type Message = {
   id: string;
@@ -62,6 +66,10 @@ export default function MeetingPage() {
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const [meetingInfo, setMeetingInfo] = useState<any>(null);
+  const [isHost, setIsHost] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const { showToast } = useToast();
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const roomRef = useRef<Room | null>(null);
@@ -296,6 +304,9 @@ export default function MeetingPage() {
       return;
     }
 
+    // Ensure chat is visible so transcript appears inside the chat window
+    setIsChatOpen(true);
+
     roomRef.current.remoteParticipants.forEach((participant) => {
       const micPub = participant.getTrackPublication(Track.Source.Microphone);
       if (micPub?.track && !micPub.track.isMuted) {
@@ -359,6 +370,45 @@ export default function MeetingPage() {
   };
 
   useEffect(() => {
+    if (meetingId) {
+      getMeeting(meetingId).then((info) => {
+        if (info) setMeetingInfo(info);
+      });
+    }
+  }, [meetingId, meetingInfo?.hostId]);
+
+  useEffect(() => {
+    if (meetingId) {
+      const currentUserId = localStorage.getItem("userid");
+      getMeetingParticipants(meetingId).then((participants) => {
+        // Backend uses MeetingParticipantRole.Host = 1, Participant = 0
+        console.log("getMeetingParticipants response:", participants, "currentUserId:", currentUserId);
+        try { showToast(`Participants: ${participants.length} roles: ${participants.map(p => p.role).join(",")}`, "info"); } catch(e) {}
+        const hostParticipant = participants.find((p) => p.role === 1 || p.role === "Host" || p.role === "host");
+        if (hostParticipant && hostParticipant.userId === currentUserId) {
+          setIsHost(true);
+        }
+        // Fallback: compare against meetingInfo.hostId if participants didn't indicate host
+        try {
+          if (!isHost && meetingInfo && meetingInfo.hostId && meetingInfo.hostId === currentUserId) {
+            setIsHost(true);
+          }
+        } catch (e) {}
+      });
+    }
+  }, [meetingId]);
+
+  // Debug: show toast/console when host status is detected
+  useEffect(() => {
+    if (isHost) {
+      console.log("MeetingPage: current user is host");
+      try { showToast("You are the host of this meeting", "info"); } catch (e) { /* ignore */ }
+    } else {
+      console.log("MeetingPage: current user is not host");
+    }
+  }, [isHost]);
+
+  useEffect(() => {
     let cancelled = false;
 
     const joinRoom = async () => {
@@ -403,6 +453,10 @@ export default function MeetingPage() {
 
         const handleParticipantDisconnected = (participant: Participant) => {
           console.log("participantDisconnected:", participant.identity);
+          const currentUserId = localStorage.getItem("userid");
+          if (meetingInfo && meetingInfo.hostId === currentUserId) {
+            showToast(`${getParticipantDisplayName(participant, false)} left the meeting`, 'info');
+          }
           syncParticipants(newRoom);
         };
 
@@ -514,7 +568,7 @@ export default function MeetingPage() {
           <div className="flex items-center justify-between px-2">
             <div className="min-w-0">
               <h1 className="text-sm md:text-lg font-black flex items-center gap-2 truncate uppercase tracking-tight">
-                Project DevHub Sync
+                {meetingInfo?.title || "Meeting Session"}
                 <span className="px-2 py-0.5 bg-red-600 text-[9px] text-white rounded font-bold animate-pulse">
                   LIVE
                 </span>
@@ -783,8 +837,12 @@ export default function MeetingPage() {
 
               <button
                 onClick={() => {
-                  handleLeaveMeeting(roomRef, clearScheduledRenderSync, audioRefs, videoRefs, screenShareContainerRef);
-                  navigate("/meetings");
+                  if (isHost) {
+                    setShowLeaveModal(true);
+                  } else {
+                    handleLeaveMeeting(roomRef, clearScheduledRenderSync, audioRefs, videoRefs, screenShareContainerRef);
+                    navigate("/meetings");
+                  }
                 }}
                 className="bg-red-600 hover:bg-red-700 px-6 md:px-8 py-4 rounded-2xl text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-red-900/30 flex items-center gap-3 active:scale-95 transition-all"
               >
@@ -870,6 +928,48 @@ export default function MeetingPage() {
                 <div ref={scrollRef} />
               </div>
 
+              {isCaptionsOn && (
+                <div className="p-4 border-t border-slate-100 dark:border-white/5 bg-white/80 dark:bg-[#0F1115] transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                      Live Transcript
+                    </h3>
+                    <button
+                      onClick={() => setIsCaptionsOn(false)}
+                      className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <div className="text-sm text-slate-700 dark:text-slate-200 leading-6 max-h-40 overflow-y-auto space-y-3">
+                    {Object.entries(captions).length === 0 && (
+                      <span className="text-slate-400 dark:text-slate-500">
+                        No transcript yet...
+                      </span>
+                    )}
+
+                    {Object.entries(captions).map(([trackKey, caption]) => (
+                      <div key={trackKey} className="border-b border-slate-200 dark:border-slate-700 pb-2">
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-blue-600 mb-1">
+                          {caption.participantName}
+                        </div>
+
+                        {caption.finals.length > 0 && (
+                          <div>{caption.finals[caption.finals.length - 1]}</div>
+                        )}
+
+                        {caption.interim && (
+                          <div className="italic text-slate-400 dark:text-slate-500">
+                            {caption.interim}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="p-6 bg-slate-50 dark:bg-black/10 border-t border-slate-100 dark:border-white/5">
                 <div className="relative group">
                   <input
@@ -896,42 +996,68 @@ export default function MeetingPage() {
         </AnimatePresence>
       </main>
 
-      <div className="px-4 md:px-6 pb-3">
-        <div className="max-w-4xl mx-auto bg-white/80 dark:bg-[#181B26]/80 backdrop-blur-md border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-4 py-3 shadow-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-            <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-              Live Transcript
-            </h3>
-          </div>
+      {/* Host Leave Modal */}
+      <AnimatePresence>
+        {showLeaveModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowLeaveModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 20, stiffness: 200 }}
+              className="bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] rounded-[2.5rem] p-8 md:p-10 shadow-2xl max-w-md w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-black mb-2 tracking-tight">Leave Meeting?</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">
+                You are the host. Choose how you'd like to leave.
+              </p>
 
-          <div className="text-sm text-slate-700 dark:text-slate-200 leading-6 max-h-40 overflow-y-auto space-y-3">
-            {Object.entries(captions).length === 0 && (
-              <span className="text-slate-400 dark:text-slate-500">
-                No transcript yet...
-              </span>
-            )}
+              <div className="space-y-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      await leaveMeetingAPI(meetingId ?? "", true);
+                    } catch (e) { console.error(e); }
+                    handleLeaveMeeting(roomRef, clearScheduledRenderSync, audioRefs, videoRefs, screenShareContainerRef);
+                    navigate("/meetings");
+                  }}
+                  className="w-full flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-red-900/20 transition-all active:scale-95"
+                >
+                  <PhoneOff size={18} />
+                  End Meeting for All
+                </button>
 
-            {Object.entries(captions).map(([trackKey, caption]) => (
-              <div key={trackKey} className="border-b border-slate-200 dark:border-slate-700 pb-2">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-blue-600 mb-1">
-                  {caption.participantName}
-                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      await leaveMeetingAPI(meetingId ?? "", false);
+                    } catch (e) { console.error(e); }
+                    handleLeaveMeeting(roomRef, clearScheduledRenderSync, audioRefs, videoRefs, screenShareContainerRef);
+                    navigate("/meetings");
+                  }}
+                  className="w-full flex items-center justify-center gap-3 bg-slate-100 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#232734] py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
+                >
+                  Leave & Transfer Host
+                </button>
 
-                {caption.finals.length > 0 && (
-                  <div>{caption.finals[caption.finals.length - 1]}</div>
-                )}
-
-                {caption.interim && (
-                  <div className="italic text-slate-400 dark:text-slate-500">
-                    {caption.interim}
-                  </div>
-                )}
+                <button
+                  onClick={() => setShowLeaveModal(false)}
+                  className="w-full py-3 text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

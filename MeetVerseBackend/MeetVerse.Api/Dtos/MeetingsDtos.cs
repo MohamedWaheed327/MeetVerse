@@ -19,6 +19,7 @@ public class JoinMeetingRequest
 public class LeaveMeetingRequest
 {
     public Guid MeetingId { get; set; }
+    public bool EndMeetingForAll { get; set; } = false;
 }
 
 public class ChatMessageResponse
