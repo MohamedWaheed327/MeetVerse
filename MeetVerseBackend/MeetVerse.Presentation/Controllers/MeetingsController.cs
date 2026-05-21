@@ -223,4 +223,21 @@ public class MeetingsController : ControllerBase
         }).ToListAsync();
         return Ok(participants);
     }
+    [HttpPatch("{id}/title")]
+    public async Task<ActionResult> UpdateMeetingTitle(Guid id, [FromBody] UpdateMeetingTitleRequest request)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+        
+        var meeting = await _db.Meetings.FirstOrDefaultAsync(m => m.Id == id);
+        if (meeting == null) return NotFound();
+        
+        // Optional: Ensure only host can update
+        if (meeting.HostId != userId) return Forbid();
+        
+        meeting.Title = request.Title;
+        await _db.SaveChangesAsync();
+        
+        return Ok();
+    }
 }

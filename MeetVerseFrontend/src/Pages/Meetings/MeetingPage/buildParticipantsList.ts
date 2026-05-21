@@ -22,6 +22,7 @@ export const buildParticipantsList = (liveRoom: Room) => {
         isSpeaking: localParticipant.isSpeaking || false,
         isLocal: true,
         hasVideo: localParticipant.isCameraEnabled,
+        hasMic: localParticipant.isMicrophoneEnabled,
     };
 
     const remoteUsers = Array.from(liveRoom.remoteParticipants.values()).map(
@@ -33,6 +34,7 @@ export const buildParticipantsList = (liveRoom: Room) => {
             isSpeaking: participant.isSpeaking || false,
             isLocal: false,
             hasVideo: participant.isCameraEnabled,
+            hasMic: participant.isMicrophoneEnabled,
         })
     );
 

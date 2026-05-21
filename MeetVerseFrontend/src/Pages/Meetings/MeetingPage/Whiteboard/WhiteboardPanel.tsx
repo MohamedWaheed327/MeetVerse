@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useImperativeHandle } from "react";
 import {
   Loader2,
   AlertCircle,
@@ -36,6 +36,10 @@ import {
 } from "../../../../services/whiteboardService";
 
 /* ───────────────────────── Types ──────────────────────── */
+export interface WhiteboardPanelHandle {
+  exportPDF: () => void;
+}
+
 interface WhiteboardPanelProps {
   meetingId: string;
 }
@@ -70,7 +74,8 @@ function MiniToast({ message, type, onClose }: { message: string; type: "success
 }
 
 /* ────────────────── Main Component ────────────────── */
-export default function WhiteboardPanel({ meetingId }: WhiteboardPanelProps) {
+const WhiteboardPanel = React.forwardRef<WhiteboardPanelHandle, WhiteboardPanelProps>(
+  function WhiteboardPanel({ meetingId }, ref) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +94,10 @@ export default function WhiteboardPanel({ meetingId }: WhiteboardPanelProps) {
 
   // Export dropdown
   const [showExportMenu, setShowExportMenu] = useState(false);
+
+  // Retry-on-failure tracking
+  const [lastFailedExport, setLastFailedExport] = useState<string | null>(null);
+  const retryExportRef = useRef(0);
   const [isExporting, setIsExporting] = useState(false);
 
   // Toast notifications
@@ -350,18 +359,52 @@ export default function WhiteboardPanel({ meetingId }: WhiteboardPanelProps) {
   const handleExportPDF = async () => {
     const data = getSceneData();
     if (!data || data.elements.length === 0) {
-      showToast("Nothing to export — draw something first!", "error");
+      showToast("⚠️ The whiteboard is empty. Add some content before exporting.", "error");
       return;
     }
+
+    // Prompt user for a filename before proceeding
+    const defaultName = `MeetVerse-Whiteboard-${new Date().toLocaleDateString().replace(/\//g, '-')}`;
+    const userFilename = window.prompt("Enter a filename for the PDF:", defaultName);
+    if (userFilename === null) {
+      // User clicked Cancel — abort export
+      return;
+    }
+    const safeName = userFilename.trim() || defaultName;
+
     setIsExporting(true);
     setShowExportMenu(false);
     try {
-      // Generate a high-res PNG blob from Excalidraw
+      // Calculate bounding box of all non-deleted elements
+      const elements = data.elements;
+      const bounds = elements.reduce(
+        (acc: { minX: number; minY: number; maxX: number; maxY: number }, el: any) => {
+          const right = el.x + el.width;
+          const bottom = el.y + el.height;
+          return {
+            minX: Math.min(acc.minX, el.x),
+            minY: Math.min(acc.minY, el.y),
+            maxX: Math.max(acc.maxX, right),
+            maxY: Math.max(acc.maxY, bottom),
+          };
+        },
+        { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
+      );
+
+      const padding = 100;
+      const rawWidth = bounds.maxX - bounds.minX + padding * 2;
+      const rawHeight = bounds.maxY - bounds.minY + padding * 2;
+
+      // Clamp dimensions: minimum 1200x800, maximum 8000x8000
+      const exportWidth = Math.min(Math.max(rawWidth, 1200), 8000);
+      const exportHeight = Math.min(Math.max(rawHeight, 800), 8000);
+
+      // Generate a high-res PNG blob from Excalidraw using calculated dimensions
       const blob = await exportToBlob({
         elements: data.elements,
         appState: { ...data.appState, exportWithDarkMode: false, exportBackground: true },
         files: data.files,
-        getDimensions: () => ({ width: 2480, height: 1754, scale: 2 }), // A4-ish aspect ratio
+        getDimensions: () => ({ width: exportWidth, height: exportHeight, scale: 2 }),
       });
 
       // Convert blob to data URL
@@ -372,53 +415,102 @@ export default function WhiteboardPanel({ meetingId }: WhiteboardPanelProps) {
         reader.readAsDataURL(blob);
       });
 
+      // Load the image to get actual rendered dimensions
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise((resolve) => { img.onload = resolve; });
+
       // Create PDF (A4 landscape)
       const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
+      const pageWidth = pdf.internal.pageSize.getWidth(); // 297mm
+      const pageHeight = pdf.internal.pageSize.getHeight(); // 210mm
 
-      // Header
-      pdf.setFontSize(10);
-      pdf.setTextColor(100, 100, 100);
-      pdf.text("MeetVerse — Whiteboard Export", 14, 10);
-      pdf.text(new Date().toLocaleString(), pageWidth - 14, 10, { align: "right" });
-
-      // Draw a subtle line under header
-      pdf.setDrawColor(200, 200, 200);
-      pdf.line(14, 13, pageWidth - 14, 13);
-
-      // Add the whiteboard image with proper aspect ratio
       const imgMargin = 14;
-      const imgY = 16;
+      const headerHeight = 16; // space for header (0–16mm)
+      const footerHeight = 12; // space for footer
+      const contentAreaHeight = pageHeight - headerHeight - footerHeight;
       const maxImgWidth = pageWidth - imgMargin * 2;
-      const maxImgHeight = pageHeight - imgY - 10;
 
-      // Calculate dimensions preserving aspect ratio (2480:1754 ≈ 1.414:1)
-      const imgAspect = 2480 / 1754;
-      let imgWidth = maxImgWidth;
-      let imgHeight = imgWidth / imgAspect;
-      if (imgHeight > maxImgHeight) {
-        imgHeight = maxImgHeight;
-        imgWidth = imgHeight * imgAspect;
+      // Scale image to fit page width, then check if multi-page is needed
+      const scaledImgWidth = maxImgWidth;
+      const scaledImgHeight = (img.height / img.width) * scaledImgWidth;
+      const totalPages = Math.ceil(scaledImgHeight / contentAreaHeight);
+
+      // Create an offscreen canvas to slice the full image for multi-page support
+      const offCanvas = document.createElement("canvas");
+      const offCtx = offCanvas.getContext("2d")!;
+
+      for (let page = 0; page < totalPages; page++) {
+        if (page > 0) pdf.addPage();
+
+        // Header
+        pdf.setFontSize(10);
+        pdf.setTextColor(100, 100, 100);
+        pdf.text("MeetVerse — Whiteboard Export", 14, 10);
+        pdf.text(new Date().toLocaleString(), pageWidth - 14, 10, { align: "right" });
+
+        // Draw a subtle line under header
+        pdf.setDrawColor(200, 200, 200);
+        pdf.line(14, 13, pageWidth - 14, 13);
+
+        // Calculate the slice of the source image for this page
+        const srcYStart = (page * contentAreaHeight / scaledImgHeight) * img.height;
+        const srcSliceHeight = (contentAreaHeight / scaledImgHeight) * img.height;
+        const actualSrcHeight = Math.min(srcSliceHeight, img.height - srcYStart);
+
+        // Determine the rendered height for this page slice
+        const sliceRatio = actualSrcHeight / img.height;
+        const renderedSliceHeight = sliceRatio * scaledImgHeight;
+
+        // Draw the slice onto the offscreen canvas
+        offCanvas.width = img.width;
+        offCanvas.height = Math.round(actualSrcHeight);
+        offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
+        offCtx.drawImage(
+          img,
+          0, Math.round(srcYStart), img.width, Math.round(actualSrcHeight),
+          0, 0, img.width, Math.round(actualSrcHeight)
+        );
+
+        const sliceDataUrl = offCanvas.toDataURL("image/png");
+        const imgX = (pageWidth - scaledImgWidth) / 2;
+        pdf.addImage(sliceDataUrl, "PNG", imgX, headerHeight, scaledImgWidth, renderedSliceHeight);
+
+        // Footer with page number
+        pdf.setFontSize(8);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text(
+          `Generated by MeetVerse Whiteboard  •  Page ${page + 1} of ${totalPages}`,
+          pageWidth / 2,
+          pageHeight - 5,
+          { align: "center" }
+        );
       }
 
-      const imgX = (pageWidth - imgWidth) / 2;
-      pdf.addImage(dataUrl, "PNG", imgX, imgY, imgWidth, imgHeight);
-
-      // Footer
-      pdf.setFontSize(8);
-      pdf.setTextColor(150, 150, 150);
-      pdf.text("Generated by MeetVerse Whiteboard", pageWidth / 2, pageHeight - 5, { align: "center" });
-
-      pdf.save(`MeetVerse-Whiteboard-${Date.now()}.pdf`);
+      pdf.save(`${safeName}.pdf`);
       showToast("PDF exported successfully!", "success");
+      // Reset retry tracking on success
+      retryExportRef.current = 0;
+      setLastFailedExport(null);
     } catch (e) {
       console.error("PDF export failed:", e);
-      showToast("Failed to export PDF.", "error");
+      retryExportRef.current += 1;
+      setLastFailedExport("pdf");
+      if (retryExportRef.current >= 3) {
+        showToast("PDF export failed after multiple attempts. Please try again later.", "error");
+        retryExportRef.current = 0;
+      } else {
+        showToast("PDF export failed. Click Export again to retry.", "error");
+      }
     } finally {
       setIsExporting(false);
     }
   };
+
+  // Expose exportPDF to parent via ref
+  useImperativeHandle(ref, () => ({
+    exportPDF: handleExportPDF,
+  }));
 
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
@@ -652,4 +744,7 @@ export default function WhiteboardPanel({ meetingId }: WhiteboardPanelProps) {
       `}</style>
     </div>
   );
-}
+  }
+);
+
+export default WhiteboardPanel;
