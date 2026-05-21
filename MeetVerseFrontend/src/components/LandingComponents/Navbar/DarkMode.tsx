@@ -3,13 +3,13 @@ import { useContext } from "react";
 import { ThemeContext } from "../../../Context/ThemeContext";
 import { motion, AnimatePresence } from "framer-motion";
 
-const DarkMode = () => {
+const DarkMode = ({ className }: { className?: string }) => {
   const { theme, toggleTheme } = useContext(ThemeContext);
 
   return (
     <button
       onClick={toggleTheme}
-      className="relative flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-100 dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] transition-all duration-500 hover:scale-110 active:scale-95 shadow-sm overflow-hidden group"
+      className={`relative flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-100 dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] transition-all duration-500 hover:scale-110 active:scale-95 shadow-sm overflow-hidden group ${className || ""}`}
       aria-label="Toggle theme"
     >
       {/* Background Glow */}
