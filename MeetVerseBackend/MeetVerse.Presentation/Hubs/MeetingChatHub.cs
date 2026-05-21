@@ -36,4 +36,21 @@ public class MeetingChatHub : Hub
         _db.ChatMessages.Add(msg);
         await _db.SaveChangesAsync();
     }
+
+    public async Task SendMeetingEvent(Guid meetingId, string eventType, object payload)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return;
+        var sender = await _db.Users.FindAsync(userId.Value);
+        
+        await Clients.Group(MeetingChatPrefix + meetingId).SendAsync("MeetingEventReceived", new 
+        { 
+            MeetingId = meetingId,
+            SenderId = userId.Value.ToString(), 
+            SenderName = sender?.Name,
+            EventType = eventType, 
+            Payload = payload,
+            SentAt = DateTime.UtcNow
+        });
+    }
 }

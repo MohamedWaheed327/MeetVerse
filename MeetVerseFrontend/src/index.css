@@ -1,5 +1,5 @@
 @import "tailwindcss";
-
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @custom-variant dark (&:where(.dark, .dark *));
 
 * {
@@ -47,4 +47,73 @@
   .dark .scrollbar-custom::-webkit-scrollbar-thumb:hover {
     background-color: #9ca3af;        /* slate-400 أفتح شوية */
   }
+}
+
+/* ── Control Bar Design Tokens ── */
+:root {
+  --control-bar-bg: rgba(255, 255, 255, 0.82);
+  --control-bar-border: rgba(0, 0, 0, 0.08);
+  --control-bar-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --control-btn-text: #475569;
+  --control-btn-hover: rgba(0, 0, 0, 0.06);
+  --control-btn-active: rgba(0, 0, 0, 0.1);
+  --control-divider: rgba(0, 0, 0, 0.08);
+}
+
+.dark {
+  --control-bar-bg: rgba(26, 29, 46, 0.85);
+  --control-bar-border: rgba(255, 255, 255, 0.08);
+  --control-bar-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --control-btn-text: rgba(255, 255, 255, 0.8);
+  --control-btn-hover: rgba(255, 255, 255, 0.1);
+  --control-btn-active: rgba(255, 255, 255, 0.15);
+  --control-divider: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Control Bar Animations ── */
+@keyframes controlBarSlideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.control-bar-enter {
+  animation: controlBarSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Control Button Tooltip ── */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 100;
+  background: rgba(15, 17, 26, 0.92);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
