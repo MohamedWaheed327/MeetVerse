@@ -6,9 +6,10 @@ interface ParticipantsPanelProps {
     isOpen: boolean;
     onClose: () => void;
     participants: ExtendedParticipant[];
+    hostId: string | null;
 }
 
-export default function ParticipantsPanel({ isOpen, onClose, participants }: ParticipantsPanelProps) {
+export default function ParticipantsPanel({ isOpen, onClose, participants, hostId }: ParticipantsPanelProps) {
     return (
         <AnimatePresence>
             {isOpen && (
@@ -48,10 +49,17 @@ export default function ParticipantsPanel({ isOpen, onClose, participants }: Par
                                         )}
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-sm font-medium leading-none mb-1 max-w-[120px] truncate">
-                                            {user.name}
-                                        </span>
-                                        <span className="text-[10px] text-slate-500">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-medium leading-none max-w-[120px] truncate">
+                                                {user.name}
+                                            </span>
+                                            {hostId === user.id && (
+                                                <span className="bg-amber-500/15 text-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center">
+                                                    HOST
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="text-[10px] text-slate-500 mt-1">
                                             {user.isLocal ? "You" : user.isSpeaking ? "Speaking..." : ""}
                                         </span>
                                     </div>
@@ -69,10 +77,14 @@ export default function ParticipantsPanel({ isOpen, onClose, participants }: Par
                                         </motion.div>
                                     )}
                                     {!user.hasMic && (
-                                        <MicOff size={14} className="text-red-400" title="Microphone Off" />
+                                        <span title="Microphone Off">
+                                            <MicOff size={14} className="text-red-400" />
+                                        </span>
                                     )}
                                     {!user.hasVideo && (
-                                        <VideoOff size={14} className="text-slate-400" title="Camera Off" />
+                                        <span title="Camera Off">
+                                            <VideoOff size={14} className="text-slate-400" />
+                                        </span>
                                     )}
                                 </div>
                             </div>

@@ -10,4 +10,6 @@ public class GroupResponse
     public DateTime CreatedAt { get; set; }
     public int MemberCount { get; set; }
     public string? CurrentUserRole { get; set; }
+    public string? CoverGradient { get; set; }
+    public bool IsPublic { get; set; }
 }

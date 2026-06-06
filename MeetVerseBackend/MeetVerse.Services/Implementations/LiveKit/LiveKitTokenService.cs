@@ -1,12 +1,18 @@
 using Livekit.Server.Sdk.Dotnet;
 using MeetVerse.Abstraction.IServices;
+using MeetVerse.Shared.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace MeetVerse.Services.Implementations.LiveKit;
 
 public class LiveKitTokenService : ILiveKitTokenService
 {
-    private const string ApiKey = "APIVDmR6TG3FFHy";
-    private const string ApiSecret = "ZSqPDDGXAVhsuqNuKfpsL8Og9TiahJt2A9rpJw67JJD";
+    private readonly LiveKitSettings _settings;
+
+    public LiveKitTokenService(IOptions<LiveKitSettings> settings)
+    {
+        _settings = settings.Value;
+    }
 
     public string CreateToken(string username, string roomName, string displayName, string? avatarUrl)
     {
@@ -15,7 +21,7 @@ public class LiveKitTokenService : ILiveKitTokenService
             avatarUrl = avatarUrl ?? "",
         });
 
-        var token = new AccessToken(ApiKey, ApiSecret)
+        var token = new AccessToken(_settings.ApiKey, _settings.ApiSecret)
             .WithIdentity(username)
             .WithGrants(new VideoGrants
             {

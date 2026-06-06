@@ -1,6 +1,26 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
+
+@layer utilities {
+  @keyframes wave {
+    0%, 100% {
+      transform: scaleY(0.15);
+    }
+    50% {
+      transform: scaleY(1.0);
+    }
+  }
+
+  .animate-wave {
+    animation: wave var(--speed, 1s) ease-in-out infinite alternate;
+    transform-origin: bottom;
+  }
+
+  .group:hover .group-hover-speed-up {
+    --speed: calc(var(--base-speed) * 0.7);
+  }
+}
 
 * {
   font-family: "Roboto", sans-serif;
@@ -71,6 +91,8 @@
 }
 
 /* ── Control Bar Animations ── */
+
+
 @keyframes controlBarSlideUp {
   from {
     opacity: 0;

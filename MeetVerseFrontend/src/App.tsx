@@ -1,24 +1,35 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import LandingPage from "./Pages/LandingPage/LandingPage";
 import LoginPage from "./Pages/Auth/LoginPage";
 import SignupPage from "./Pages/Auth/SignupPage";
 import ForgotPasswordPage from "./Pages/Auth/ForgotPasswordPage";
 import HomePage from "./Pages/Main/HomePage";
+import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 import MeetingsListPage from "./Pages/Meetings/MeetingsListPage";
 import CreateMeetingPage from "./Pages/Meetings/CreateMeetingPage";
 import JoinMeetingPage from "./Pages/Meetings/JoinMeetingPage";
-import MeetingPage from "./Pages/Meetings/MeetingPage/MeetingPage";
 import GroupsListPage from "./Pages/Groups/GroupsListPage";
 import CreateGroupPage from "./Pages/Groups/CreateGroupPage";
 import JoinGroupPage from "./Pages/Groups/JoinGroupPage";
-import GroupDetailsPage from "./Pages/Groups/GroupDetailsPage";
-import GroupRequestsPage from "./Pages/Groups/GroupRequestsPage"; // الصفحة الجديدة
 import ProfilePage from "./Pages/Profile/ProfilePage";
 import ResetPassword from "./Pages/Auth/ResetPassword";
 import OTPVerification from "./Pages/Auth/OTPVerification";
 import NotFound from "./Pages/NotFoundPage.tsx/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute";
-import GroupInvitePage from "./Pages/Groups/GroupInvitePage";
+
+const MeetingPage = lazy(() => import("./Pages/Meetings/MeetingPage/MeetingPage"));
+const GroupDetailsPage = lazy(() => import("./Pages/Groups/GroupDetailsPage"));
+const GroupRequestsPage = lazy(() => import("./Pages/Groups/GroupRequestsPage"));
+const GroupInvitePage = lazy(() => import("./Pages/Groups/GroupInvitePage"));
+
+function RouteLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0D0F16]">
+      <div className="h-10 w-10 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+    </div>
+  );
+}
 
 export default function App() {
   return (
@@ -70,7 +81,11 @@ export default function App() {
         path="/meetings/:meetingId"
         element={
           <ProtectedRoute>
-            <MeetingPage />
+            <ErrorBoundary>
+              <Suspense fallback={<RouteLoader />}>
+                <MeetingPage />
+              </Suspense>
+            </ErrorBoundary>
           </ProtectedRoute>
         }
       />
@@ -104,7 +119,9 @@ export default function App() {
         path="/groups/:groupId"
         element={
           <ProtectedRoute>
-            <GroupDetailsPage />
+            <Suspense fallback={<RouteLoader />}>
+              <GroupDetailsPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -112,7 +129,9 @@ export default function App() {
         path="/groups/:groupId/requests"
         element={
           <ProtectedRoute>
-            <GroupRequestsPage />
+            <Suspense fallback={<RouteLoader />}>
+              <GroupRequestsPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -121,7 +140,9 @@ export default function App() {
         path="/groups/:groupId/invite"
         element={
           <ProtectedRoute>
-            <GroupInvitePage />
+            <Suspense fallback={<RouteLoader />}>
+              <GroupInvitePage />
+            </Suspense>
           </ProtectedRoute>
         }
       />

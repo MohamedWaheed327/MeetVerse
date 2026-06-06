@@ -1,11 +1,14 @@
 import { useNavigate } from "react-router-dom";
+import { setPageTitle } from "../../utils/setPageTitle";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Mail, Lock, User, ArrowRight, Eye, EyeOff, Waves, FileText, Zap } from "lucide-react";
 import { registerUser } from "../../services/register";
 import { getCurrentUser } from "../../services/currentUser";
 import { loginWithGoogle } from "../../services/googleLogin";
-import LogoIcon from "../../assets/Logo/icon2.png";
+import Logo from "../../components/Shared/Logo";
 import DarkMode from "../../components/LandingComponents/Navbar/DarkMode";
+import { useGoogleAuth } from "../../utils/googleAuth";
+import { useAuth } from "../../Context/AuthContext";
 
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 48 48">
@@ -19,6 +22,7 @@ const GoogleIcon = () => (
 
 export default function SignupPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -28,24 +32,28 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-  const isGoogleInitialized = useRef(false);
   const googleButtonContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    document.title = "Create account — MeetVerse";
+    setPageTitle("Create Account");
   }, []);
 
   const finishLogin = async (token: string, name?: string) => {
     localStorage.setItem("token", token);
     try {
       const user = await getCurrentUser();
-      localStorage.setItem("userid", user.id);
-      localStorage.setItem("username", user.name);
+      login(token, user.name, user.id, false);
     } catch {
-      if (name) localStorage.setItem("username", name);
+      login(token, name || "", "", false);
     }
-    navigate("/home");
+    
+    const redirectUrl = sessionStorage.getItem('redirectAfterLogin');
+    if (redirectUrl) {
+      sessionStorage.removeItem('redirectAfterLogin');
+      navigate(redirectUrl);
+    } else {
+      navigate("/home");
+    }
   };
 
   const validateEmail = (value: string) => {
@@ -99,71 +107,12 @@ export default function SignupPage() {
     }
   };
 
-  const initializeGoogle = () => {
-    if (isGoogleInitialized.current || !googleClientId || !window.google?.accounts?.id) {
-      return false;
-    }
-
-    window.google.accounts.id.initialize({
-      client_id: googleClientId,
-      callback: async (response: GoogleCredentialResponse) => {
-        if (!response.credential) {
-          setError("Google login failed");
-          return;
-        }
-
-        setError(null);
-        setLoading(true);
-        try {
-          const authResponse = await loginWithGoogle(response.credential);
-          await finishLogin(authResponse.token);
-        } catch {
-          setError("Google login failed");
-          setLoading(false);
-        }
-      },
-    });
-
-    if (googleButtonContainerRef.current) {
-      googleButtonContainerRef.current.innerHTML = "";
-      window.google.accounts.id.renderButton(googleButtonContainerRef.current, {
-        theme: "outline",
-        size: "large",
-        shape: "rectangular",
-        type: "standard",
-        text: "continue_with",
-        logo_alignment: "left",
-      });
-    }
-
-    isGoogleInitialized.current = true;
-    return true;
-  };
-
-  useEffect(() => {
-    if (!googleClientId) return;
-    if (initializeGoogle()) return;
-
-    const pollGoogleScript = window.setInterval(() => {
-      if (initializeGoogle()) window.clearInterval(pollGoogleScript);
-    }, 300);
-
-    return () => window.clearInterval(pollGoogleScript);
-  }, [googleClientId, navigate]);
-
-  const handleGoogleLoginClick = () => {
-    setError(null);
-    const googleButton = document
-      .getElementById("google-button-container")
-      ?.querySelector("div[role='button']") as HTMLElement | null;
-
-    if (!googleButton) {
-      setError("Google signup is still loading. Please try again.");
-      return;
-    }
-
-    googleButton.click();
-  };
+  const { handleGoogleLoginClick } = useGoogleAuth(
+    googleButtonContainerRef,
+    (token) => finishLogin(token),
+    (msg: string) => setError(msg || null),
+    setLoading
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent, isPasswordField: boolean) => {
     if (e.key === "Enter" && isPasswordField) {
@@ -209,10 +158,7 @@ export default function SignupPage() {
           <div className="gradient-orb absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-tr from-indigo-500/40 to-blue-500/30 blur-3xl rounded-full pointer-events-none" />
           
           <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-16">
-              <img src={LogoIcon} className="w-12 h-12" alt="MeetVerse Logo" />
-              <span className="font-bold text-2xl tracking-tight text-slate-900 dark:text-white">MeetVerse</span>
-            </div>
+            <Logo className="mb-16" imageClassName="h-14" textClassName="text-4xl" />
             
             <h2 className="text-4xl font-extrabold tracking-tight leading-[1.1] mb-12 text-slate-900 dark:text-white" dir="auto">
               Where great meetings begin.
@@ -254,15 +200,12 @@ export default function SignupPage() {
         </div>
 
         {/* Right Panel (Form) */}
-        <div className="w-full lg:w-[60%] flex flex-col justify-center px-6 py-10 lg:px-24 h-screen overflow-y-auto scrollbar-custom">
-          <div className="w-full max-w-[420px] mx-auto form-card bg-white dark:bg-[#0d1117] lg:bg-transparent lg:dark:bg-transparent border border-slate-200 dark:border-white/10 lg:border-none rounded-3xl p-8 lg:p-0 shadow-xl lg:shadow-none my-auto">
+        <div className="w-full lg:w-[60%] flex flex-col justify-center px-6 py-10 lg:px-24 h-screen overflow-y-auto scrollbar-custom relative z-10">
+          <div className="w-full max-w-[420px] mx-auto form-card bg-white dark:bg-[#0d1117] lg:bg-transparent lg:dark:bg-transparent rounded-3xl lg:rounded-none p-8 lg:p-0 shadow-2xl lg:shadow-none border border-slate-100 dark:border-white/5 lg:border-none relative z-10">
             
             {/* Header Area */}
             <div className="flex justify-between items-start mb-12">
-              <div className="lg:hidden flex items-center gap-2 mb-8">
-                <img src={LogoIcon} className="w-8 h-8" alt="MeetVerse Logo" />
-                <span className="font-bold text-xl tracking-tight">MeetVerse</span>
-              </div>
+              <Logo className="lg:hidden mb-8" imageClassName="h-10" textClassName="text-2xl" />
               <div className="hidden lg:block" />
               <div className="flex items-center gap-4">
                 <DarkMode className="!w-8 !h-8 !rounded-lg text-slate-400 hover:text-slate-200" />
@@ -274,7 +217,7 @@ export default function SignupPage() {
             
             {/* Form Title */}
             <div className="mb-8">
-              <img src={LogoIcon} className="w-10 h-10 mb-6 hidden lg:block" alt="MeetVerse Logo" />
+              <Logo className="mb-6 hidden lg:flex" imageClassName="h-16" showText={false} />
               <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                 Create your account
               </h1>

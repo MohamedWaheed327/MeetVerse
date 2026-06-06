@@ -1,12 +1,17 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using MeetVerse.Persistence.Data;
+using MeetVerse.Presentation;
+using MeetVerse.Presentation.Hubs;
 using MeetVerse.Shared.DTOs.Groups;
 using MeetVerse.Shared.DTOs.Meetings;
 using MeetVerse.Domain.Entities;
 using MeetVerse.Domain.Enums;
+using MeetVerse.Shared.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace MeetVerse.Presentation.Controllers;
 
@@ -16,8 +21,18 @@ namespace MeetVerse.Presentation.Controllers;
 public class MeetingsController : ControllerBase
 {
     private readonly MeetVerseDbContext _db;
+    private readonly IHubContext<MeetingChatHub> _meetingHub;
+    private readonly LiveKitSettings _liveKitSettings;
 
-    public MeetingsController(MeetVerseDbContext db) { _db = db; }
+    public MeetingsController(
+        MeetVerseDbContext db,
+        IHubContext<MeetingChatHub> meetingHub,
+        IOptions<LiveKitSettings> liveKitSettings)
+    {
+        _db = db;
+        _meetingHub = meetingHub;
+        _liveKitSettings = liveKitSettings.Value;
+    }
 
     private Guid? GetCurrentUserId()
     {
@@ -162,9 +177,22 @@ public class MeetingsController : ControllerBase
                     meeting.ScheduledEnd = DateTime.UtcNow;
                     await _db.SaveChangesAsync();
 
+                    await _meetingHub.Clients
+                        .Group(MeetingChatHub.MeetingChatPrefix + meetingId)
+                        .SendAsync("MeetingEventReceived", new
+                        {
+                            MeetingId = meetingId,
+                            EventType = "meeting:ended",
+                            Payload = "{}",
+                            SentAt = DateTime.UtcNow
+                        });
+
                     try
                     {
-                        var client = new Livekit.Server.Sdk.Dotnet.RoomServiceClient("https://meetverse-tn25w775.livekit.cloud", "APIVDmR6TG3FFHy", "ZSqPDDGXAVhsuqNuKfpsL8Og9TiahJt2A9rpJw67JJD");
+                        var client = new Livekit.Server.Sdk.Dotnet.RoomServiceClient(
+                            "https://meetverse-tn25w775.livekit.cloud",
+                            _liveKitSettings.ApiKey,
+                            _liveKitSettings.ApiSecret);
                         await client.DeleteRoom(new Livekit.Server.Sdk.Dotnet.DeleteRoomRequest { Room = meetingId.ToString() });
                     }
                     catch (Exception ex)
@@ -174,19 +202,12 @@ public class MeetingsController : ControllerBase
                 }
                 else
                 {
-                    _db.MeetingParticipants.RemoveRange(participantsList);
-                    var newHost = await _db.MeetingParticipants.FirstOrDefaultAsync(p => p.MeetingId == meetingId && p.UserId != userId);
-                    if (newHost != null)
-                    {
-                        meeting.HostId = newHost.UserId;
-                        newHost.Role = MeetingParticipantRole.Host;
-                    }
-                    else
-                    {
-                        meeting.Status = MeetingStatus.Ended;
-                        meeting.ScheduledEnd = DateTime.UtcNow;
-                    }
-                    await _db.SaveChangesAsync();
+                    await MeetingHostTransfer.TryTransferHostAsync(
+                        _db,
+                        _meetingHub,
+                        meetingId,
+                        userId.Value,
+                        removeLeavingParticipantRows: true);
                 }
             }
             else

@@ -1,6 +1,7 @@
 import { Participant, Room, RoomEvent, Track, TrackPublication } from "livekit-client";
 import { getLivekitToken } from "./getLivekitToken";
 import { attachAudioTrack, removeAudioElement } from "./attachAndRemoveAudioElement";
+import { MEETING_ROOM_OPTIONS } from "./livekitConfig";
 
 export const joinRoom = async (meetingId: string | undefined,
     state: any,
@@ -15,7 +16,7 @@ export const joinRoom = async (meetingId: string | undefined,
     try {
         const token = await getLivekitToken(meetingId ?? "", state?.displayName);
         if (cancelled) return;
-        const newRoom = new Room({ adaptiveStream: true, dynacast: true, });
+        const newRoom = new Room(MEETING_ROOM_OPTIONS);
         roomRef.current = newRoom;
 
         const handleTrackSubscribed = (track: Track, publication: TrackPublication, participant: Participant) => {
@@ -95,7 +96,10 @@ export const joinRoom = async (meetingId: string | undefined,
         newRoom.on(RoomEvent.ActiveSpeakersChanged, handleActiveSpeakersChanged);
         newRoom.on(RoomEvent.LocalTrackPublished, handleLocalTrackPublished);
         newRoom.on(RoomEvent.LocalTrackUnpublished, handleLocalTrackUnpublished);
-        await newRoom.connect("wss://meetverse-tn25w775.livekit.cloud", token);
+        const livekitUrl = import.meta.env.DEV
+            ? (import.meta.env.VITE_LIVEKIT_DEV?.startsWith("ws") ? import.meta.env.VITE_LIVEKIT_DEV : import.meta.env.VITE_LIVEKIT_PROD)
+            : import.meta.env.VITE_LIVEKIT_PROD;
+        await newRoom.connect(livekitUrl, token);
 
         // if (muted) {
         //   // await newRoom.localParticipant.setMicrophoneEnabled(false);

@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { getOrCreateWhiteboardSession } from "../../../../services/whiteboard";
 import api from "../../../../services/api";
+import throttle from "lodash.throttle";
+import { sendWhiteboardEvent } from "../../../../services/hubs/whiteboard";
 
 // Excalidraw integration
 // @ts-ignore
@@ -42,6 +44,8 @@ export interface WhiteboardPanelHandle {
 
 interface WhiteboardPanelProps {
   meetingId: string;
+  isOwner: boolean;
+  ownerName: string;
 }
 
 interface SnapshotItem {
@@ -75,7 +79,7 @@ function MiniToast({ message, type, onClose }: { message: string; type: "success
 
 /* ────────────────── Main Component ────────────────── */
 const WhiteboardPanel = React.forwardRef<WhiteboardPanelHandle, WhiteboardPanelProps>(
-  function WhiteboardPanel({ meetingId }, ref) {
+  function WhiteboardPanel({ meetingId, isOwner, ownerName }, ref) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +114,8 @@ const WhiteboardPanel = React.forwardRef<WhiteboardPanelHandle, WhiteboardPanelP
   /* ─── Initialization ─── */
   useEffect(() => {
     let mounted = true;
+    let activeSessionId: string | null = null;
+    let cleanup: (() => void) | null = null;
 
     const start = async () => {
       try {
@@ -119,35 +125,70 @@ const WhiteboardPanel = React.forwardRef<WhiteboardPanelHandle, WhiteboardPanelP
         const session = await getOrCreateWhiteboardSession(meetingId);
         if (!mounted) return;
         setSessionId(session.id);
+        activeSessionId = session.id;
 
         // Join SignalR group + subscribe to remote updates
-        await initWhiteboardSession(session.id, async (scene) => {
-          const currentUserId = localStorage.getItem("userid");
-          try {
-            if (scene?.__meta?.userId && scene.__meta.userId === currentUserId) return;
-          } catch { /* ignore */ }
+        cleanup = await initWhiteboardSession(session.id, async (payload) => {
+          const type = payload?.type || payload?.Type;
+          const currentUserId = localStorage.getItem("userid") || sessionStorage.getItem("userid");
+          if (payload?.userId === currentUserId || payload?.UserId === currentUserId) return;
 
-          if (!excalidrawRef.current) return;
+          if (type === "whiteboard:sync" || type === "whiteboard:full-state" || type === "excalidraw_state") {
+            const raw = payload?.payloadJson || payload?.PayloadJson || payload?.payload;
+            if (!raw) return;
+            try {
+              const scene = JSON.parse(raw);
+              if (!excalidrawRef.current) return;
 
-          isApplyingRemote.current = true;
-          try {
-            await excalidrawRef.current.updateScene({
-              elements: scene.elements ?? [],
-              appState: scene.appState ?? {},
-            });
-          } catch (e) {
-            console.error("Failed to apply remote scene:", e);
-          } finally {
-            setTimeout(() => (isApplyingRemote.current = false), 50);
+              isApplyingRemote.current = true;
+              try {
+                console.log('applying remote scene update');
+                await excalidrawRef.current.updateScene({
+                  elements: scene.elements ?? [],
+                  appState: isOwner ? (scene.appState ?? {}) : {
+                    theme: scene.appState?.theme,
+                    viewBackgroundColor: scene.appState?.viewBackgroundColor,
+                  },
+                });
+              } catch (e) {
+                console.error("Failed to apply remote scene:", e);
+              } finally {
+                setTimeout(() => (isApplyingRemote.current = false), 50);
+              }
+            } catch (e) {}
+          } else if (type === "whiteboard:request-state") {
+            if (!isOwner) return; // Only owner responds with the state
+            // Target user just joined. Respond with full state.
+            const scene = {
+              elements: latestElementsRef.current,
+              appState: {
+                theme: latestAppStateRef.current?.theme,
+                viewBackgroundColor: latestAppStateRef.current?.viewBackgroundColor,
+                exportBackground: latestAppStateRef.current?.exportBackground,
+              },
+            };
+            sendWhiteboardEvent(session.id, "whiteboard:full-state", JSON.stringify(scene));
+          } else if (type === "whiteboard:clear") {
+            if (excalidrawRef.current) {
+               isApplyingRemote.current = true;
+               excalidrawRef.current.updateScene({ elements: [] });
+               setTimeout(() => (isApplyingRemote.current = false), 50);
+            }
           }
         });
+
+        // After joining, ask for full state from anyone present
+        sendWhiteboardEvent(session.id, "whiteboard:request-state", "{}");
 
         // Load last saved state
         const initial = await loadBoardState(session.id);
         if (initial && excalidrawRef.current) {
           await excalidrawRef.current.updateScene({
             elements: initial.elements ?? [],
-            appState: initial.appState ?? {},
+            appState: isOwner ? (initial.appState ?? {}) : {
+              theme: initial.appState?.theme,
+              viewBackgroundColor: initial.appState?.viewBackgroundColor,
+            },
           });
         }
 
@@ -162,13 +203,39 @@ const WhiteboardPanel = React.forwardRef<WhiteboardPanelHandle, WhiteboardPanelP
     };
 
     start();
-    return () => { mounted = false; };
+    return () => { 
+      mounted = false; 
+      if (activeSessionId && latestElementsRef.current.length > 0) {
+        const scene = {
+           elements: latestElementsRef.current,
+           appState: latestAppStateRef.current,
+        };
+        sendWhiteboardEvent(activeSessionId, "whiteboard:full-state", JSON.stringify(scene));
+      }
+      if (cleanup) cleanup();
+    };
   }, [meetingId]);
+
+  // Memoized throttled emits
+  const throttledSync = useCallback(
+    throttle((sid: string, scene: any) => {
+      sendWhiteboardEvent(sid, "whiteboard:sync", JSON.stringify(scene));
+      saveBoardSnapshot(sid, scene);
+    }, 100, { leading: true, trailing: true }),
+    []
+  );
+
+  const throttledDrawing = useCallback(
+    throttle((sid: string) => {
+      sendWhiteboardEvent(sid, "whiteboard:drawing", "{}");
+    }, 1000, { leading: true, trailing: false }),
+    []
+  );
 
   /* ─── Scene Change Handler ─── */
   const handleChange = useCallback(
     (elements: any[], state: any) => {
-      // Always track the latest scene for export, even if not connected yet
+      // Always track the latest scene synchronously
       latestElementsRef.current = elements;
       latestAppStateRef.current = state;
       // Also track files if available
@@ -176,23 +243,26 @@ const WhiteboardPanel = React.forwardRef<WhiteboardPanelHandle, WhiteboardPanelP
         try { latestFilesRef.current = excalidrawRef.current.getFiles() || {}; } catch { /* ignore */ }
       }
 
+      if (!isOwner) return; // Non-owners do not broadcast updates!
       if (!sessionId || isApplyingRemote.current) return;
-      if (debounceRef.current) window.clearTimeout(debounceRef.current);
-      debounceRef.current = window.setTimeout(async () => {
-        try {
-          const scene = {
-            elements,
-            appState: state,
-            __meta: { updatedAt: Date.now(), userId: localStorage.getItem("userid") },
-          };
-          await sendSceneUpdate(sessionId, scene);
-          saveBoardSnapshot(sessionId, scene);
-        } catch (e) {
-          console.error("Failed to send scene update:", e);
-        }
-      }, 300);
+      
+      const scene = {
+        elements,
+        appState: {
+          theme: state.theme,
+          viewBackgroundColor: state.viewBackgroundColor,
+          exportBackground: state.exportBackground,
+        },
+        __meta: { 
+          updatedAt: Date.now(), 
+          userId: localStorage.getItem("userid") || sessionStorage.getItem("userid") 
+        },
+      };
+      
+      throttledSync(sessionId, scene);
+      throttledDrawing(sessionId);
     },
-    [sessionId]
+    [sessionId, throttledSync, throttledDrawing, isOwner]
   );
 
   /* ─── Snapshot Management ─── */
@@ -221,7 +291,11 @@ const WhiteboardPanel = React.forwardRef<WhiteboardPanelHandle, WhiteboardPanelP
     const name = window.prompt("Snapshot name (optional)");
     try {
       const elements = (latestElementsRef.current || []).filter((el: any) => !el.isDeleted);
-      const appState = latestAppStateRef.current || {};
+      const appState = {
+        theme: latestAppStateRef.current?.theme,
+        viewBackgroundColor: latestAppStateRef.current?.viewBackgroundColor,
+        exportBackground: latestAppStateRef.current?.exportBackground,
+      };
       const scene = { elements, appState };
       await saveBoardSnapshot(sessionId, scene, name || undefined);
       await loadSnapshotsFromServer(sessionId);
@@ -242,7 +316,10 @@ const WhiteboardPanel = React.forwardRef<WhiteboardPanelHandle, WhiteboardPanelP
       isApplyingRemote.current = true;
       await excalidrawRef.current.updateScene({
         elements: s.scene.elements ?? [],
-        appState: s.scene.appState ?? {},
+        appState: isOwner ? (s.scene.appState ?? {}) : {
+          theme: s.scene.appState?.theme,
+          viewBackgroundColor: s.scene.appState?.viewBackgroundColor,
+        },
       });
       await sendSceneUpdate(sessionId, s.scene);
       await saveBoardSnapshot(sessionId, s.scene, `Restore - ${s.name}`);
@@ -259,12 +336,13 @@ const WhiteboardPanel = React.forwardRef<WhiteboardPanelHandle, WhiteboardPanelP
   /* ─── Clear Board ─── */
   const handleClearBoard = () => {
     if (!excalidrawRef.current) return;
-    if (!window.confirm("Are you sure you want to clear the entire board? This cannot be undone.")) return;
+    if (!window.confirm("This will clear the whiteboard for all participants. Continue?")) return;
     try {
       excalidrawRef.current.updateScene({ elements: [] });
       if (sessionId) {
-        const scene = { elements: [], appState: {}, __meta: { updatedAt: Date.now(), userId: localStorage.getItem("userid") } };
-        sendSceneUpdate(sessionId, scene);
+        const scene = { elements: [], appState: {}, __meta: { updatedAt: Date.now(), userId: localStorage.getItem("userid") || sessionStorage.getItem("userid") } };
+        sendWhiteboardEvent(sessionId, "whiteboard:clear", "{}");
+        sendSceneUpdate(sessionId, scene); // keep old behavior as fallback
       }
       showToast("Board cleared.", "info");
     } catch (e) {
@@ -562,9 +640,10 @@ const WhiteboardPanel = React.forwardRef<WhiteboardPanelHandle, WhiteboardPanelP
       {/* Excalidraw Canvas */}
       <div className="absolute inset-0">
         <Excalidraw
-          ref={(refApi: any) => (excalidrawRef.current = refApi)}
-          onChange={(elements: any[], state: any) => handleChange(elements, state)}
+          excalidrawAPI={(refApi: any) => (excalidrawRef.current = refApi)}
+          onChange={(elements: readonly any[], state: any) => handleChange(elements as any[], state)}
           theme="dark"
+          viewModeEnabled={!isOwner}
           UIOptions={{
             canvasActions: {
               saveToActiveFile: false,
@@ -578,14 +657,16 @@ const WhiteboardPanel = React.forwardRef<WhiteboardPanelHandle, WhiteboardPanelP
       {/* ─── Premium Toolbar ─── */}
       <div className="absolute top-3 right-3 z-40 flex items-center gap-2">
         {/* Save Snapshot */}
-        <button
-          onClick={handleSaveSnapshot}
-          title="Save Snapshot"
-          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-blue-900/30 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
-        >
-          <Save className="w-4 h-4" />
-          Save
-        </button>
+        {isOwner && (
+          <button
+            onClick={handleSaveSnapshot}
+            title="Save Snapshot"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-blue-900/30 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
+          >
+            <Save className="w-4 h-4" />
+            Save
+          </button>
+        )}
 
         {/* Export Dropdown */}
         <div className="relative" data-export-menu>
@@ -648,80 +729,84 @@ const WhiteboardPanel = React.forwardRef<WhiteboardPanelHandle, WhiteboardPanelP
         </div>
 
         {/* Snapshots Dropdown */}
-        <div className="relative" data-snapshot-menu>
-          <button
-            onClick={() => {
-              setShowSnapshots((v) => !v);
-              setShowExportMenu(false);
-              if (!showSnapshots && sessionId) loadSnapshotsFromServer(sessionId);
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#1E2233] hover:bg-[#262B3D] border border-[#2F3549] text-white rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
-          >
-            <History className="w-4 h-4" />
-            Snapshots
-            {snapshots.length > 0 && (
-              <span className="bg-blue-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                {snapshots.length > 9 ? "9+" : snapshots.length}
-              </span>
-            )}
-          </button>
+        {isOwner && (
+          <div className="relative" data-snapshot-menu>
+            <button
+              onClick={() => {
+                setShowSnapshots((v) => !v);
+                setShowExportMenu(false);
+                if (!showSnapshots && sessionId) loadSnapshotsFromServer(sessionId);
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#1E2233] hover:bg-[#262B3D] border border-[#2F3549] text-white rounded-xl text-sm font-semibold shadow-lg transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
+            >
+              <History className="w-4 h-4" />
+              Snapshots
+              {snapshots.length > 0 && (
+                <span className="bg-blue-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                  {snapshots.length > 9 ? "9+" : snapshots.length}
+                </span>
+              )}
+            </button>
 
-          {showSnapshots && (
-            <div className="absolute right-0 mt-2 w-96 bg-[#1E2233] border border-[#2F3549] rounded-2xl shadow-2xl shadow-black/40 overflow-hidden animate-[fadeIn_0.15s_ease-out]">
-              <div className="px-4 py-3 border-b border-[#2F3549] flex items-center justify-between">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Saved Snapshots</p>
-                <button onClick={() => setShowSnapshots(false)} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
-                  <X className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-              </div>
+            {showSnapshots && (
+              <div className="absolute right-0 mt-2 w-96 bg-[#1E2233] border border-[#2F3549] rounded-2xl shadow-2xl shadow-black/40 overflow-hidden animate-[fadeIn_0.15s_ease-out]">
+                <div className="px-4 py-3 border-b border-[#2F3549] flex items-center justify-between">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Saved Snapshots</p>
+                  <button onClick={() => setShowSnapshots(false)} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+                    <X className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                </div>
 
-              <div className="max-h-72 overflow-y-auto scrollbar-custom">
-                {snapshots.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-slate-500">
-                    <History className="w-8 h-8 mb-2 opacity-50" />
-                    <p className="text-sm font-medium">No snapshots yet</p>
-                    <p className="text-xs mt-1">Click "Save" to create one</p>
-                  </div>
-                ) : (
-                  snapshots.map((s, index) => (
-                    <div
-                      key={s.id}
-                      className={`flex items-center gap-3 px-4 py-3 hover:bg-[#262B3D] transition-colors ${
-                        index < snapshots.length - 1 ? "border-b border-[#2F3549]/50" : ""
-                      }`}
-                    >
-                      <div className="w-9 h-9 rounded-lg bg-indigo-500/15 flex items-center justify-center shrink-0">
-                        <Clock className="w-4 h-4 text-indigo-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">{s.name}</p>
-                        <p className="text-xs text-slate-400">
-                          {s.savedAt ? new Date(s.savedAt).toLocaleString() : "Unknown date"}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleRestore(s)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-400 hover:text-white hover:bg-blue-600 rounded-lg transition-all duration-200"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        Restore
-                      </button>
+                <div className="max-h-72 overflow-y-auto scrollbar-custom">
+                  {snapshots.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-slate-500">
+                      <History className="w-8 h-8 mb-2 opacity-50" />
+                      <p className="text-sm font-medium">No snapshots yet</p>
+                      <p className="text-xs mt-1">Click "Save" to create one</p>
                     </div>
-                  ))
-                )}
+                  ) : (
+                    snapshots.map((s, index) => (
+                      <div
+                        key={s.id}
+                        className={`flex items-center gap-3 px-4 py-3 hover:bg-[#262B3D] transition-colors ${
+                          index < snapshots.length - 1 ? "border-b border-[#2F3549]/50" : ""
+                        }`}
+                      >
+                        <div className="w-9 h-9 rounded-lg bg-indigo-500/15 flex items-center justify-center shrink-0">
+                          <Clock className="w-4 h-4 text-indigo-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{s.name}</p>
+                          <p className="text-xs text-slate-400">
+                            {s.savedAt ? new Date(s.savedAt).toLocaleString() : "Unknown date"}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleRestore(s)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-400 hover:text-white hover:bg-blue-600 rounded-lg transition-all duration-200"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          Restore
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Clear Board */}
-        <button
-          onClick={handleClearBoard}
-          title="Clear Board"
-          className="flex items-center justify-center w-10 h-10 bg-[#1E2233] hover:bg-red-600/80 border border-[#2F3549] hover:border-red-500/50 text-slate-400 hover:text-white rounded-xl shadow-lg transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        {isOwner && (
+          <button
+            onClick={handleClearBoard}
+            title="Clear Board"
+            className="flex items-center justify-center w-10 h-10 bg-[#1E2233] hover:bg-red-600/80 border border-[#2F3549] hover:border-red-500/50 text-slate-400 hover:text-white rounded-xl shadow-lg transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Toast Notification */}

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
+import { setPageTitle } from "../../utils/setPageTitle";
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
 import { Video, Plus, Search, Calendar, Clock, MoreHorizontal, Copy, Pencil, CalendarX, Users } from "lucide-react";
 import { getActiveMeetings } from "../../services/getActiveMeetings";
 import api from "../../services/api";
 import { useToast } from "../../Context/ToastContext";
+import { meetingLinkService } from "../../services/meetingLinkService";
 
 type Meeting = {
   meetingId: string;
@@ -49,19 +51,7 @@ const getMeetingDuration = (startStr: string, endStr: string) => {
   return `${m}m`;
 };
 
-const getAvatarGradient = (title: string) => {
-  const gradients = [
-    "from-indigo-500 to-violet-600",
-    "from-rose-500 to-orange-500",
-    "from-teal-400 to-cyan-500",
-    "from-emerald-400 to-teal-500",
-    "from-fuchsia-500 to-pink-500",
-    "from-blue-500 to-indigo-500",
-  ];
-  let h = 0;
-  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) >>> 0;
-  return gradients[h % gradients.length];
-};
+import { getAvatarGradient } from "../../utils/stringHelpers";
 
 export default function MeetingsListPage() {
   const { showToast } = useToast();
@@ -70,6 +60,10 @@ export default function MeetingsListPage() {
   const [filter, setFilter] = useState<"all" | "live" | "upcoming" | "past">("all");
   
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPageTitle("My Meetings");
+  }, []);
   const [editTitle, setEditTitle] = useState("");
   const [isSavingTitle, setIsSavingTitle] = useState(false);
 
@@ -308,7 +302,18 @@ export default function MeetingsListPage() {
 
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded">ID: ••••••••</span>
-                              <button onClick={() => { navigator.clipboard?.writeText(m.meetingId); showToast("Meeting ID copied", "success"); }} className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500" title="Copy full ID">
+                              <button 
+                                onClick={async () => { 
+                                  const success = await meetingLinkService.copyJoinLink(m.meetingId); 
+                                  if (success) {
+                                    showToast("Invite link copied!", "success"); 
+                                  } else {
+                                    showToast("Failed to copy invite link", "error");
+                                  }
+                                }} 
+                                className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500" 
+                                title="Copy Invite Link"
+                              >
                                 <Copy size={14} />
                               </button>
                             </div>
@@ -320,7 +325,7 @@ export default function MeetingsListPage() {
                         <button className="opacity-0 group-hover:opacity-100 p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 transition-all">
                           <MoreHorizontal size={18} />
                         </button>
-                        <a href={`/meetings/join?meetingId=${m.meetingId}`} className="inline-flex items-center justify-center whitespace-nowrap min-w-[140px] px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 text-sm font-bold rounded-xl transition-all active:scale-95">
+                        <a href={`/meetings/${m.meetingId}`} className="inline-flex items-center justify-center whitespace-nowrap min-w-[140px] px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 text-sm font-bold rounded-xl transition-all active:scale-95">
                           {m.isLive ? 'Join Now' : 'View Details'}
                         </a>
                       </div>

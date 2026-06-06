@@ -11,4 +11,9 @@
     <ProjectReference Include="..\MeetVerse.Shared\MeetVerse.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="12.0.1" />
+    <PackageReference Include="MediatR" Version="14.1.0" />
+  </ItemGroup>
+
 </Project>

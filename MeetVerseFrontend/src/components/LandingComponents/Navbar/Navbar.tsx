@@ -1,17 +1,25 @@
 /* eslint-disable no-unused-vars */
 import { useState } from "react";
-import Video from "../../../assets/Logo/icon2.png";
+import Logo from "../../Shared/Logo";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import DarkMode from "./DarkMode";
+import { useAuth } from "../../../Context/AuthContext";
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { isLoggedIn, logout } = useAuth();
+
+  const isMeetingRoom =
+    /^\/meetings\/[^/]+$/.test(location.pathname) &&
+    !["/meetings/create", "/meetings/join"].includes(location.pathname);
+
+  if (isMeetingRoom) {
+    return null;
+  }
 
   const isLanding = location.pathname === "/";
-  // التأكد من وجود توكن (اليوزر مسجل دخول)
-  const isLoggedIn = !!localStorage.getItem("token");
 
   const closeMobile = () => setMobileMenuOpen(false);
 
@@ -29,12 +37,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Link to={isLoggedIn ? "/home" : "/"} onClick={closeMobile}>
-            <div className="flex items-center gap-2">
-              <img src={Video} className="w-10 h-10" alt="Logo" />
-              <span className="text-gray-900 dark:text-[#F1F5F9] font-semibold text-2xl tracking-tight">
-                MeetVerse
-              </span>
-            </div>
+            <Logo />
           </Link>
 
           <div className="hidden md:flex items-center gap-6">
@@ -124,12 +127,7 @@ export default function Navbar() {
                 </>
               ) : (
                 <button
-                  onClick={() => {
-                    localStorage.removeItem("token");
-                    localStorage.removeItem("username");
-                    localStorage.removeItem("userid");
-                    window.location.href = "/";
-                  }}
+                  onClick={logout}
                   className="text-red-500 font-bold text-sm hover:underline"
                 >
                   Logout
@@ -187,10 +185,7 @@ export default function Navbar() {
           )}
           {isLoggedIn && (
             <button
-              onClick={() => {
-                localStorage.removeItem("token");
-                window.location.href = "/";
-              }}
+              onClick={logout}
               className="text-left text-red-500 font-bold text-lg"
             >
               LOGOUT

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { setPageTitle } from "../../utils/setPageTitle";
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -20,6 +21,7 @@ import {
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createMeeting } from "../../services/createMeeting";
 import { useToast } from "../../Context/ToastContext";
+import Logo from "../../components/Shared/Logo";
 
 type MeetingFormData = {
   title: string;
@@ -40,6 +42,10 @@ export default function CreateMeetingPage() {
   
   const [isInstantMode, setIsInstantMode] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+
+  useEffect(() => {
+    setPageTitle("New Meeting");
+  }, []);
 
   const [formData, setFormData] = useState<MeetingFormData>({
     title: "",
@@ -224,11 +230,8 @@ export default function CreateMeetingPage() {
             <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-tr from-blue-500/30 to-violet-500/30 blur-3xl rounded-full animate-pulseOrb pointer-events-none" />
             
             <div className="relative z-10 space-y-2">
-              <div className="flex items-center gap-3 text-blue-600 dark:text-blue-500 font-bold mb-10">
-                <div className="p-2 bg-blue-600 rounded-lg text-white">
-                  <Video size={20} />
-                </div>
-                <span className="text-xl tracking-tight">MeetVerse</span>
+              <div className="mb-10">
+                <Logo imageClassName="h-10" textClassName="text-2xl" />
               </div>
               <h2 className="text-3xl font-extrabold tracking-tight leading-tight">
                 Your meeting starts in seconds.

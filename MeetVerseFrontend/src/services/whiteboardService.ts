@@ -9,18 +9,15 @@ const boardsKey = (sessionId: string) => `whiteboard:session:${sessionId}:boards
  * Initialize whiteboard session: join SignalR group and subscribe to remote updates.
  * onRemoteScene receives parsed scene objects that can be applied to Excalidraw.
  */
-export async function initWhiteboardSession(sessionId: string, onRemoteScene: (scene: any) => void) {
+export async function initWhiteboardSession(sessionId: string, onRemoteScene: (payload: any) => void) {
   await startWhiteboardConnection();
   await joinSession(sessionId);
 
-  onReceiveWhiteboardEvent((payload: any) => {
+  const cleanup = onReceiveWhiteboardEvent((payload: any) => {
     try {
       // payload shape: { Id, SessionId, UserId, UserName, Type, PayloadJson, CreatedAt }
-      const raw = payload?.payloadJson ?? payload?.PayloadJson ?? payload?.Payloadjson ?? payload?.payload;
-      if (!raw) return;
-
-      const scene = JSON.parse(raw);
-      onRemoteScene(scene);
+      // the caller needs the whole payload to distinguish type
+      onRemoteScene(payload);
     } catch (e) {
       console.error("Invalid whiteboard payload", e, payload);
     }
@@ -29,6 +26,8 @@ export async function initWhiteboardSession(sessionId: string, onRemoteScene: (s
   onWhiteboardError((msg) => {
     console.error("Whiteboard hub error:", msg);
   });
+
+  return cleanup;
 }
 
 /**
