@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { getCurrentUser } from "../../services/currentUser";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 type JoinData = {
   meetingId: string;
@@ -192,12 +193,13 @@ export default function JoinMeetingPage() {
               </label>
             </div>
 
-            <button
+            <LiquidMetalButton
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-[1.5rem] font-bold text-sm shadow-xl shadow-blue-900/20 transition-all active:scale-95"
+              width="full"
+              className="w-full flex items-center justify-center gap-2"
             >
-              Secure Join <ArrowRight size={18} />
-            </button>
+              <span className="flex items-center gap-2 relative z-10">Secure Join <ArrowRight size={18} /></span>
+            </LiquidMetalButton>
           </form>
 
           <div className="mt-8 pt-6 border-t border-slate-100 dark:border-[#2A2E3B] flex items-center gap-3 text-emerald-600 dark:text-emerald-400">

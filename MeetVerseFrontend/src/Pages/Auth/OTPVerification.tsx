@@ -12,6 +12,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { motion } from "framer-motion";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 export default function OTPVerification() {
   const navigate = useNavigate();
@@ -108,19 +109,20 @@ export default function OTPVerification() {
             )}
           </div>
 
-          <button
+          <LiquidMetalButton
             onClick={handleVerify}
             disabled={otp.length !== 6 || loading}
-            className="w-full h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-xl shadow-blue-900/20 transition-all disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-3 active:scale-95"
+            width="full"
+            className="w-full flex items-center justify-center gap-3"
           >
             {loading ? (
-              <LoaderPinwheel className="animate-spin" />
+              <LoaderPinwheel className="animate-spin relative z-10" />
             ) : (
               <>
-                Verify Identity <ArrowRight size={20} />
+                Verify Identity <ArrowRight size={20} className="relative z-10" />
               </>
             )}
-          </button>
+          </LiquidMetalButton>
         </motion.div>
       </div>
     </>

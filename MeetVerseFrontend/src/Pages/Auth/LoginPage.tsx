@@ -7,6 +7,7 @@ import { loginWithGoogle } from "../../services/googleLogin";
 import Logo from "../../components/Shared/Logo";
 import DarkMode from "../../components/LandingComponents/Navbar/DarkMode";
 import { setPageTitle } from "../../utils/setPageTitle";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 import { useAuth } from "../../Context/AuthContext";
 import { useGoogleAuth } from "../../utils/googleAuth";
@@ -300,19 +301,20 @@ export default function LoginPage() {
               </div>
 
               {/* Submit CTA */}
-              <button
+              <LiquidMetalButton
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-70 disabled:hover:translate-y-0 text-white font-semibold py-2.5 h-11 rounded-xl shadow-md shadow-blue-900/10 hover:-translate-y-[1px] transition-all flex items-center justify-center gap-2"
+                width="full"
+                className="w-full flex items-center justify-center gap-2"
               >
                 {loading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin relative z-10" />
                 ) : (
                   <>
-                    Login <ArrowRight size={18} className="opacity-80" />
+                    Login <ArrowRight size={18} className="opacity-80 relative z-10" />
                   </>
                 )}
-              </button>
+              </LiquidMetalButton>
             </form>
 
             {/* Divider */}

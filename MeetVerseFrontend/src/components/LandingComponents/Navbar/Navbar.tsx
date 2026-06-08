@@ -1,14 +1,16 @@
 /* eslint-disable no-unused-vars */
 import { useState } from "react";
 import Logo from "../../Shared/Logo";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import DarkMode from "./DarkMode";
 import { useAuth } from "../../../Context/AuthContext";
+import { LiquidMetalButton } from "../../ui/LiquidMetalButton";
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { isLoggedIn, logout } = useAuth();
 
   const isMeetingRoom =
@@ -118,12 +120,17 @@ export default function Navbar() {
                   >
                     Login
                   </Link>
-                  <Link
-                    to="/signup"
-                    className="bg-linear-to-r from-blue-600 to-indigo-600 text-white rounded-xl px-5 py-2.5 font-bold text-sm shadow-md shadow-blue-900/25 hover:from-blue-500 hover:to-indigo-500 transition-all duration-300"
+                  <LiquidMetalButton
+                    onClick={() => navigate("/signup")}
+                    size="sm"
+                    speed={0.6}
+                    repetition={4}
+                    softness={0.5}
+                    shiftRed={0.3}
+                    shiftBlue={0.3}
                   >
                     Get Started
-                  </Link>
+                  </LiquidMetalButton>
                 </>
               ) : (
                 <button

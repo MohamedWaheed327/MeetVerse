@@ -7,6 +7,7 @@ import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useToast } from "../../Context/ToastContext";
 import { getRecentSpaces, RecentSpace } from "../../utils/recentSpaces";
 import Logo from "../../components/Shared/Logo";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 export default function JoinGroupPage() {
   const navigate = useNavigate();
@@ -118,18 +119,21 @@ export default function JoinGroupPage() {
               </div>
 
               <div className="pt-6 border-t border-slate-200 dark:border-[#2A2E3B] flex flex-col sm:flex-row gap-4">
-                <button
-                  type="submit"
-                  disabled={isJoining || !groupId.trim()}
-                  className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-violet-600 hover:shadow-lg hover:shadow-blue-500/25 text-white py-4 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-60 disabled:hover:shadow-none"
-                >
-                  {isJoining ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <ArrowRight size={18} />
-                  )}
-                  {isJoining ? "Sending Request..." : "Connect to Space"}
-                </button>
+                <div className="flex-1">
+                  <LiquidMetalButton
+                    type="submit"
+                    disabled={isJoining || !groupId.trim()}
+                    width="full"
+                    className="w-full flex items-center justify-center gap-2"
+                  >
+                    {isJoining ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin relative z-10" />
+                    ) : (
+                      <ArrowRight size={18} className="relative z-10" />
+                    )}
+                    <span className="relative z-10">{isJoining ? "Sending Request..." : "Connect to Space"}</span>
+                  </LiquidMetalButton>
+                </div>
                 <button
                   type="button"
                   onClick={() => navigate("/groups")}

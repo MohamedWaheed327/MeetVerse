@@ -6,6 +6,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
@@ -134,17 +135,18 @@ export default function ResetPassword() {
               )}
             </div>
 
-            <button
+            <LiquidMetalButton
               type="submit"
               disabled={loading}
-              className="w-full h-14 rounded-[1.5rem] bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xl shadow-blue-900/20 transition-all flex justify-center items-center active:scale-95 disabled:opacity-70"
+              width="full"
+              className="w-full flex justify-center items-center"
             >
               {loading ? (
-                <LoaderPinwheel className="animate-spin" />
+                <LoaderPinwheel className="animate-spin relative z-10" />
               ) : (
                 "Update Credentials"
               )}
-            </button>
+            </LiquidMetalButton>
           </form>
         </motion.div>
       </div>

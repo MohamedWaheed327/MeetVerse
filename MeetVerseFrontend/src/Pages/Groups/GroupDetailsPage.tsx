@@ -34,6 +34,7 @@ import { getJoinGroupRequests } from "../../services/getJoinGroupRequests";
 import { useAuth } from "../../Context/AuthContext";
 import { useToast } from "../../Context/ToastContext";
 import type { GroupMember } from "../../services/getGroupMembers";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 type GroupChat = {
   id: string;
@@ -412,11 +413,12 @@ export default function GroupDetailsPage() {
                 </button>
               )}
 
-              <button
+              <LiquidMetalButton
                 onClick={() => navigate(`/meetings/create?groupId=${groupId}`)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3.5 sm:p-4 rounded-2xl shadow-lg transition-all flex items-center justify-between group active:scale-[0.98]"
+                width="full"
+                className="w-full flex items-center justify-between"
               >
-                <div className="flex flex-col items-start">
+                <div className="flex flex-col items-start relative z-10 text-left">
                   <span className="text-xs sm:text-sm font-bold">
                     Start Meeting
                   </span>
@@ -424,14 +426,14 @@ export default function GroupDetailsPage() {
                     Create an instant video session for this space.
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs">
+                <div className="flex items-center gap-1.5 text-xs relative z-10">
                   <Video size={18} />
                   <ArrowRight
                     size={14}
                     className="group-hover:translate-x-0.5 transition-transform"
                   />
                 </div>
-              </button>
+              </LiquidMetalButton>
 
               <button className="w-full py-3 text-[10px] sm:text-[11px] text-red-500 dark:text-red-400 font-black uppercase tracking-[0.22em] hover:bg-red-50 dark:hover:bg-red-900/10 rounded-2xl transition-all flex items-center justify-center gap-1.5">
                 <LogOut size={14} />
@@ -658,13 +660,13 @@ export default function GroupDetailsPage() {
                   >
                     Cancel
                   </button>
-                  <button
+                  <LiquidMetalButton
                     onClick={handleUpdateGroup}
                     disabled={!editName.trim()}
                     className="px-5 py-2.5 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Save Changes
-                  </button>
+                  </LiquidMetalButton>
                 </div>
               </div>
             </motion.div>

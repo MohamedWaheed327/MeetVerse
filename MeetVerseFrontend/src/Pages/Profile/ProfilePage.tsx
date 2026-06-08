@@ -21,6 +21,7 @@ import { ChangeName, ChangePassword } from "../../services/updateProfile";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../../Context/ToastContext";
 import api from "../../services/api";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 type MeetVerseUser = {
   id: string;
@@ -696,18 +697,19 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="pt-4">
-                    <button
+                    <LiquidMetalButton
                       type="submit"
                       disabled={!isProfileModified || isSavingProfile}
-                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-[#2A2E3B]/50 disabled:text-slate-500 dark:disabled:text-slate-500 dark:hover:bg-blue-600 text-white px-8 py-4 rounded-2xl transition-all shadow-lg disabled:shadow-none hover:shadow-blue-900/20 font-bold text-sm"
+                      width={240}
+                      className="flex items-center justify-center gap-2"
                     >
                       {isSavingProfile ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <Loader2 className="w-5 h-5 animate-spin relative z-10" />
                       ) : (
-                        <Save size={18} />
+                        <Save size={18} className="relative z-10" />
                       )}
-                      {isSavingProfile ? "Saving..." : "Save Profile Changes"}
-                    </button>
+                      <span className="relative z-10">{isSavingProfile ? "Saving..." : "Save Profile Changes"}</span>
+                    </LiquidMetalButton>
                   </div>
                 </form>
               </div>
@@ -826,18 +828,19 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="pt-4">
-                      <button
+                      <LiquidMetalButton
                         type="submit"
                         disabled={!isPasswordFormValid || isSavingPassword}
-                        className="flex items-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:bg-slate-300 dark:disabled:bg-[#2A2E3B]/50 disabled:text-slate-500 dark:disabled:text-slate-500 text-white px-8 py-4 rounded-2xl transition-all shadow-lg disabled:shadow-none hover:shadow-blue-900/20 font-bold text-sm"
+                        width={220}
+                        className="flex items-center justify-center gap-2"
                       >
                         {isSavingPassword ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <Loader2 className="w-5 h-5 animate-spin relative z-10" />
                         ) : (
-                          <Key size={18} />
+                          <Key size={18} className="relative z-10" />
                         )}
-                        {isSavingPassword ? "Updating..." : "Update Credentials"}
-                      </button>
+                        <span className="relative z-10">{isSavingPassword ? "Updating..." : "Update Credentials"}</span>
+                      </LiquidMetalButton>
                     </div>
                   </form>
                 </div>
@@ -894,12 +897,13 @@ export default function ProfilePage() {
               </div>
 
               <div className="flex gap-4 w-full mt-8">
-                <button
+                <LiquidMetalButton
                   onClick={handleConfirmCrop}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-blue-900/20 transition-all active:scale-95"
+                  width="full"
+                  className="flex-1 flex items-center justify-center"
                 >
-                  Confirm Crop
-                </button>
+                  <span className="relative z-10">Confirm Crop</span>
+                </LiquidMetalButton>
                 <button
                   onClick={() => setCropImageSrc(null)}
                   className="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-4 rounded-2xl font-bold text-sm transition-all active:scale-95 border border-[#2A2E3B]"

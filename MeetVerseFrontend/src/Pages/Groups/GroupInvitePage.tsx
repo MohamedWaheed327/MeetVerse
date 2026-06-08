@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 export default function GroupInvitePage() {
   const navigate = useNavigate();
@@ -82,13 +83,15 @@ export default function GroupInvitePage() {
                     <div className="w-full px-2 py-1 text-[11px] md:text-xs font-mono text-blue-600 dark:text-blue-400 break-all text-left">
                       {inviteLink}
                     </div>
-                    <button
+                    <LiquidMetalButton
                       onClick={handleCopy}
-                      className={`w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl md:rounded-2xl font-bold text-xs transition-all active:scale-95 ${copied ? "bg-emerald-500 text-white" : "bg-blue-600 text-white hover:bg-blue-700 shadow-lg"}`}
+                      className="w-full flex items-center justify-center gap-2"
+                      shiftRed={copied ? 0.0 : 0.3}
+                      shiftBlue={copied ? 0.0 : 0.3}
                     >
-                      {copied ? <Check size={16} /> : <Copy size={16} />}
-                      <span>{copied ? "Copied" : "Copy Link"}</span>
-                    </button>
+                      {copied ? <Check size={16} className="relative z-10" /> : <Copy size={16} className="relative z-10" />}
+                      <span className="relative z-10">{copied ? "Copied" : "Copy Link"}</span>
+                    </LiquidMetalButton>
                   </div>
                 </div>
 
@@ -219,12 +222,14 @@ export default function GroupInvitePage() {
                   />
                 </div>
 
-                <button
-                  onClick={() => setIsGuidelineOpen(false)}
-                  className="mt-10 w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl"
-                >
-                  Got it!
-                </button>
+                <div className="mt-10">
+                  <LiquidMetalButton
+                    onClick={() => setIsGuidelineOpen(false)}
+                    className="w-full flex items-center justify-center"
+                  >
+                    <span className="font-black text-[10px] uppercase tracking-[0.2em] relative z-10">Got it!</span>
+                  </LiquidMetalButton>
+                </div>
               </div>
             </motion.div>
           </div>

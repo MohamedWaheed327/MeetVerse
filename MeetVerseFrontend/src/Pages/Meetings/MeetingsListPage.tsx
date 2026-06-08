@@ -7,6 +7,8 @@ import { getActiveMeetings } from "../../services/getActiveMeetings";
 import api from "../../services/api";
 import { useToast } from "../../Context/ToastContext";
 import { meetingLinkService } from "../../services/meetingLinkService";
+import { useNavigate } from "react-router-dom";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 type Meeting = {
   meetingId: string;
@@ -54,6 +56,7 @@ const getMeetingDuration = (startStr: string, endStr: string) => {
 import { getAvatarGradient } from "../../utils/stringHelpers";
 
 export default function MeetingsListPage() {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -169,9 +172,11 @@ export default function MeetingsListPage() {
             <h1 className="text-3xl font-extrabold tracking-tight">Your Meetings</h1>
             <p className="text-slate-500 dark:text-[#A8B0C2] text-sm">Connect instantly or schedule your future sessions.</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
             <a href="/meetings/join" className="px-6 py-3 rounded-2xl border border-slate-200 dark:border-[#2A2E3B] bg-transparent text-sm font-semibold hover:bg-white/5 transition-all shadow-sm">Join by ID</a>
-            <a href="/meetings/create" className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white text-sm font-bold shadow-lg shadow-blue-500/25 transition-all active:scale-95"><Plus size={18} /> New Meeting</a>
+            <LiquidMetalButton onClick={() => navigate("/meetings/create")} className="flex items-center justify-center">
+              <span className="flex items-center gap-2 relative z-10"><Plus size={18} /> New Meeting</span>
+            </LiquidMetalButton>
           </div>
         </motion.div>
 

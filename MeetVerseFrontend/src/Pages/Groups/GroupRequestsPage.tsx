@@ -15,6 +15,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getJoinGroupRequests } from "../../services/getJoinGroupRequests";
 import { acceptJoinGroupRequest } from "../../services/acceptJoinGroupRequest";
 import { rejectJoinGroupRequest } from "../../services/rejectJoinGroupRequest";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 // بيانات تجريبية (Mock Data)
 // const initialRequests = [
@@ -168,12 +169,12 @@ export default function GroupRequestsPage() {
                       >
                         <UserX size={18} /> Decline
                       </button>
-                      <button
+                      <LiquidMetalButton
                         onClick={() => handleAction(req.senderId, "approve")}
-                        className="flex-1 md:flex-none flex items-center w-full justify-center gap-3 px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-3xl text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-600/20 active:scale-95 hover:scale-105"
+                        className="flex-1 md:flex-none flex items-center w-full justify-center gap-3"
                       >
-                        <UserCheck size={18} /> Approve
-                      </button>
+                        <UserCheck size={18} className="relative z-10" /> <span className="font-black text-xs uppercase tracking-widest relative z-10">Approve</span>
+                      </LiquidMetalButton>
                     </div>
                   </motion.div>
                 ))

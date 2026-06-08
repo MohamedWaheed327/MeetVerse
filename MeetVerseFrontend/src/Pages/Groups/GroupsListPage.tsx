@@ -4,7 +4,8 @@ import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
 import { Users, Plus, Search, ArrowRight, Hash, Sparkles } from "lucide-react";
 import { getMyGroups } from "../../services/getGroups";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 type Group = {
   id: string;
@@ -16,6 +17,7 @@ type Group = {
 };
 
 export default function GroupsListPage() {
+  const navigate = useNavigate();
   const [groups, setGroups] = useState<Group[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -74,12 +76,12 @@ export default function GroupsListPage() {
             >
               Join Space
             </Link>
-            <Link
-              to="/groups/create"
-              className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 hover:shadow-lg hover:shadow-blue-500/25 text-white text-sm font-bold transition-all active:scale-95"
+            <LiquidMetalButton
+              onClick={() => navigate("/groups/create")}
+              className="flex items-center gap-2"
             >
-              <Plus size={18} /> New Space
-            </Link>
+              <Plus size={18} className="relative z-10" /> <span className="relative z-10">New Space</span>
+            </LiquidMetalButton>
           </div>
         </div>
 
@@ -108,12 +110,13 @@ export default function GroupsListPage() {
             <p className="text-slate-500 dark:text-[#A8B0C2] text-sm max-w-sm mb-8">
               Create a new space to bring your team together, or join an existing one using a Space ID.
             </p>
-            <Link
-              to="/groups/create"
-              className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-lg shadow-blue-900/20 transition-all active:scale-95"
+            <LiquidMetalButton
+              onClick={() => navigate("/groups/create")}
+              size="xl"
+              className="flex items-center gap-2"
             >
-              <Plus size={18} /> Create Your First Space
-            </Link>
+              <Plus size={18} className="relative z-10" /> <span className="relative z-10">Create Your First Space</span>
+            </LiquidMetalButton>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

@@ -22,6 +22,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { createMeeting } from "../../services/createMeeting";
 import { useToast } from "../../Context/ToastContext";
 import Logo from "../../components/Shared/Logo";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 type MeetingFormData = {
   title: string;
@@ -476,19 +477,22 @@ export default function CreateMeetingPage() {
 
               {/* CTAs */}
               <div className="pt-6 flex flex-col sm:flex-row gap-4 border-t border-slate-200 dark:border-[#2A2E3B]">
-                <button
+                <LiquidMetalButton
                   type="submit"
                   disabled={isCreating || hasErrors}
-                  className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-violet-600 hover:shadow-lg hover:shadow-blue-500/25 text-white py-4 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-60 disabled:hover:shadow-none"
+                  width="full"
+                  className="flex-1 flex items-center justify-center gap-2"
                 >
-                  {isCreating ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    isInstantMode ? <Play size={18} /> : <Calendar size={18} />
-                  )}
-                  {isCreating ? "Processing..." : (isInstantMode ? "Start Meeting Now" : "Schedule Session")}
-                  {!isCreating && <span className="ml-2 px-1.5 py-0.5 rounded border border-white/20 bg-white/10 text-[10px] font-mono flex items-center shrink-0">↵ Enter</span>}
-                </button>
+                  <span className="flex items-center gap-2 relative z-10">
+                    {isCreating ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      isInstantMode ? <Play size={18} /> : <Calendar size={18} />
+                    )}
+                    <span>{isCreating ? "Processing..." : (isInstantMode ? "Start Meeting Now" : "Schedule Session")}</span>
+                    {!isCreating && <span className="ml-2 px-1.5 py-0.5 rounded border border-white/20 bg-white/10 text-[10px] font-mono flex items-center shrink-0">↵ Enter</span>}
+                  </span>
+                </LiquidMetalButton>
                 <button
                   type="button"
                   onClick={() => navigate("/meetings")}

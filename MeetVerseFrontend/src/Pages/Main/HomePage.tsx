@@ -19,8 +19,11 @@ import {
 import { useAuth } from "../../Context/AuthContext";
 import { getTimeUntilMeeting } from "../../utils/dateHelpers";
 import AudioWaveform from "../../components/Home/AudioWaveform";
+import { useNavigate } from "react-router-dom";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 export default function HomePage() {
+  const navigate = useNavigate();
   const { firstName } = useAuth();
   const displayName = firstName || "there";
   const [timeUntil, setTimeUntil] = useState("");
@@ -176,12 +179,11 @@ export default function HomePage() {
                   <span>98% Clear</span>
                 </div>
                 
-                <Link 
-                  to="/meetings/join?id=standup"
-                  className="mt-4 block w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-center rounded-xl font-bold text-sm transition-colors shadow-lg shadow-blue-600/20"
-                >
-                  Join Now
-                </Link>
+                <div className="mt-4 flex justify-center">
+                  <LiquidMetalButton onClick={() => navigate("/meetings/join?id=standup")} width="full" className="w-full">
+                    <span className="relative z-10 w-full text-center">Join Now</span>
+                  </LiquidMetalButton>
+                </div>
               </div>
             </div>
           </div>
