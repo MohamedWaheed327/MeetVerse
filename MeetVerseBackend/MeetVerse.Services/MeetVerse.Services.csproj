@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Livekit.Server.Sdk.Dotnet" Version="1.2.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Cryptography.KeyDerivation" Version="10.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MeetVerse.Abstraction\MeetVerse.Abstraction.csproj" />
+    <ProjectReference Include="..\MeetVerse.Domain\MeetVerse.Domain.csproj" />
+    <ProjectReference Include="..\MeetVerse.Persistence\MeetVerse.Persistence.csproj" />
+    <ProjectReference Include="..\MeetVerse.Shared\MeetVerse.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

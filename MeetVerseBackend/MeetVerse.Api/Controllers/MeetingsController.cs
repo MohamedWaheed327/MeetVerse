@@ -138,9 +138,20 @@ public class MeetingsController : ControllerBase
             ScheduledEnd = creatMeetingRequest.ScheduledEnd,
         };
         _db.Meetings.Add(meeting);
+        // Add the creator as a participant (host)
+        var participant = new MeetingParticipant
+        {
+            Id = Guid.NewGuid(),
+            MeetingId = meeting.Id,
+            Meeting = meeting,
+            UserId = userId!.Value,
+            Role = MeetingParticipantRole.Host,
+            IsActive = true
+        };
+        _db.MeetingParticipants.Add(participant);
         await _db.SaveChangesAsync();
 
-        return Ok();
+        return Ok(meeting.Id);
     }
 
     [HttpPost("join")]
@@ -184,23 +195,62 @@ public class MeetingsController : ControllerBase
         if (userId is null) return Unauthorized();
 
         var meetingId = leaveMeetingRequest.MeetingId;
-        if ((await _db.MeetingParticipants.Where(par => par.UserId == userId.Value).ToListAsync()).Count == 0)
-        {
-            return BadRequest();
-        }
 
-        var meeting = await _db.Meetings.FirstOrDefaultAsync(meeting => meeting.Id == meetingId);
-        if (!await IsInGroupAsync(meeting!.GroupId!.Value)) return NotFound();
+        var participantsList = await _db.MeetingParticipants.Where(par => par.UserId == userId.Value && par.MeetingId == meetingId).ToListAsync();
+        if (participantsList.Count == 0)
+            return BadRequest();
+
+        var meeting = await _db.Meetings.FirstOrDefaultAsync(m => m.Id == meetingId);
+        if (meeting == null || !await IsInGroupAsync(meeting!.GroupId!.Value)) return NotFound();
+
         try
         {
-            var participants = await _db.MeetingParticipants.Where(p => p.MeetingId == meetingId && p.UserId == userId).ToListAsync();
-            _db.MeetingParticipants.RemoveRange(participants);
-            await _db.SaveChangesAsync();
-        }
-        catch
-        {
+            if (meeting.HostId == userId)
+            {
+                if (leaveMeetingRequest.EndMeetingForAll)
+                {
+                    var allParticipants = await _db.MeetingParticipants.Where(p => p.MeetingId == meetingId).ToListAsync();
+                    _db.MeetingParticipants.RemoveRange(allParticipants);
+                    meeting.Status = MeetingStatus.Ended;
+                    meeting.ScheduledEnd = DateTime.UtcNow;
+                    await _db.SaveChangesAsync();
 
+                    // Best-effort: if a LiveKit client is configured in this project, delete the room.
+                    try
+                    {
+                        // Example: var client = new Livekit.Server.Sdk.Dotnet.RoomServiceClient(...);
+                        // await client.DeleteRoom(new Livekit.Server.Sdk.Dotnet.DeleteRoomRequest { Room = meetingId.ToString() });
+                    }
+                    catch { }
+                }
+                else
+                {
+                    // Remove leaving host participant
+                    _db.MeetingParticipants.RemoveRange(participantsList);
+                    var otherParticipants = await _db.MeetingParticipants.Where(p => p.MeetingId == meetingId && p.UserId != userId).ToListAsync();
+                    if (otherParticipants.Count > 0)
+                    {
+                        var rnd = new Random();
+                        var newHost = otherParticipants[rnd.Next(otherParticipants.Count)];
+                        meeting.HostId = newHost.UserId;
+                        newHost.Role = MeetingParticipantRole.Host;
+                    }
+                    else
+                    {
+                        meeting.Status = MeetingStatus.Ended;
+                        meeting.ScheduledEnd = DateTime.UtcNow;
+                    }
+                    await _db.SaveChangesAsync();
+                }
+            }
+            else
+            {
+                _db.MeetingParticipants.RemoveRange(participantsList);
+                await _db.SaveChangesAsync();
+            }
         }
+        catch { }
+
         return Ok();
     }
 

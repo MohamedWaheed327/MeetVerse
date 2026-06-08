@@ -9,7 +9,8 @@ export const joinRoom = async (meetingId: string | undefined,
     audioRefs: React.RefObject<Record<string, HTMLAudioElement | null>>,
     syncParticipants: (liveRoom: Room) => void,
     muted: any,
-    cameraOff: any) => {
+    cameraOff: any,
+    onParticipantDisconnected?: (participant: Participant) => void) => {
 
     try {
         const token = await getLivekitToken(meetingId ?? "", state?.displayName);
@@ -44,6 +45,7 @@ export const joinRoom = async (meetingId: string | undefined,
 
         const handleParticipantDisconnected = (participant: Participant) => {
             console.log("participantDisconnected:", participant.identity);
+            if (onParticipantDisconnected) onParticipantDisconnected(participant);
             syncParticipants(newRoom);
         };
 

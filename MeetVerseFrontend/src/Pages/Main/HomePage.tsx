@@ -16,6 +16,7 @@ import {
   Clock,
   LayoutDashboard,
 } from "lucide-react";
+// Navigate to create page so users can choose Start Now or Schedule
 
 export default function HomePage() {
   const fadeInUp = {
@@ -23,6 +24,8 @@ export default function HomePage() {
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.5 },
   };
+
+  
 
   const quickActions = [
     {
@@ -164,11 +167,14 @@ export default function HomePage() {
             </div>
             <div className="space-y-4">
               {quickActions.map((a, i) => (
-                <a
+                <div
                   key={i}
-                  href={a.href}
-                  className="group flex items-center justify-between p-5 bg-slate-50 dark:bg-[#0D0F16]/50 border border-slate-100 dark:border-[#2A2E3B] rounded-4xl hover:border-blue-500 transition-all"
+                  onClick={a.onClick ? a.onClick : undefined}
+                  className="relative group flex items-center justify-between p-5 bg-slate-50 dark:bg-[#0D0F16]/50 border border-slate-100 dark:border-[#2A2E3B] rounded-4xl hover:border-blue-500 transition-all cursor-pointer"
                 >
+                  {a.href ? (
+                    <a href={a.href} className="absolute inset-0 z-10" />
+                  ) : null}
                   <div className="flex items-center gap-5">
                     <div
                       className={`p-3 ${a.color} rounded-xl group-hover:scale-110 transition-transform`}
@@ -184,7 +190,7 @@ export default function HomePage() {
                     size={18}
                     className="text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all"
                   />
-                </a>
+                </div>
               ))}
             </div>
           </motion.div>
@@ -229,6 +235,8 @@ export default function HomePage() {
           </motion.div>
         </div>
       </main>
+
+      {/* InstantMeetingModal removed: navigation now goes to /meetings/create */}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import Navbar from "../../../components/LandingComponents/Navbar/Navbar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, MessageSquare, Waves, X, Send, ShieldCheck, Type, PenTool } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, MessageSquare, Waves, X, Send, ShieldCheck, Type, PenTool, Hand, FileDown, Link } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Participant, Room, RoomEvent, Track, TrackPublication } from "livekit-client";
@@ -28,6 +28,13 @@ import { toggleCamera } from "./MeetingControls/toggleCamera";
 import { handleLeaveMeeting } from "./MeetingControls/leaveMeeting";
 import { toggleMic } from "./MeetingControls/toggleMic";
 import WhiteboardPanel from "./Whiteboard/WhiteboardPanel";
+import type { WhiteboardPanelHandle } from "./Whiteboard/WhiteboardPanel";
+import { useToast } from "../../../Context/ToastContext";
+import { getMeeting } from "../../../services/getMeeting";
+import { getMeetingParticipants } from "../../../services/getMeetingParticipants";
+import { leaveMeetingAPI } from "../../../services/leaveMeetingAPI";
+import { useParticipants } from "./MeetingControls/useParticipants";
+import InteractionBar from "./MeetingControls/InteractionBar";
 
 type Message = {
   id: string;
@@ -44,6 +51,7 @@ type User = {
   isSpeaking: boolean;
   isLocal: boolean;
   hasVideo: boolean;
+  hasMic: boolean;
 };
 
 export default function MeetingPage() {
@@ -62,17 +70,26 @@ export default function MeetingPage() {
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const [meetingInfo, setMeetingInfo] = useState<any>(null);
+  const [isNavbarVisible, setIsNavbarVisible] = useState(false);
+  const [isHost, setIsHost] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const { showToast } = useToast();
+
+  const { participants, toggleRaiseHand, isLocalHandRaised, participantCount } = useParticipants(meetingId, users);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const roomRef = useRef<Room | null>(null);
   const videoRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const screenShareContainerRef = useRef<HTMLDivElement | null>(null);
+  const hasShownSelfShareToast = useRef(false);
   const cleanupRef = useRef<null | (() => Promise<void>)>(null);
   
   const isTogglingCameraRef = useRef(false);
   const isTogglingMicRef = useRef(false);
   const isTogglingScreenShareRef = useRef(false);
+  const whiteboardRef = useRef<WhiteboardPanelHandle>(null);
 
   const rafRefs = useRef<{ first: number | null; second: number | null }>({ first: null, second: null });
 
@@ -296,6 +313,9 @@ export default function MeetingPage() {
       return;
     }
 
+    // Ensure chat is visible so transcript appears inside the chat window
+    setIsChatOpen(true);
+
     roomRef.current.remoteParticipants.forEach((participant) => {
       const micPub = participant.getTrackPublication(Track.Source.Microphone);
       if (micPub?.track && !micPub.track.isMuted) {
@@ -351,12 +371,62 @@ export default function MeetingPage() {
       });
 
       if (activeScreenShare?.publication?.track) {
-        attachScreenShareTrackToArea(activeScreenShare.publication.track, screenShareContainerRef);
+        attachScreenShareTrackToArea(
+          activeScreenShare.publication.track, 
+          screenShareContainerRef,
+          activeScreenShare.isLocal,
+          () => {
+            if (!hasShownSelfShareToast.current) {
+              try { showToast("You're sharing this tab — your preview has been hidden to prevent lag.", "warning"); } catch(e) {}
+              hasShownSelfShareToast.current = true;
+            }
+          }
+        );
       } else {
+        hasShownSelfShareToast.current = false;
         removeScreenShareElement(screenShareContainerRef);
       }
     });
   };
+
+  useEffect(() => {
+    if (meetingId) {
+      getMeeting(meetingId).then((info) => {
+        if (info) setMeetingInfo(info);
+      });
+    }
+  }, [meetingId, meetingInfo?.hostId]);
+
+  useEffect(() => {
+    if (meetingId) {
+      const currentUserId = localStorage.getItem("userid");
+      getMeetingParticipants(meetingId).then((participants) => {
+        // Backend uses MeetingParticipantRole.Host = 1, Participant = 0
+        console.log("getMeetingParticipants response:", participants, "currentUserId:", currentUserId);
+        try { showToast(`Participants: ${participants.length} roles: ${participants.map(p => p.role).join(",")}`, "info"); } catch(e) {}
+        const hostParticipant = participants.find((p) => p.role === 1 || p.role === "Host" || p.role === "host");
+        if (hostParticipant && hostParticipant.userId === currentUserId) {
+          setIsHost(true);
+        }
+        // Fallback: compare against meetingInfo.hostId if participants didn't indicate host
+        try {
+          if (!isHost && meetingInfo && meetingInfo.hostId && meetingInfo.hostId === currentUserId) {
+            setIsHost(true);
+          }
+        } catch (e) {}
+      });
+    }
+  }, [meetingId]);
+
+  // Debug: show toast/console when host status is detected
+  useEffect(() => {
+    if (isHost) {
+      console.log("MeetingPage: current user is host");
+      try { showToast("You are the host of this meeting", "info"); } catch (e) { /* ignore */ }
+    } else {
+      console.log("MeetingPage: current user is not host");
+    }
+  }, [isHost]);
 
   useEffect(() => {
     let cancelled = false;
@@ -403,6 +473,10 @@ export default function MeetingPage() {
 
         const handleParticipantDisconnected = (participant: Participant) => {
           console.log("participantDisconnected:", participant.identity);
+          const currentUserId = localStorage.getItem("userid");
+          if (meetingInfo && meetingInfo.hostId === currentUserId) {
+            showToast(`${getParticipantDisplayName(participant, false)} left the meeting`, 'info');
+          }
           syncParticipants(newRoom);
         };
 
@@ -505,25 +579,36 @@ export default function MeetingPage() {
 
   return (
     <div className="h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300 flex flex-col overflow-hidden font-sans">
-      <Navbar />
+      <div 
+        className={`absolute top-0 left-0 w-full z-50 transition-transform duration-300 ${isNavbarVisible ? 'translate-y-0' : '-translate-y-full'}`}
+        onMouseEnter={() => setIsNavbarVisible(true)}
+        onMouseLeave={() => setIsNavbarVisible(false)}
+      >
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-md -z-10 h-[80px] pointer-events-none" style={{ opacity: isNavbarVisible ? 1 : 0, transition: 'opacity 0.3s' }} />
+        <Navbar />
+      </div>
+      <div 
+        className="absolute top-0 left-0 w-full h-[60px] z-40" 
+        onMouseEnter={() => setIsNavbarVisible(true)}
+      />
 
-      <main className="flex-1 pt-20 pb-4 px-4 md:px-6 max-w-[1800px] mx-auto w-full flex gap-4 overflow-hidden relative">
+      <main className="flex-1 pt-6 pb-4 px-4 md:px-6 max-w-[1800px] mx-auto w-full flex gap-4 overflow-hidden relative">
         {/* Left Side: Video Grid Area */}
         <div className="flex-1 flex flex-col gap-4 min-w-0 h-full overflow-hidden z-10">
           {/* Header Info */}
           <div className="flex items-center justify-between px-2">
             <div className="min-w-0">
               <h1 className="text-sm md:text-lg font-black flex items-center gap-2 truncate uppercase tracking-tight">
-                Project DevHub Sync
+                {meetingInfo?.title || "Meeting Session"}
                 <span className="px-2 py-0.5 bg-red-600 text-[9px] text-white rounded font-bold animate-pulse">
                   LIVE
                 </span>
               </h1>
             </div>
 
-            <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-900/10 px-4 py-2 rounded-2xl border border-blue-100 dark:border-blue-800/30 shadow-sm">
-              <ShieldCheck size={14} className="text-blue-600" />
-              <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest hidden sm:block">
+            <div className="flex items-center gap-3 bg-slate-900/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
+              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981] animate-pulse" />
+              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest hidden sm:block">
                 AI Audio Shield Active
               </span>
             </div>
@@ -532,18 +617,18 @@ export default function MeetingPage() {
           {/* Video / Screen Share / Whiteboard Layout */}
           <div className="flex-1 p-2 min-h-0 overflow-hidden">
             {isWhiteboardOpen ? (
-              <WhiteboardPanel meetingId={meetingId ?? ""} />
+              <WhiteboardPanel meetingId={meetingId ?? ""} ref={whiteboardRef} />
             ) : !screenShareOff ? (
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 w-full h-full">
                 {/* Screen share area */}
-                <div className="relative rounded-[2.5rem] border-2 border-white dark:border-[#2A2E3B] bg-black overflow-hidden shadow-xl min-h-[300px]">
+                <div className="relative rounded-[2.5rem] border-2 border-white/5 dark:border-[#2A2E3B] bg-black overflow-hidden shadow-xl min-h-[300px]">
                   <div
                     ref={screenShareContainerRef}
                     className="absolute inset-0 w-full h-full"
                   />
 
                   <div className="absolute top-5 left-5 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/10 z-20">
-                    <span className="text-[10px] font-black text-white uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-white tracking-wide">
                       Presenting Screen
                       {screenShareOwner ? ` • ${screenShareOwner}` : ""}
                     </span>
@@ -552,16 +637,16 @@ export default function MeetingPage() {
 
                 {/* Participants sidebar */}
                 <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-1 gap-3 h-full overflow-hidden">
-                  {users.map((user) => (
+                  {participants.map((user) => (
                     <motion.div
                       key={user.id}
                       layout
                       className={`relative rounded-[2rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden min-h-[180px] ${user.isSpeaking
-                        ? "border-blue-500 ring-4 ring-blue-500/10"
-                        : "border-white dark:border-[#2A2E3B]"
+                        ? "border-blue-500/80 shadow-[0_0_30px_rgba(59,130,246,0.4)] ring-4 ring-blue-500/20"
+                        : "border-white/5 dark:border-[#2A2E3B]"
                         } ${user.hasVideo
                           ? "bg-black"
-                          : "bg-white dark:bg-[#181B26]"
+                          : "bg-gradient-to-br from-[#0f1117] to-[#1a1d2e]"
                         }`}
                     >
                       <div
@@ -578,7 +663,7 @@ export default function MeetingPage() {
                       {!user.hasVideo && (
                         <div className="absolute inset-0 flex items-center justify-center z-10">
                           <div
-                            className={`w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br ${user.color} flex items-center justify-center text-2xl md:text-4xl font-black text-white shadow-2xl relative`}
+                            className={`w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 ring-2 ring-white/10 shadow-lg shadow-black/40 flex items-center justify-center text-2xl md:text-4xl font-black text-white shadow-2xl relative`}
                           >
                             {user.initial}
                             {user.isSpeaking && (
@@ -588,18 +673,27 @@ export default function MeetingPage() {
                         </div>
                       )}
 
-                      <div className="absolute bottom-4 left-4 bg-black/40 backdrop-blur-xl px-3 py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-2xl z-20">
+                      <div className="absolute bottom-4 left-4 bg-black/40 backdrop-blur-md px-4 py-2 rounded-xl flex items-center gap-2 border border-white/20 shadow-lg z-20">
                         <div
                           className={`w-2 h-2 rounded-full ${user.isSpeaking
                             ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
-                            : "bg-slate-400"
+                            : (user.isLocal && muted) ? "bg-red-500 shadow-[0_0_8px_#ef4444]" : "bg-slate-400/50"
                             }`}
                         />
-                        <span className="text-[10px] font-black text-white uppercase tracking-wider">
+                        <span className="text-xs font-semibold text-white tracking-wide">
                           {user.name}
                         </span>
                         {user.isLocal && muted && (
                           <MicOff size={14} className="text-red-400" />
+                        )}
+                        {user.handRaised && (
+                          <motion.div
+                            animate={{ y: [0, -3, 0] }}
+                            transition={{ repeat: Infinity, duration: 1.5 }}
+                            className="text-amber-500"
+                          >
+                            <Hand size={14} fill="currentColor" />
+                          </motion.div>
                         )}
                       </div>
 
@@ -624,18 +718,21 @@ export default function MeetingPage() {
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-center h-full overflow-hidden">
-                <div className="grid grid-cols-2 gap-3 md:gap-5 w-full h-full max-w-[1000px] max-h-[700px]">
-                  {users.map((user) => (
+              <div className="flex items-center justify-center h-full overflow-hidden relative">
+                {participants.length === 1 && (
+                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-[#0D0F16]/5 to-transparent blur-3xl animate-pulse -z-10 w-[800px] h-[800px] rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                )}
+                <div className={`grid gap-3 md:gap-5 w-full h-full transition-all duration-500 z-10 ${participants.length === 1 ? "grid-cols-1 max-w-[800px] max-h-[600px]" : "grid-cols-2 max-w-[1000px] max-h-[700px]"}`}>
+                  {participants.map((user) => (
                     <motion.div
                       key={user.id}
                       layout
                       className={`relative rounded-[2.5rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden ${user.isSpeaking
-                        ? "border-blue-500 ring-4 ring-blue-500/10"
-                        : "border-white dark:border-[#2A2E3B]"
+                        ? "border-blue-500/80 shadow-[0_0_30px_rgba(59,130,246,0.4)] ring-4 ring-blue-500/20"
+                        : "border-white/5 dark:border-[#2A2E3B]"
                         } ${user.hasVideo
                           ? "bg-black"
-                          : "bg-white dark:bg-[#181B26]"
+                          : "bg-gradient-to-br from-[#0f1117] to-[#1a1d2e]"
                         }`}
                     >
                       <div
@@ -652,7 +749,7 @@ export default function MeetingPage() {
                       {!user.hasVideo && (
                         <div className="absolute inset-0 flex items-center justify-center z-10">
                           <div
-                            className={`w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br ${user.color} flex items-center justify-center text-3xl md:text-5xl font-black text-white shadow-2xl relative`}
+                            className={`w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 ring-2 ring-white/10 shadow-lg shadow-black/40 flex items-center justify-center text-3xl md:text-5xl font-black text-white shadow-2xl relative`}
                           >
                             {user.initial}
                             {user.isSpeaking && (
@@ -662,14 +759,14 @@ export default function MeetingPage() {
                         </div>
                       )}
 
-                      <div className="absolute bottom-6 left-6 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl flex items-center gap-3 border border-white/10 shadow-2xl z-20">
+                      <div className="absolute bottom-6 left-6 bg-black/40 backdrop-blur-md px-4 py-2 rounded-xl flex items-center gap-2 border border-white/20 shadow-lg z-20">
                         <div
                           className={`w-2 h-2 rounded-full ${user.isSpeaking
                             ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
-                            : "bg-slate-400"
+                            : (user.isLocal && muted) ? "bg-red-500 shadow-[0_0_8px_#ef4444]" : "bg-slate-400/50"
                             }`}
                         />
-                        <span className="text-[10px] font-black text-white uppercase tracking-wider">
+                        <span className="text-xs font-semibold text-white tracking-wide">
                           {user.name}
                         </span>
                         {user.isLocal && muted && (
@@ -700,99 +797,157 @@ export default function MeetingPage() {
             )}
           </div>
 
-          {/* Action Controls */}
-          <div className="bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] p-4 rounded-[2.5rem] shadow-2xl flex items-center justify-between gap-4 mx-auto w-fit md:w-full max-w-4xl backdrop-blur-md">
-            <div className="flex items-center gap-2 md:gap-4">
-              <button
-                onClick={() => toggleMic(roomRef, isTogglingMicRef, setMuted)}
-                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${muted
-                  ? "bg-red-500 text-white shadow-red-500/20"
-                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
-                  }`}
-              >
-                {muted ? <MicOff size={22} /> : <Mic size={22} />}
-              </button>
+          {/* Bottom spacer for fixed control bar */}
+          <div className="h-20 shrink-0" />
+        </div>
 
-              <button
-                onClick={() => toggleCamera(roomRef, isTogglingCameraRef, setCameraOff)}
-                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${cameraOff
-                  ? "bg-red-500 text-white shadow-red-500/20"
-                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
-                  }`}
-              >
-                {cameraOff ? <VideoOff size={22} /> : <Video size={22} />}
-              </button>
+        {/* ═══════════ Unified Frosted-Glass Control Bar ═══════════ */}
+        <div
+          className="control-bar-enter fixed bottom-6 left-1/2 z-50 flex items-center gap-1 px-3 py-2 rounded-full backdrop-blur-xl border shadow-2xl"
+          style={{
+            background: 'var(--control-bar-bg)',
+            borderColor: 'var(--control-bar-border)',
+            boxShadow: 'var(--control-bar-shadow)',
+          }}
+        >
+          {/* ── Media Controls Group ── */}
+          <button
+            onClick={() => toggleMic(roomRef, isTogglingMicRef, setMuted)}
+            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
+              muted
+                ? "bg-red-500/20 text-red-400 dark:text-red-400 ring-1 ring-red-500/30"
+                : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
+            }`}
+            aria-label={muted ? "Unmute Microphone" : "Mute Microphone"}
+            data-tooltip={muted ? "Unmute" : "Mute"}
+          >
+            {muted ? <MicOff size={20} /> : <Mic size={20} />}
+          </button>
 
-              <button
-                onClick={() => toggleScreenShare(roomRef, isTogglingScreenShareRef, setScreenShareOff)}
-                className={`hidden sm:flex p-4 rounded-2xl transition-all shadow-md active:scale-90 ${screenShareOff
-                  ? "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-blue-600 hover:text-white"
-                  : "bg-blue-600 text-white shadow-blue-600/30"
-                  }`}
-              >
-                <MonitorUp size={22} />
-              </button>
+          <button
+            onClick={() => toggleCamera(roomRef, isTogglingCameraRef, setCameraOff)}
+            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
+              cameraOff
+                ? "bg-red-500/20 text-red-400 dark:text-red-400 ring-1 ring-red-500/30"
+                : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
+            }`}
+            aria-label={cameraOff ? "Turn On Camera" : "Turn Off Camera"}
+            data-tooltip={cameraOff ? "Start Video" : "Stop Video"}
+          >
+            {cameraOff ? <VideoOff size={20} /> : <Video size={20} />}
+          </button>
 
-              <button className="hidden sm:flex p-4 rounded-2xl bg-slate-100 dark:bg-[#2A2E3B] hover:bg-emerald-600 hover:text-white transition-all shadow-md">
-                <Waves size={22} />
-              </button>
+          <button
+            onClick={() => toggleScreenShare(roomRef, isTogglingScreenShareRef, setScreenShareOff)}
+            className={`hidden sm:flex p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
+              !screenShareOff
+                ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30"
+                : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
+            }`}
+            aria-label={screenShareOff ? "Share Screen" : "Stop Sharing"}
+            data-tooltip={screenShareOff ? "Share Screen" : "Stop Sharing"}
+          >
+            <MonitorUp size={20} />
+          </button>
 
-              <button
-                onClick={() => {
-                  setIsWhiteboardOpen(!isWhiteboardOpen);
-                  if (screenShareOff === false) {
-                    toggleScreenShare(roomRef, isTogglingScreenShareRef, setScreenShareOff);
-                  }
-                }}
-                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${isWhiteboardOpen
-                  ? "bg-purple-600 text-white shadow-purple-600/30"
-                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
-                  }`}
-                title="Whiteboard"
-              >
-                <PenTool size={22} />
-              </button>
+          {/* ── Divider ── */}
+          <div className="w-px h-6 mx-1" style={{ background: 'var(--control-divider)' }} />
 
-              <button
-                onClick={() => {
-                  toggleTranscript();
-                }}
-                className={`p-4 rounded-2xl transition-all shadow-md active:scale-90 ${isCaptionsOn
-                  ? "bg-blue-600 text-white shadow-blue-600/30"
-                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
-                  }`}
-                title="Captions"
-              >
-                <Type size={22} />
-              </button>
-            </div>
+          {/* ── Tools Group ── */}
+          <button
+            className="hidden sm:flex p-3 rounded-xl text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10 transition-all duration-200 hover:scale-105"
+            aria-label="Noise Suppression"
+            data-tooltip="Noise Suppression"
+          >
+            <Waves size={20} />
+          </button>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsChatOpen((prev) => !prev)}
-                className={`p-4 rounded-2xl transition-all shadow-md flex items-center gap-2 ${isChatOpen
-                  ? "bg-blue-600 text-white shadow-blue-600/30"
-                  : "bg-slate-100 dark:bg-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#353A4D]"
-                  }`}
-              >
-                <MessageSquare size={22} />
-                <span className="hidden md:block text-xs font-bold uppercase tracking-widest">
-                  Chat
-                </span>
-              </button>
+          <button
+            onClick={() => {
+              setIsWhiteboardOpen(!isWhiteboardOpen);
+              if (screenShareOff === false) {
+                toggleScreenShare(roomRef, isTogglingScreenShareRef, setScreenShareOff);
+              }
+            }}
+            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
+              isWhiteboardOpen
+                ? "bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/30"
+                : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
+            }`}
+            aria-label={isWhiteboardOpen ? "Close Whiteboard" : "Open Whiteboard"}
+            data-tooltip={isWhiteboardOpen ? "Close Whiteboard" : "Whiteboard"}
+          >
+            <PenTool size={20} />
+          </button>
 
-              <button
-                onClick={() => {
-                  handleLeaveMeeting(roomRef, clearScheduledRenderSync, audioRefs, videoRefs, screenShareContainerRef);
-                  navigate("/meetings");
-                }}
-                className="bg-red-600 hover:bg-red-700 px-6 md:px-8 py-4 rounded-2xl text-white font-bold text-xs uppercase tracking-widest shadow-xl shadow-red-900/30 flex items-center gap-3 active:scale-95 transition-all"
-              >
-                <PhoneOff size={22} />
-                <span className="hidden lg:block">Leave</span>
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={() => toggleTranscript()}
+            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
+              isCaptionsOn
+                ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30"
+                : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
+            }`}
+            aria-label={isCaptionsOn ? "Turn Off Captions" : "Turn On Captions"}
+            data-tooltip={isCaptionsOn ? "Captions Off" : "Captions"}
+          >
+            <Type size={20} />
+          </button>
+
+          {/* ── PDF Export (only when whiteboard is open) ── */}
+          {isWhiteboardOpen && (
+            <button
+              onClick={() => whiteboardRef.current?.exportPDF()}
+              className="p-3 rounded-xl text-emerald-500 dark:text-emerald-400 hover:bg-emerald-500/15 dark:hover:bg-emerald-500/15 ring-1 ring-emerald-500/20 transition-all duration-200 active:scale-90 hover:scale-105"
+              aria-label="Export Whiteboard as PDF"
+              data-tooltip="Save as PDF"
+            >
+              <FileDown size={20} />
+            </button>
+          )}
+
+          {/* ── Divider ── */}
+          <div className="w-px h-6 mx-1" style={{ background: 'var(--control-divider)' }} />
+
+          {/* ── Interaction Group ── */}
+          <InteractionBar 
+            participants={participants}
+            toggleRaiseHand={toggleRaiseHand}
+            isLocalHandRaised={isLocalHandRaised}
+            participantCount={participantCount}
+          />
+
+          {/* ── Divider ── */}
+          <div className="w-px h-6 mx-1" style={{ background: 'var(--control-divider)' }} />
+
+          {/* ── Chat & Leave Group ── */}
+          <button
+            onClick={() => setIsChatOpen((prev) => !prev)}
+            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
+              isChatOpen
+                ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30"
+                : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
+            }`}
+            aria-label={isChatOpen ? "Close Chat" : "Open Chat"}
+            data-tooltip={isChatOpen ? "Close Chat" : "Chat"}
+          >
+            <MessageSquare size={20} />
+          </button>
+
+          <button
+            onClick={() => {
+              if (isHost) {
+                setShowLeaveModal(true);
+              } else {
+                handleLeaveMeeting(roomRef, clearScheduledRenderSync, audioRefs, videoRefs, screenShareContainerRef);
+                navigate("/meetings");
+              }
+            }}
+            className="ml-1 bg-red-600 hover:bg-red-500 hover:shadow-lg hover:shadow-red-500/25 px-5 py-2.5 rounded-full text-white font-semibold text-xs uppercase tracking-wider flex items-center gap-2 active:scale-95 transition-all duration-200"
+            aria-label="Leave Meeting"
+            data-tooltip="Leave"
+          >
+            <PhoneOff size={18} />
+          </button>
         </div>
 
         {/* Chat Sidebar */}
@@ -803,7 +958,7 @@ export default function MeetingPage() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 400, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 120 }}
-              className="fixed bottom-4 right-4 left-4 top-20 lg:relative lg:top-0 lg:left-0 lg:right-0 lg:w-[320px] xl:w-[360px] bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] rounded-[3rem] flex flex-col shadow-2xl z-[100] overflow-hidden"
+              className="fixed bottom-4 right-4 left-4 top-20 lg:relative lg:top-0 lg:left-0 lg:right-0 lg:w-[320px] xl:w-[360px] bg-gradient-to-br from-[#0f1117] to-[#1a1d2e] border border-slate-200 dark:border-[#2A2E3B] rounded-[3rem] flex flex-col shadow-2xl z-[100] overflow-hidden"
             >
               <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50/50 dark:bg-white/5">
                 <h2 className="font-black text-sm flex items-center gap-2 uppercase tracking-tighter">
@@ -849,7 +1004,7 @@ export default function MeetingPage() {
                         )}
 
                         {isMe && (
-                          <span className="text-[9px] font-black text-blue-600 uppercase mr-2 tracking-widest">
+                          <span className="text-[9px] font-black text-slate-300 uppercase mr-2 tracking-widest">
                             You
                           </span>
                         )}
@@ -869,6 +1024,48 @@ export default function MeetingPage() {
                 )}
                 <div ref={scrollRef} />
               </div>
+
+              {isCaptionsOn && (
+                <div className="p-4 border-t border-slate-100 dark:border-white/5 bg-white/80 dark:bg-[#0F1115] transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                      Live Transcript
+                    </h3>
+                    <button
+                      onClick={() => setIsCaptionsOn(false)}
+                      className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <div className="text-sm text-slate-700 dark:text-slate-200 leading-6 max-h-40 overflow-y-auto space-y-3">
+                    {Object.entries(captions).length === 0 && (
+                      <span className="text-slate-400 dark:text-slate-500">
+                        No transcript yet...
+                      </span>
+                    )}
+
+                    {Object.entries(captions).map(([trackKey, caption]) => (
+                      <div key={trackKey} className="border-b border-slate-200 dark:border-slate-700 pb-2">
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-blue-600 mb-1">
+                          {caption.participantName}
+                        </div>
+
+                        {caption.finals.length > 0 && (
+                          <div>{caption.finals[caption.finals.length - 1]}</div>
+                        )}
+
+                        {caption.interim && (
+                          <div className="italic text-slate-400 dark:text-slate-500">
+                            {caption.interim}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="p-6 bg-slate-50 dark:bg-black/10 border-t border-slate-100 dark:border-white/5">
                 <div className="relative group">
@@ -896,42 +1093,68 @@ export default function MeetingPage() {
         </AnimatePresence>
       </main>
 
-      <div className="px-4 md:px-6 pb-3">
-        <div className="max-w-4xl mx-auto bg-white/80 dark:bg-[#181B26]/80 backdrop-blur-md border border-slate-200 dark:border-[#2A2E3B] rounded-2xl px-4 py-3 shadow-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-            <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-              Live Transcript
-            </h3>
-          </div>
+      {/* Host Leave Modal */}
+      <AnimatePresence>
+        {showLeaveModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowLeaveModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 20, stiffness: 200 }}
+              className="bg-gradient-to-br from-[#0f1117] to-[#1a1d2e] border border-slate-200 dark:border-[#2A2E3B] rounded-[2.5rem] p-8 md:p-10 shadow-2xl max-w-md w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-black mb-2 tracking-tight">Leave Meeting?</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">
+                You are the host. Choose how you'd like to leave.
+              </p>
 
-          <div className="text-sm text-slate-700 dark:text-slate-200 leading-6 max-h-40 overflow-y-auto space-y-3">
-            {Object.entries(captions).length === 0 && (
-              <span className="text-slate-400 dark:text-slate-500">
-                No transcript yet...
-              </span>
-            )}
+              <div className="space-y-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      await leaveMeetingAPI(meetingId ?? "", true);
+                    } catch (e) { console.error(e); }
+                    handleLeaveMeeting(roomRef, clearScheduledRenderSync, audioRefs, videoRefs, screenShareContainerRef);
+                    navigate("/meetings");
+                  }}
+                  className="w-full flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl font-bold text-sm shadow-xl shadow-red-900/20 transition-all active:scale-95"
+                >
+                  <PhoneOff size={18} />
+                  End Meeting for All
+                </button>
 
-            {Object.entries(captions).map(([trackKey, caption]) => (
-              <div key={trackKey} className="border-b border-slate-200 dark:border-slate-700 pb-2">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-blue-600 mb-1">
-                  {caption.participantName}
-                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      await leaveMeetingAPI(meetingId ?? "", false);
+                    } catch (e) { console.error(e); }
+                    handleLeaveMeeting(roomRef, clearScheduledRenderSync, audioRefs, videoRefs, screenShareContainerRef);
+                    navigate("/meetings");
+                  }}
+                  className="w-full flex items-center justify-center gap-3 bg-slate-100 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] hover:bg-slate-200 dark:hover:bg-[#232734] py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
+                >
+                  Leave & Transfer Host
+                </button>
 
-                {caption.finals.length > 0 && (
-                  <div>{caption.finals[caption.finals.length - 1]}</div>
-                )}
-
-                {caption.interim && (
-                  <div className="italic text-slate-400 dark:text-slate-500">
-                    {caption.interim}
-                  </div>
-                )}
+                <button
+                  onClick={() => setShowLeaveModal(false)}
+                  className="w-full py-3 text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
