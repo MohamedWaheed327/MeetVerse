@@ -11,7 +11,7 @@ export const getActiveScreenShare = (liveRoom: Room, identity: string | null) =>
         for (const participant of allParticipants) {
             const activePub = participant.getTrackPublication(Track.Source.ScreenShare);
 
-            if (activePub) {
+            if (activePub && activePub.track && !activePub.isMuted) {
                 return {
                     publication: activePub,
                     participant,
@@ -22,13 +22,14 @@ export const getActiveScreenShare = (liveRoom: Room, identity: string | null) =>
     }
     else {
         var participant = liveRoom.getParticipantByIdentity(identity);
-        const activePub = participant!.getTrackPublication(Track.Source.ScreenShare);
+        if (!participant) return null;
+        const activePub = participant.getTrackPublication(Track.Source.ScreenShare);
 
-        if (activePub) {
+        if (activePub && activePub.track && !activePub.isMuted) {
             return {
                 publication: activePub,
                 participant,
-                isLocal: participant!.identity === liveRoom.localParticipant.identity,
+                isLocal: participant.identity === liveRoom.localParticipant.identity,
             };
         }
     }

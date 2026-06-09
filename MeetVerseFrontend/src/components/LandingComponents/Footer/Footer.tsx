@@ -1,5 +1,5 @@
 import { Twitter, Linkedin, Github, Mail } from "lucide-react";
-import logo from "../../../assets/Logo/icon2.png";
+import Logo from "../../Shared/Logo";
 
 export default function Footer() {
   return (
@@ -11,14 +11,7 @@ export default function Footer() {
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           {/* Brand Column */}
           <div className="md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-                <img src={logo} className="w-5 h-5 text-white" alt="Logo" />
-              </div>
-              <span className="text-gray-900 dark:text-white font-semibold">
-                MeetVerse
-              </span>
-            </div>
+            <Logo className="mb-4" />
             <p className="text-gray-600 dark:text-[#A8B0C2] mb-6">
               Crystal-clear online meetings powered by AI noise intelligence.
             </p>

@@ -3,6 +3,8 @@
 interface ImportMetaEnv {
   readonly VITE_BACKEND_DEV: string;
   readonly VITE_BACKEND_PROD: string;
+  readonly VITE_LIVEKIT_DEV: string;
+  readonly VITE_LIVEKIT_PROD: string;
   readonly VITE_GOOGLE_CLIENT_ID: string;
 }
 

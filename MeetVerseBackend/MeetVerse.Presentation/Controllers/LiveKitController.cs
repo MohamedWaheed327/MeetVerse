@@ -4,6 +4,8 @@ using MeetVerse.Services.Implementations.Logging;
 using Livekit.Server.Sdk.Dotnet;
 using Microsoft.EntityFrameworkCore;
 using MeetVerse.Persistence.Data;
+using MeetVerse.Shared.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace MeetVerse.Presentation.Controllers;
 
@@ -11,15 +13,18 @@ namespace MeetVerse.Presentation.Controllers;
 [Route("api/[controller]")]
 public class LiveKitController : ControllerBase
 {
-    private const string ApiKey = "APIVDmR6TG3FFHy";
-    private const string ApiSecret = "ZSqPDDGXAVhsuqNuKfpsL8Og9TiahJt2A9rpJw67JJD";
+    private readonly LiveKitSettings _liveKitSettings;
     private readonly ILiveKitTokenService _liveKitTokenService;
     private readonly MeetVerseDbContext _db;
 
-    public LiveKitController(ILiveKitTokenService liveKitTokenService, MeetVerseDbContext db) 
-    { 
-        _liveKitTokenService = liveKitTokenService; 
+    public LiveKitController(
+        ILiveKitTokenService liveKitTokenService,
+        MeetVerseDbContext db,
+        IOptions<LiveKitSettings> liveKitSettings)
+    {
+        _liveKitTokenService = liveKitTokenService;
         _db = db;
+        _liveKitSettings = liveKitSettings.Value;
     }
 
     [HttpGet("token")]
@@ -39,7 +44,7 @@ public class LiveKitController : ControllerBase
         var body = await reader.ReadToEndAsync();
         try
         {
-            var webhookReceiver = new WebhookReceiver(ApiKey, ApiSecret);
+            var webhookReceiver = new WebhookReceiver(_liveKitSettings.ApiKey, _liveKitSettings.ApiSecret);
             var liveEvent = webhookReceiver.Receive(body, authHeader);
             switch (liveEvent.Event)
             {

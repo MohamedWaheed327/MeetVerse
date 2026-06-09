@@ -10,6 +10,7 @@ export const handleLeaveMeeting = (roomRef: React.RefObject<Room | null>
     clearScheduledRenderSync();
     if (roomRef.current) {
         try {
+            roomRef.current.removeAllListeners();
             roomRef.current.disconnect();
         } catch (err) {
             console.error("Room disconnect error:", err);

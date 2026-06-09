@@ -2,9 +2,11 @@
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
 import { Key, Mail, ArrowLeft, Send } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 export default function ForgotPasswordPage() {
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300">
       <Navbar />
@@ -45,14 +47,14 @@ export default function ForgotPasswordPage() {
               </div>
             </div>
 
-            <Link to="/otp-verification">
-              <button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-[1.5rem] shadow-xl shadow-blue-900/20 transition-all flex items-center justify-center gap-2 active:scale-95"
-              >
-                Send Reset Link <Send size={18} />
-              </button>
-            </Link>
+            <LiquidMetalButton
+              type="submit"
+              onClick={() => navigate("/otp-verification")}
+              width="full"
+              className="w-full flex items-center justify-center gap-2"
+            >
+              Send Reset Link <Send size={18} className="ml-2 relative z-10" />
+            </LiquidMetalButton>
           </form>
 
           <div className="mt-8 text-center">

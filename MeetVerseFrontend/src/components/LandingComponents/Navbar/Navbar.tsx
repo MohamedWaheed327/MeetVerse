@@ -1,17 +1,27 @@
 /* eslint-disable no-unused-vars */
 import { useState } from "react";
-import Video from "../../../assets/Logo/icon2.png";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import Logo from "../../Shared/Logo";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import DarkMode from "./DarkMode";
+import { useAuth } from "../../../Context/AuthContext";
+import { LiquidMetalButton } from "../../ui/LiquidMetalButton";
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isLoggedIn, logout } = useAuth();
+
+  const isMeetingRoom =
+    /^\/meetings\/[^/]+$/.test(location.pathname) &&
+    !["/meetings/create", "/meetings/join"].includes(location.pathname);
+
+  if (isMeetingRoom) {
+    return null;
+  }
 
   const isLanding = location.pathname === "/";
-  // التأكد من وجود توكن (اليوزر مسجل دخول)
-  const isLoggedIn = !!localStorage.getItem("token");
 
   const closeMobile = () => setMobileMenuOpen(false);
 
@@ -29,12 +39,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Link to={isLoggedIn ? "/home" : "/"} onClick={closeMobile}>
-            <div className="flex items-center gap-2">
-              <img src={Video} className="w-10 h-10" alt="Logo" />
-              <span className="text-gray-900 dark:text-[#F1F5F9] font-semibold text-2xl tracking-tight">
-                MeetVerse
-              </span>
-            </div>
+            <Logo />
           </Link>
 
           <div className="hidden md:flex items-center gap-6">
@@ -115,21 +120,21 @@ export default function Navbar() {
                   >
                     Login
                   </Link>
-                  <Link
-                    to="/signup"
-                    className="bg-linear-to-r from-blue-600 to-indigo-600 text-white rounded-xl px-5 py-2.5 font-bold text-sm shadow-md shadow-blue-900/25 hover:from-blue-500 hover:to-indigo-500 transition-all duration-300"
+                  <LiquidMetalButton
+                    onClick={() => navigate("/signup")}
+                    size="sm"
+                    speed={0.6}
+                    repetition={4}
+                    softness={0.5}
+                    shiftRed={0.3}
+                    shiftBlue={0.3}
                   >
                     Get Started
-                  </Link>
+                  </LiquidMetalButton>
                 </>
               ) : (
                 <button
-                  onClick={() => {
-                    localStorage.removeItem("token");
-                    localStorage.removeItem("username");
-                    localStorage.removeItem("userid");
-                    window.location.href = "/";
-                  }}
+                  onClick={logout}
                   className="text-red-500 font-bold text-sm hover:underline"
                 >
                   Logout
@@ -187,10 +192,7 @@ export default function Navbar() {
           )}
           {isLoggedIn && (
             <button
-              onClick={() => {
-                localStorage.removeItem("token");
-                window.location.href = "/";
-              }}
+              onClick={logout}
               className="text-left text-red-500 font-bold text-lg"
             >
               LOGOUT

@@ -9,13 +9,15 @@ interface InteractionBarProps {
     toggleRaiseHand: () => void;
     isLocalHandRaised: boolean;
     participantCount: number;
+    hostId: string | null;
 }
 
 export default function InteractionBar({ 
     participants, 
     toggleRaiseHand, 
     isLocalHandRaised, 
-    participantCount 
+    participantCount,
+    hostId
 }: InteractionBarProps) {
     const [isPanelOpen, setIsPanelOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -77,6 +79,7 @@ export default function InteractionBar({
                 isOpen={isPanelOpen} 
                 onClose={() => setIsPanelOpen(false)} 
                 participants={participants} 
+                hostId={hostId}
             />
         </div>
     );

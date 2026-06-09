@@ -1,8 +1,10 @@
 import { Play } from "lucide-react";
 import photo1 from "../../../assets/hero/Gemini_Generated_Image_9el23k9el23k9el2.png";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { LiquidMetalButton } from "../../ui/LiquidMetalButton";
 
 export default function Hero() {
+  const navigate = useNavigate();
   return (
     <section
       className="bg-transparent transition-all duration-300 relative"
@@ -32,11 +34,17 @@ export default function Hero() {
 
             {/* Buttons */}
             <div className="flex items-center gap-4 flex-wrap">
-              <Link to="/Home" className="w-max">
-                <button className="bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-8 py-4 rounded-xl text-lg font-semibold shadow-lg shadow-blue-900/30 hover:shadow-blue-700/30 transition-all duration-300 hover:-translate-y-0.5">
-                  Start Free Meeting
-                </button>
-              </Link>
+              <LiquidMetalButton
+                onClick={() => navigate("/Home")}
+                size="lg"
+                speed={0.6}
+                repetition={4}
+                softness={0.5}
+                shiftRed={0.3}
+                shiftBlue={0.3}
+              >
+                Start Free Meeting
+              </LiquidMetalButton>
 
               <button className="px-8 py-4 text-lg rounded-xl border border-gray-300/80 dark:border-[#2A2E3B] text-gray-700 dark:text-[#F1F5F9] bg-white/70 dark:bg-[#111827]/60 hover:bg-white dark:hover:bg-[#1A2235] transition-all duration-300 flex items-center gap-2 backdrop-blur">
                 <Play className="w-5 h-5" />

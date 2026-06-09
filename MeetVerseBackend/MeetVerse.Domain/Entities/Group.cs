@@ -5,6 +5,8 @@ public class Group
     public Guid Id { get; set; }
     public string Name { get; set; } = default!;
     public string? Description { get; set; }
+    public string? CoverGradient { get; set; }
+    public bool IsPublic { get; set; } = true;
 
     public Guid CreatedById { get; set; }
     public User CreatedBy { get; set; } = default!;

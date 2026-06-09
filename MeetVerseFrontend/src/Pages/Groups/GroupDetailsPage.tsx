@@ -22,6 +22,7 @@ import { updateGroup } from "../../services/updateGroup";
 import { removeGroupMember } from "../../services/removeGroupMember";
 import { getGroupMembers } from "../../services/getGroupMembers";
 import { GetGroupChat } from "../../services/getGroupChat";
+import { addRecentSpace } from "../../utils/recentSpaces";
 import {
   onError,
   onMessageReceived,
@@ -30,13 +31,10 @@ import {
 } from "../../services/hubs/groupChat";
 import { group_chat_connection } from "../../services/hubs/connections";
 import { getJoinGroupRequests } from "../../services/getJoinGroupRequests";
-
-type member = {
-  userId: string;
-  name: string;
-  role: string;
-  status: string;
-};
+import { useAuth } from "../../Context/AuthContext";
+import { useToast } from "../../Context/ToastContext";
+import type { GroupMember } from "../../services/getGroupMembers";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 type GroupChat = {
   id: string;
@@ -48,11 +46,16 @@ type GroupChat = {
   sentAt: string;
 };
 
+// Global subscription tracker to prevent race conditions during React double-mounts
+const activeGroupSubscriptions: Record<string, number> = {};
+
 export default function GroupDetailsPage() {
   const navigate = useNavigate();
   const { groupId } = useParams();
+  const { userId: authUserId } = useAuth();
+  const { showToast } = useToast();
 
-  const [members, setMembers] = useState<member[]>([]);
+  const [members, setMembers] = useState<GroupMember[]>([]);
   const [groupChat, setGroupChat] = useState<GroupChat[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [joinRequestsCount, setJoinRequestsCount] = useState(0);
@@ -115,6 +118,11 @@ export default function GroupDetailsPage() {
         setGroupDetails(details);
         setEditName(details.name);
         setEditDescription(details.description || "");
+        addRecentSpace({
+          id: details.id,
+          name: details.name,
+          gradient: details.coverGradient
+        });
       } catch (err) {
         console.error(err);
       }
@@ -133,13 +141,22 @@ export default function GroupDetailsPage() {
     }
   };
 
-  const handleRemoveMember = async (memberId: string) => {
-    if (!window.confirm("Are you sure you want to remove this member?")) return;
+  const handleRemoveMember = async (member: GroupMember) => {
+    if (!canRemoveMembers) return;
+    if (
+      !window.confirm(
+        `Remove ${member.name} from this group? They will lose access to the space.`
+      )
+    ) {
+      return;
+    }
     try {
-      await removeGroupMember(groupId ?? "", memberId);
-      setMembers((prev) => prev.filter((m) => m.userId !== memberId));
+      await removeGroupMember(groupId ?? "", member.userId);
+      setMembers((prev) => prev.filter((m) => m.userId !== member.userId));
+      showToast(`${member.name} was removed from the group.`, "success");
     } catch (err) {
       console.error(err);
+      showToast("Could not remove this member. Only the group owner can remove members.", "error");
     }
   };
 
@@ -150,28 +167,85 @@ export default function GroupDetailsPage() {
   }
 
   useEffect(() => {
+    if (!groupId) return;
+    let active = true;
+    activeGroupSubscriptions[groupId] = (activeGroupSubscriptions[groupId] || 0) + 1;
     const start = async () => {
       if (group_chat_connection.state === "Disconnected") {
         await group_chat_connection.start();
+      } else if (group_chat_connection.state === "Connecting") {
+        while (group_chat_connection.state === "Connecting") {
+          if (!active) return;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
       }
-      await subscribeToGroup(groupId!);
+      if (!active) return;
+      await subscribeToGroup(groupId);
+      if (!active) return;
+      group_chat_connection.off("ReceiveMessage");
       onMessageReceived((payload: GroupChat) => {
-        setGroupChat((prev) => [...prev, payload]);
+        if (!active) return;
+        setGroupChat((prev) => {
+          if (prev.some((m) => m.id === payload.id)) {
+            return prev;
+          }
+          return [...prev, payload];
+        });
       });
-      onError((err: unknown) => console.error(err));
+      group_chat_connection.off("Error");
+      onError((err: unknown) => {
+        if (!active) return;
+        console.error(err);
+      });
     };
     start();
     return () => {
-      unsubscribeFromGroup(groupId!);
+      active = false;
       group_chat_connection.off("ReceiveMessage");
+      group_chat_connection.off("Error");
+
+      activeGroupSubscriptions[groupId]--;
+      setTimeout(() => {
+        if (activeGroupSubscriptions[groupId] === 0 && group_chat_connection.state === "Connected") {
+          unsubscribeFromGroup(groupId).catch(() => {});
+        }
+      }, 100);
     };
   }, [groupId]);
 
   const currentUserId =
-    typeof window !== "undefined" ? localStorage.getItem("userid") : null;
-  const currentUserRole = members.find((m) => m.userId === currentUserId)?.role;
-  const isAdminOrOwner =
-    currentUserRole === "Admin" || currentUserRole === "Owner";
+    authUserId ||
+    (typeof window !== "undefined"
+      ? localStorage.getItem("userid") || sessionStorage.getItem("userid")
+      : null);
+
+  const currentUserRole =
+    groupDetails?.currentUserRole ||
+    members.find((m) => m.userId === currentUserId)?.role ||
+    "";
+
+  const isGroupOwner =
+    currentUserRole === "Owner" ||
+    (groupDetails?.createdById != null &&
+      currentUserId != null &&
+      groupDetails.createdById.toLowerCase() === currentUserId.toLowerCase());
+
+  const isAdminOrOwner = currentUserRole === "Admin" || isGroupOwner;
+
+  const canRemoveMembers = isGroupOwner;
+
+  const canRemoveMember = (member: GroupMember) => {
+    if (!canRemoveMembers || !currentUserId) return false;
+    if (member.userId.toLowerCase() === currentUserId.toLowerCase()) return false;
+    if (member.role === "Owner") return false;
+    if (
+      groupDetails?.createdById &&
+      member.userId.toLowerCase() === groupDetails.createdById.toLowerCase()
+    ) {
+      return false;
+    }
+    return true;
+  };
 
   return (
     // نخلي الصفحة كلها بارتفاع الشاشة عشان الاسكرول يبقى جوه الكونتينت مش البودي
@@ -252,6 +326,11 @@ export default function GroupDetailsPage() {
                       · {members.length} total
                     </span>
                   </h3>
+                  {canRemoveMembers && (
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                      As group owner, you can remove members with the trash icon.
+                    </p>
+                  )}
                 </div>
               </div>
               <button
@@ -286,11 +365,13 @@ export default function GroupDetailsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {isAdminOrOwner && m.userId !== currentUserId && m.role !== "Owner" && (
-                      <button 
-                        onClick={() => handleRemoveMember(m.userId)}
-                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                        title="Remove Member"
+                    {canRemoveMember(m) && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMember(m)}
+                        className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Remove member from group"
+                        aria-label={`Remove ${m.name} from group`}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -332,11 +413,12 @@ export default function GroupDetailsPage() {
                 </button>
               )}
 
-              <button
+              <LiquidMetalButton
                 onClick={() => navigate(`/meetings/create?groupId=${groupId}`)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3.5 sm:p-4 rounded-2xl shadow-lg transition-all flex items-center justify-between group active:scale-[0.98]"
+                width="full"
+                className="w-full flex items-center justify-between"
               >
-                <div className="flex flex-col items-start">
+                <div className="flex flex-col items-start relative z-10 text-left">
                   <span className="text-xs sm:text-sm font-bold">
                     Start Meeting
                   </span>
@@ -344,14 +426,14 @@ export default function GroupDetailsPage() {
                     Create an instant video session for this space.
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs">
+                <div className="flex items-center gap-1.5 text-xs relative z-10">
                   <Video size={18} />
                   <ArrowRight
                     size={14}
                     className="group-hover:translate-x-0.5 transition-transform"
                   />
                 </div>
-              </button>
+              </LiquidMetalButton>
 
               <button className="w-full py-3 text-[10px] sm:text-[11px] text-red-500 dark:text-red-400 font-black uppercase tracking-[0.22em] hover:bg-red-50 dark:hover:bg-red-900/10 rounded-2xl transition-all flex items-center justify-center gap-1.5">
                 <LogOut size={14} />
@@ -578,13 +660,13 @@ export default function GroupDetailsPage() {
                   >
                     Cancel
                   </button>
-                  <button
+                  <LiquidMetalButton
                     onClick={handleUpdateGroup}
                     disabled={!editName.trim()}
                     className="px-5 py-2.5 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Save Changes
-                  </button>
+                  </LiquidMetalButton>
                 </div>
               </div>
             </motion.div>

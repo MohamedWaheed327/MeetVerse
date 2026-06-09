@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { meeting_chat_connection } from "../../../../services/hubs/connections";
 import { SOCKET_EVENTS } from "./socketEvents";
 import { useToast } from "../../../../Context/ToastContext";
@@ -44,7 +44,13 @@ const playBeep = () => {
 
 export function useParticipants(meetingId: string | undefined, liveKitUsers: User[]) {
     const [handsRaised, setHandsRaised] = useState<Set<string>>(new Set());
+    const [mediaStates, setMediaStates] = useState<Record<string, { isMicMuted?: boolean, isCameraOff?: boolean }>>({});
+    const liveKitUsersRef = useRef(liveKitUsers);
     const { showToast } = useToast();
+
+    useEffect(() => {
+        liveKitUsersRef.current = liveKitUsers;
+    }, [liveKitUsers]);
 
     useEffect(() => {
         if (!meetingId) return;
@@ -63,7 +69,8 @@ export function useParticipants(meetingId: string | undefined, liveKitUsers: Use
                 });
                 
                 // Don't show toast for ourselves
-                if (data.senderId !== localStorage.getItem("userid")) {
+                const myUserId = localStorage.getItem("userid") || sessionStorage.getItem("userid");
+                if (data.senderId !== myUserId) {
                     playBeep();
                     showToast(`${data.senderName || "A participant"} raised their hand ✋`, "info");
                 }
@@ -73,6 +80,28 @@ export function useParticipants(meetingId: string | undefined, liveKitUsers: Use
                     next.delete(data.senderId);
                     return next;
                 });
+            } else if (data.eventType === SOCKET_EVENTS.MEDIA_STATE) {
+                try {
+                    const payload = JSON.parse(data.payload);
+                    setMediaStates(prev => ({
+                        ...prev,
+                        [data.senderId]: {
+                            isMicMuted: payload.isMicMuted ?? prev[data.senderId]?.isMicMuted,
+                            isCameraOff: payload.isCameraOff ?? prev[data.senderId]?.isCameraOff
+                        }
+                    }));
+                } catch (e) {}
+            } else if (data.eventType === SOCKET_EVENTS.USER_JOINED) {
+                const currentUserId = localStorage.getItem("userid") || sessionStorage.getItem("userid") || "";
+                if (data.senderId !== currentUserId) {
+                    const localParticipant = liveKitUsersRef.current.find(p => p.isLocal);
+                    if (localParticipant && meeting_chat_connection.state === "Connected") {
+                        meeting_chat_connection.invoke("SendMeetingEvent", meetingId, SOCKET_EVENTS.MEDIA_STATE, JSON.stringify({
+                            isMicMuted: !localParticipant.hasMic,
+                            isCameraOff: !localParticipant.hasVideo
+                        })).catch(() => {});
+                    }
+                }
             }
         };
 
@@ -85,7 +114,7 @@ export function useParticipants(meetingId: string | undefined, liveKitUsers: Use
 
     const toggleRaiseHand = useCallback(async () => {
         if (!meetingId) return;
-        const currentUserId = localStorage.getItem("userid") || "";
+        const currentUserId = localStorage.getItem("userid") || sessionStorage.getItem("userid") || "";
         const isCurrentlyRaised = handsRaised.has(currentUserId);
         
         const eventType = isCurrentlyRaised ? SOCKET_EVENTS.LOWER_HAND : SOCKET_EVENTS.RAISE_HAND;
@@ -113,11 +142,16 @@ export function useParticipants(meetingId: string | undefined, liveKitUsers: Use
         }
     }, [meetingId, handsRaised, showToast]);
 
-    // Merge LiveKit users with hand raise state
-    const participants: ExtendedParticipant[] = liveKitUsers.map(user => ({
-        ...user,
-        handRaised: handsRaised.has(user.id)
-    }));
+    // Merge LiveKit users with hand raise state and media state
+    const participants: ExtendedParticipant[] = liveKitUsers.map(user => {
+        const state = mediaStates[user.id] || {};
+        return {
+            ...user,
+            handRaised: handsRaised.has(user.id),
+            hasMic: state.isMicMuted !== undefined ? !state.isMicMuted : user.hasMic,
+            hasVideo: state.isCameraOff !== undefined ? !state.isCameraOff : user.hasVideo
+        };
+    });
 
     const localParticipant = participants.find(p => p.isLocal);
     const isLocalHandRaised = localParticipant?.handRaised || false;

@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from "react";
+import { setPageTitle } from "../../utils/setPageTitle";
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
 import { Video, Plus, Search, Calendar, Clock, MoreHorizontal, Copy, Pencil, CalendarX, Users } from "lucide-react";
 import { getActiveMeetings } from "../../services/getActiveMeetings";
 import api from "../../services/api";
 import { useToast } from "../../Context/ToastContext";
+import { meetingLinkService } from "../../services/meetingLinkService";
+import { useNavigate } from "react-router-dom";
+import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 type Meeting = {
   meetingId: string;
@@ -49,27 +53,20 @@ const getMeetingDuration = (startStr: string, endStr: string) => {
   return `${m}m`;
 };
 
-const getAvatarGradient = (title: string) => {
-  const gradients = [
-    "from-indigo-500 to-violet-600",
-    "from-rose-500 to-orange-500",
-    "from-teal-400 to-cyan-500",
-    "from-emerald-400 to-teal-500",
-    "from-fuchsia-500 to-pink-500",
-    "from-blue-500 to-indigo-500",
-  ];
-  let h = 0;
-  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) >>> 0;
-  return gradients[h % gradients.length];
-};
+import { getAvatarGradient } from "../../utils/stringHelpers";
 
 export default function MeetingsListPage() {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [filter, setFilter] = useState<"all" | "live" | "upcoming" | "past">("all");
   
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPageTitle("My Meetings");
+  }, []);
   const [editTitle, setEditTitle] = useState("");
   const [isSavingTitle, setIsSavingTitle] = useState(false);
 
@@ -175,9 +172,11 @@ export default function MeetingsListPage() {
             <h1 className="text-3xl font-extrabold tracking-tight">Your Meetings</h1>
             <p className="text-slate-500 dark:text-[#A8B0C2] text-sm">Connect instantly or schedule your future sessions.</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
             <a href="/meetings/join" className="px-6 py-3 rounded-2xl border border-slate-200 dark:border-[#2A2E3B] bg-transparent text-sm font-semibold hover:bg-white/5 transition-all shadow-sm">Join by ID</a>
-            <a href="/meetings/create" className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white text-sm font-bold shadow-lg shadow-blue-500/25 transition-all active:scale-95"><Plus size={18} /> New Meeting</a>
+            <LiquidMetalButton onClick={() => navigate("/meetings/create")} className="flex items-center justify-center">
+              <span className="flex items-center gap-2 relative z-10"><Plus size={18} /> New Meeting</span>
+            </LiquidMetalButton>
           </div>
         </motion.div>
 
@@ -308,7 +307,18 @@ export default function MeetingsListPage() {
 
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded">ID: ••••••••</span>
-                              <button onClick={() => { navigator.clipboard?.writeText(m.meetingId); showToast("Meeting ID copied", "success"); }} className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500" title="Copy full ID">
+                              <button 
+                                onClick={async () => { 
+                                  const success = await meetingLinkService.copyJoinLink(m.meetingId); 
+                                  if (success) {
+                                    showToast("Invite link copied!", "success"); 
+                                  } else {
+                                    showToast("Failed to copy invite link", "error");
+                                  }
+                                }} 
+                                className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500" 
+                                title="Copy Invite Link"
+                              >
                                 <Copy size={14} />
                               </button>
                             </div>
@@ -320,7 +330,7 @@ export default function MeetingsListPage() {
                         <button className="opacity-0 group-hover:opacity-100 p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 transition-all">
                           <MoreHorizontal size={18} />
                         </button>
-                        <a href={`/meetings/join?meetingId=${m.meetingId}`} className="inline-flex items-center justify-center whitespace-nowrap min-w-[140px] px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 text-sm font-bold rounded-xl transition-all active:scale-95">
+                        <a href={`/meetings/${m.meetingId}`} className="inline-flex items-center justify-center whitespace-nowrap min-w-[140px] px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 text-sm font-bold rounded-xl transition-all active:scale-95">
                           {m.isLive ? 'Join Now' : 'View Details'}
                         </a>
                       </div>

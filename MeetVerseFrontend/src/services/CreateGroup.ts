@@ -1,8 +1,8 @@
 import api from "./api";
 
-export const createGroup = async (name: string, description: string) => {
+export const createGroup = async (name: string, description: string, isPublic: boolean, coverGradient: string) => {
     try {
-        const response = await api.post("/groups", { name: name, description: description });
+        const response = await api.post("/groups", { name, description, isPublic, coverGradient });
         return response.data;
     } catch (error: unknown) {
         if (error instanceof Error) {

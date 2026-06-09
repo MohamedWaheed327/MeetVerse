@@ -55,7 +55,9 @@ public class GroupsController : ControllerBase
                 CreatedByName = ug.Group.CreatedBy.Name,
                 CreatedAt = ug.Group.CreatedAt,
                 MemberCount = ug.Group.UserGroups.Count,
-                CurrentUserRole = ug.Role.ToString()
+                CurrentUserRole = ug.Role.ToString(),
+                CoverGradient = ug.Group.CoverGradient,
+                IsPublic = ug.Group.IsPublic
             })
             .ToListAsync();
         return groups;
@@ -72,6 +74,8 @@ public class GroupsController : ControllerBase
             Id = Guid.NewGuid(),
             Name = request.Name.Trim(),
             Description = request.Description?.Trim(),
+            CoverGradient = request.CoverGradient,
+            IsPublic = request.IsPublic,
             CreatedById = userId.Value,
             CreatedAt = DateTime.UtcNow
         };
@@ -95,7 +99,9 @@ public class GroupsController : ControllerBase
             CreatedByName = creator?.Name,
             CreatedAt = group.CreatedAt,
             MemberCount = 1,
-            CurrentUserRole = GroupMemberRole.Owner.ToString()
+            CurrentUserRole = GroupMemberRole.Owner.ToString(),
+            CoverGradient = group.CoverGradient,
+            IsPublic = group.IsPublic
         });
     }
 
@@ -117,7 +123,9 @@ public class GroupsController : ControllerBase
                 CreatedByName = g.CreatedBy.Name,
                 CreatedAt = g.CreatedAt,
                 MemberCount = g.UserGroups.Count,
-                CurrentUserRole = g.UserGroups.Where(ug => ug.UserId == userId).Select(ug => ug.Role.ToString()).FirstOrDefault()
+                CurrentUserRole = g.UserGroups.Where(ug => ug.UserId == userId).Select(ug => ug.Role.ToString()).FirstOrDefault(),
+                CoverGradient = g.CoverGradient,
+                IsPublic = g.IsPublic
             })
             .FirstOrDefaultAsync();
         if (group is null) return NotFound();
@@ -213,18 +221,39 @@ public class GroupsController : ControllerBase
 
         var target = await _db.UserGroups.FindAsync(memberId, id);
         if (target is null) return NotFound();
-        var canManage = await CanManageGroup(id, userId.Value);
+
+        var group = await _db.Groups.FindAsync(id);
+        if (group is null) return NotFound();
+
+        // Allow any member to leave the group themselves
         if (userId == memberId)
         {
             _db.UserGroups.Remove(target);
             await _db.SaveChangesAsync();
             return NoContent();
         }
-        if (!canManage) return Forbid();
+
         var currentUg = await _db.UserGroups.FindAsync(userId.Value, id);
         if (currentUg is null) return Forbid();
-        if (currentUg.Role <= target.Role)
-            return Forbid();
+
+        var isGroupOwner = currentUg.Role == GroupMemberRole.Owner;
+        var isGroupCreator = group.CreatedById == userId.Value;
+
+        // Group creator / owner may remove any other member
+        if (isGroupOwner || isGroupCreator)
+        {
+            if (target.Role == GroupMemberRole.Owner || target.UserId == group.CreatedById)
+                return BadRequest("Cannot remove the group owner.");
+
+            _db.UserGroups.Remove(target);
+            await _db.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // Admins may remove members with a lower role
+        if (!await CanManageGroup(id, userId.Value)) return Forbid();
+        if (currentUg.Role <= target.Role) return Forbid();
+
         _db.UserGroups.Remove(target);
         await _db.SaveChangesAsync();
         return NoContent();
@@ -387,21 +416,35 @@ public class GroupsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
-        if (!await _db.Groups.AnyAsync(g => g.Id == groupId)) return NotFound();
+        var group = await _db.Groups.FirstOrDefaultAsync(g => g.Id == groupId);
+        if (group is null) return NotFound();
 
         if (await _db.UserGroups.AnyAsync(ug => ug.GroupId == groupId && ug.UserId == userId))
         {
             return BadRequest("User is already a member");
         }
 
-        var joinRequest = new JoinGroupRequest
+        if (group.IsPublic)
         {
-            Id = Guid.NewGuid(),
-            UserId = userId.Value,
-            GroupId = groupId
-        };
+            _db.UserGroups.Add(new UserGroup
+            {
+                UserId = userId.Value,
+                GroupId = groupId,
+                Role = GroupMemberRole.Member,
+                JoinedAt = DateTime.UtcNow
+            });
+        }
+        else
+        {
+            var joinRequest = new JoinGroupRequest
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId.Value,
+                GroupId = groupId
+            };
+            _db.JoinGroupRequests.Add(joinRequest);
+        }
 
-        _db.JoinGroupRequests.Add(joinRequest);
         await _db.SaveChangesAsync();
 
         return Ok();

@@ -27,6 +27,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // Register all application services via extension methods
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddApplicationServices(builder.Configuration);
 builder.Services.AddIdentityServices(builder.Configuration);
 builder.Services.AddCorsServices(builder.Configuration, builder.Environment);
@@ -55,7 +56,18 @@ if (app.Environment.IsDevelopment() || true)
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        if (ctx.Context.Request.Path.StartsWithSegments("/avatars"))
+        {
+            ctx.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
+            ctx.Context.Response.Headers.Pragma = "no-cache";
+            ctx.Context.Response.Headers.Expires = "0";
+        }
+    }
+});
 app.UseWebSockets();
 app.UseCors("AllowFrontend");
 app.UseAuthentication();

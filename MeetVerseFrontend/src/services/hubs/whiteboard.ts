@@ -4,15 +4,33 @@ const host = import.meta.env.DEV ? import.meta.env.VITE_BACKEND_DEV : import.met
 
 export const whiteboard_connection = new signalR.HubConnectionBuilder()
   .withUrl(host + "/hubs/whiteboard", {
-    accessTokenFactory: () => localStorage.getItem("token") || "",
+    accessTokenFactory: () => localStorage.getItem("token") || sessionStorage.getItem("token") || "",
   })
   .withAutomaticReconnect()
   .configureLogging(signalR.LogLevel.Information)
   .build();
 
+let connectionPromise: Promise<void> | null = null;
+
 export async function startWhiteboardConnection() {
+  if (whiteboard_connection.state === signalR.HubConnectionState.Connected) {
+    return;
+  }
+
+  if (connectionPromise) {
+    return connectionPromise;
+  }
+
   if (whiteboard_connection.state === signalR.HubConnectionState.Disconnected) {
-    await whiteboard_connection.start();
+    connectionPromise = whiteboard_connection.start()
+      .then(() => {
+        connectionPromise = null;
+      })
+      .catch((err) => {
+        connectionPromise = null;
+        throw err;
+      });
+    return connectionPromise;
   }
 }
 
@@ -27,9 +45,10 @@ export async function sendWhiteboardEvent(sessionId: string, type: string, paylo
 }
 
 export function onReceiveWhiteboardEvent(callback: (payload: any) => void) {
-  whiteboard_connection.on("ReceiveWhiteboardEvent", (payload: any) => {
-    callback(payload);
-  });
+  whiteboard_connection.on("ReceiveWhiteboardEvent", callback);
+  return () => {
+    whiteboard_connection.off("ReceiveWhiteboardEvent", callback);
+  };
 }
 
 export function onWhiteboardError(callback: (message: string) => void) {
