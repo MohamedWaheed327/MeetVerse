@@ -4,5 +4,4 @@ obj
 .vscode
 node_modules
 site
-deploy.bat
 MeetVerse.Api.csproj.lscache
