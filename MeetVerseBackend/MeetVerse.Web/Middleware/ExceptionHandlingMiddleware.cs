@@ -42,7 +42,7 @@ public class ExceptionHandlingMiddleware
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = (int)statusCode;
 
-        var response = JsonSerializer.Serialize(new { error = message, statusCode = (int)statusCode });
+        var response = JsonSerializer.Serialize(new { error = message, statusCode = (int)statusCode, details = exception.ToString() });
         await context.Response.WriteAsync(response);
     }
 }
