@@ -29,7 +29,7 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
     await audioContext.audioWorklet.addModule('/noiseCancellationWorklet.js');
 
     // 4. FastAPI WebSocket
-    const socket = new WebSocket('ws://localhost:8000/ws/audio');
+    const socket = new WebSocket('wss://8000-01kjk67evz2j6dzddj9wk33yyc.cloudspaces.litng.ai/ws/audio');
     socket.binaryType = 'arraybuffer';
 
     await new Promise<void>((resolve, reject) => {
