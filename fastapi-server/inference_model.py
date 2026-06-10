@@ -294,7 +294,7 @@ class SpectrogramTransform:
 def load_model(device):
     model = Model(
         base=48,
-        gru_hidden_sz=256,
+        gru_hidden_sz=512,
         layers=1,
         freq_bins=256
     ).to(device)

@@ -6,203 +6,90 @@ export type ProcessedAudioResources = {
 };
 
 export async function createProcessedMicTrack(): Promise<ProcessedAudioResources> {
-    console.log('[NC] createProcessedMicTrack start');
+    console.log('[NC] init');
 
+    // 1. Mic
     const micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
             echoCancellation: true,
-            noiseSuppression: false,
+            noiseSuppression: true,
             autoGainControl: false,
             channelCount: 1,
-            sampleRate: 16000,
         },
         video: false,
     });
 
-    console.log('[NC] mic stream acquired');
-
     const rawTrack = micStream.getAudioTracks()[0];
-    console.log('[NC] raw track settings:', rawTrack.getSettings());
 
+    // 2. Audio context (must match processing rate)
     const audioContext = new AudioContext({ sampleRate: 16000 });
+    await audioContext.resume();
 
-    if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-    }
-
-    console.log('[NC] audioContext sampleRate:', audioContext.sampleRate);
-
+    // 3. Load worklet
     await audioContext.audioWorklet.addModule('/noiseCancellationWorklet.js');
-    console.log('[NC] worklet loaded');
 
-    const worker = new Worker('/noiseCancellationWorker.js');
-    console.log('[NC] worker created');
+    // 4. FastAPI WebSocket
+    const socket = new WebSocket('ws://localhost:8000/ws/audio');
+    socket.binaryType = 'arraybuffer';
 
-    const workerReady = new Promise<void>((resolve, reject) => {
-        let settled = false;
-
-        const handleMessage = (event: MessageEvent) => {
-            const data = event.data;
-
-            if (data?.type === 'log') {
-                console.log('[NC][worker]', data.message, data.extra ?? '');
-                return;
-            }
-
-            if (data?.type === 'ready') {
-                if (settled) return;
-                settled = true;
-                clearTimeout(timeout);
-                worker.removeEventListener('message', handleMessage);
-                console.log('[NC] worker ready:', data);
-                resolve();
-                return;
-            }
-
-            if (data?.type === 'error') {
-                if (settled) return;
-                settled = true;
-                clearTimeout(timeout);
-                worker.removeEventListener('message', handleMessage);
-                reject(new Error(data.message || 'Worker init failed'));
-            }
-        };
-
-        const timeout = setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            worker.removeEventListener('message', handleMessage);
-            reject(new Error('Timed out waiting for ONNX worker to initialize'));
-        }, 15000);
-
-        worker.addEventListener('message', handleMessage);
+    await new Promise<void>((resolve, reject) => {
+        socket.onopen = () => resolve();
+        socket.onerror = () => reject(new Error('WebSocket failed'));
     });
 
-    const modelResponse = await fetch('/models/NoiseCancellationModel.onnx');
-    if (!modelResponse.ok) {
-        throw new Error(`Failed to load model: ${modelResponse.status} ${modelResponse.statusText}`);
-    }
+    console.log('[NC] websocket connected');
 
-    const modelBytes = await modelResponse.arrayBuffer();
-    console.log('[NC] model loaded, bytes:', modelBytes.byteLength);
-
-    worker.postMessage(
-        {
-            type: 'init',
-            modelBytes,
-        },
-        [modelBytes]
-    );
-
-    await workerReady;
-
+    // 5. Worklet
     const source = audioContext.createMediaStreamSource(micStream);
 
     const processor = new AudioWorkletNode(audioContext, 'noise-cancel-processor', {
         numberOfInputs: 1,
         numberOfOutputs: 1,
         outputChannelCount: [1],
-        channelCount: 1,
-        channelCountMode: 'explicit',
-        channelInterpretation: 'speakers',
         processorOptions: {
             frameSize: 1024,
-            passthrough: true, // debug mode
         },
     });
 
-    console.log('[NC] processor created');
-
+    // 6. Output node (THIS is what LiveKit uses)
     const destination = audioContext.createMediaStreamDestination();
 
-    processor.port.onmessage = (event: MessageEvent) => {
+    // 7. Send frames to backend
+    processor.port.onmessage = (event) => {
         const data = event.data;
 
-        if (data?.type === 'infer' && data.samples) {
-            worker.postMessage(
-                {
-                    type: 'infer',
-                    samples: data.samples,
-                },
-                [data.samples as ArrayBuffer]
-            );
-            return;
-        }
-
-        if (data?.type === 'log') {
-            console.log('[NC][worklet]', data.message);
+        if (data?.type === 'frame') {
+            socket.send(data.samples); // Float32 PCM
         }
     };
 
-    const onWorkerMessage = (event: MessageEvent) => {
-        const data = event.data;
+    // 8. Receive processed audio
+    socket.onmessage = (event) => {
+        const samples = new Float32Array(event.data);
 
-        if (data?.type === 'log') {
-            console.log('[NC][worker]', data.message, data.extra ?? '');
-            return;
-        }
-
-        if (data?.type === 'output' && data.samples) {
-            processor.port.postMessage(
-                {
-                    type: 'output',
-                    samples: data.samples,
-                },
-                [data.samples as ArrayBuffer]
-            );
-            return;
-        }
-
-        if (data?.type === 'error') {
-            console.error('[NC] ONNX worker error:', data.message);
-        }
+        processor.port.postMessage({
+            type: 'processed',
+            samples: samples.buffer,
+        }, [samples.buffer]);
     };
 
-    worker.addEventListener('message', onWorkerMessage);
-
+    // 9. Audio graph
     source.connect(processor);
     processor.connect(destination);
-
-    console.log('[NC] graph connected');
 
     const processedTrack = destination.stream.getAudioTracks()[0];
     const localAudioTrack = new LocalAudioTrack(processedTrack);
 
-    console.log('[NC] processed track created');
+    console.log('[NC] track ready');
 
+    // 10. Cleanup
     const cleanup = async () => {
-        try {
-            processor.port.onmessage = null;
-        } catch { }
-
-        try {
-            worker.removeEventListener('message', onWorkerMessage);
-        } catch { }
-
-        try {
-            localAudioTrack.stop();
-        } catch { }
-
-        try {
-            processedTrack.stop();
-        } catch { }
-
-        try {
-            rawTrack.stop();
-        } catch { }
-
-        try {
-            source.disconnect();
-            processor.disconnect();
-        } catch { }
-
-        try {
-            worker.terminate();
-        } catch { }
-
-        try {
-            await audioContext.close();
-        } catch { }
+        try { socket.close(); } catch { }
+        try { processor.disconnect(); } catch { }
+        try { source.disconnect(); } catch { }
+        try { rawTrack.stop(); } catch { }
+        try { processedTrack.stop(); } catch { }
+        try { await audioContext.close(); } catch { }
     };
 
     return {

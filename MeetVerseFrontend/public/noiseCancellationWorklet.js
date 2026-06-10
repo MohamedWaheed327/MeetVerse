@@ -2,38 +2,20 @@ class NoiseCancelProcessor extends AudioWorkletProcessor {
     constructor(options) {
         super();
 
-        const { frameSize = 1024, passthrough = true } = options.processorOptions || {};
+        this.frameSize = options.processorOptions?.frameSize || 1024;
 
-        this.frameSize = frameSize;
-        this.passthrough = passthrough;
+        this.buffer = new Float32Array(this.frameSize);
+        this.index = 0;
 
-        this.inputFrame = new Float32Array(this.frameSize);
-        this.inputIndex = 0;
-
-        this.outputQueue = [];
-        this.currentOutput = null;
-        this.currentOutputIndex = 0;
-
-        this.sentFrames = 0;
-        this.receivedFrames = 0;
+        this.outputBuffer = null;
+        this.outputIndex = 0;
 
         this.port.onmessage = (event) => {
             const data = event.data;
 
-            if (data?.type === 'output' && data.samples) {
-                this.outputQueue.push(new Float32Array(data.samples));
-                this.receivedFrames++;
-
-                if (this.outputQueue.length > 8) {
-                    this.outputQueue.splice(0, this.outputQueue.length - 8);
-                }
-
-                if (this.receivedFrames <= 3 || this.receivedFrames % 20 === 0) {
-                    this.port.postMessage({
-                        type: 'log',
-                        message: `worklet received output #${this.receivedFrames}, queue=${this.outputQueue.length}`,
-                    });
-                }
+            if (data?.type === 'processed') {
+                this.outputBuffer = new Float32Array(data.samples);
+                this.outputIndex = 0;
             }
         };
     }
@@ -42,49 +24,33 @@ class NoiseCancelProcessor extends AudioWorkletProcessor {
         const input = inputs[0];
         const output = outputs[0];
 
-        if (!input?.length || !output?.length) return true;
+        if (!input?.[0] || !output?.[0]) return true;
 
         const inputChannel = input[0];
         const outputChannel = output[0];
 
-        if (!inputChannel || !outputChannel) return true;
-
+        // 1. Fill frame
         for (let i = 0; i < inputChannel.length; i++) {
-            this.inputFrame[this.inputIndex++] = inputChannel[i];
+            this.buffer[this.index++] = inputChannel[i];
 
-            if (this.inputIndex === this.frameSize) {
-                const frameCopy = new Float32Array(this.inputFrame);
+            if (this.index === this.frameSize) {
+                const copy = new Float32Array(this.buffer);
 
-                this.port.postMessage(
-                    {
-                        type: 'infer',
-                        samples: frameCopy.buffer,
-                    },
-                    [frameCopy.buffer]
-                );
+                this.port.postMessage({
+                    type: 'frame',
+                    samples: copy.buffer,
+                }, [copy.buffer]);
 
-                this.sentFrames++;
-                if (this.sentFrames <= 3 || this.sentFrames % 20 === 0) {
-                    this.port.postMessage({
-                        type: 'log',
-                        message: `worklet sent frame #${this.sentFrames}`,
-                    });
-                }
-
-                this.inputIndex = 0;
+                this.index = 0;
             }
         }
 
+        // 2. Output audio
         for (let i = 0; i < outputChannel.length; i++) {
-            if (!this.currentOutput || this.currentOutputIndex >= this.currentOutput.length) {
-                this.currentOutput = this.outputQueue.shift() || null;
-                this.currentOutputIndex = 0;
-            }
-
-            if (this.currentOutput) {
-                outputChannel[i] = this.currentOutput[this.currentOutputIndex++];
+            if (this.outputBuffer && this.outputIndex < this.outputBuffer.length) {
+                outputChannel[i] = this.outputBuffer[this.outputIndex++];
             } else {
-                outputChannel[i] = this.passthrough ? inputChannel[i] : 0;
+                outputChannel[i] = 0; // safe silence (NO raw leak)
             }
         }
 
