@@ -11,8 +11,8 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
     // 1. Mic
     const micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
+            echoCancellation: false,
+            noiseSuppression: false,
             autoGainControl: false,
             channelCount: 1,
         },
@@ -47,7 +47,7 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
         numberOfOutputs: 1,
         outputChannelCount: [1],
         processorOptions: {
-            frameSize: 1024,
+            frameSize: 160 * 4,
         },
     });
 
