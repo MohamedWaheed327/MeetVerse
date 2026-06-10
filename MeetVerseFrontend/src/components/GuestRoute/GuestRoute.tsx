@@ -1,8 +1,8 @@
-import React, { ReactNode } from "react";
+import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../Context/AuthContext";
 
-const ProtectedRoute = ({ children }: { children: ReactNode }) => {
+export default function GuestRoute({ children }: { children: ReactNode }) {
   const { isLoggedIn, isInitializing } = useAuth();
 
   if (isInitializing) {
@@ -13,15 +13,9 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
     );
   }
 
-  if (!isLoggedIn) {
-    sessionStorage.setItem(
-      "redirectAfterLogin",
-      window.location.pathname + window.location.search
-    );
-    return <Navigate to="/login" replace />;
+  if (isLoggedIn) {
+    return <Navigate to="/home" replace />;
   }
 
   return children;
-};
-
-export default ProtectedRoute;
+}

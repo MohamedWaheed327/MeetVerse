@@ -11,6 +11,7 @@ using MeetVerse.Services.Implementations.Background;
 using MeetVerse.Services.Implementations.LiveKit;
 using MeetVerse.Services.Implementations.Whiteboard;
 using MeetVerse.Services.Implementations.Profile;
+using MeetVerse.Services.Implementations.Email;
 using MeetVerse.Shared.Configuration;
 
 namespace MeetVerse.Web.Extensions;
@@ -27,6 +28,7 @@ public static class ApplicationServiceExtensions
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
         services.Configure<MiroSettings>(configuration.GetSection("Miro"));
         services.Configure<LiveKitSettings>(configuration.GetSection("LiveKit"));
+        services.Configure<SmtpSettings>(configuration.GetSection("Smtp"));
 
         services.AddAutoMapper(typeof(MeetVerse.Abstraction.Mapping.ProfileMappingProfile).Assembly);
 
@@ -40,6 +42,8 @@ public static class ApplicationServiceExtensions
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<ILiveKitTokenService, LiveKitTokenService>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<IPasswordResetService, PasswordResetService>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
         services.AddScoped<IAudioFilterService, StubAudioFilterService>();
         services.AddScoped<IAudioTranscriptionService, StubAudioTranscriptionService>();

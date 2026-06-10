@@ -1,12 +1,38 @@
 /* eslint-disable no-unused-vars */
 import Navbar from "../../components/LandingComponents/Navbar/Navbar";
 import { motion } from "framer-motion";
-import { Key, Mail, ArrowLeft, Send } from "lucide-react";
+import { Key, Mail, ArrowLeft, Send, LoaderPinwheel } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { FormEvent, useState } from "react";
 import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
+import { requestPasswordReset } from "../../services/forgotPassword";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    setLoading(true);
+
+    try {
+      await requestPasswordReset(email.trim());
+      setSuccess(
+        "If an account exists for this email, a reset code has been sent. Check the server console in development."
+      );
+      navigate("/otp-verification", { state: { email: email.trim().toLowerCase() } });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unable to send reset code.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300">
       <Navbar />
@@ -24,11 +50,23 @@ export default function ForgotPasswordPage() {
               Reset Password
             </h1>
             <p className="text-slate-500 dark:text-[#A8B0C2] text-sm mt-2">
-              We'll send a recovery link to your inbox.
+              Enter your email and we&apos;ll send a 6-digit verification code.
             </p>
           </div>
 
-          <form className="space-y-6">
+          {error && (
+            <div className="p-3 mb-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-sm text-center">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="p-3 mb-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-xl text-sm text-center">
+              {success}
+            </div>
+          )}
+
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">
                 Registered Email
@@ -41,6 +79,8 @@ export default function ForgotPasswordPage() {
                 <input
                   type="email"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   className="w-full bg-slate-50 dark:bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl pl-12 pr-4 py-3.5 text-sm focus:border-blue-600 outline-none transition-all shadow-inner"
                 />
@@ -49,21 +89,27 @@ export default function ForgotPasswordPage() {
 
             <LiquidMetalButton
               type="submit"
-              onClick={() => navigate("/otp-verification")}
+              disabled={loading}
               width="full"
               className="w-full flex items-center justify-center gap-2"
             >
-              Send Reset Link <Send size={18} className="ml-2 relative z-10" />
+              {loading ? (
+                <LoaderPinwheel className="animate-spin relative z-10" />
+              ) : (
+                <>
+                  Send Reset Code <Send size={18} className="ml-2 relative z-10" />
+                </>
+              )}
             </LiquidMetalButton>
           </form>
 
           <div className="mt-8 text-center">
-            <a
-              href="/login"
+            <Link
+              to="/login"
               className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition-all"
             >
               <ArrowLeft size={16} /> Back to Login
-            </a>
+            </Link>
           </div>
         </motion.div>
       </div>

@@ -441,6 +441,13 @@ export default function MeetingPage() {
 
         delete socketMapRef.current[trackKey];
         delete recorderRef.current[trackKey];
+        
+        // Auto-reconnect if it dropped unexpectedly
+        if (!(socket as any)._intentionalClose) {
+          setTimeout(() => {
+            startTranscriping(track, participantId, participantName);
+          }, 1000);
+        }
       };
     } catch (err) {
       console.error(err);
@@ -460,6 +467,10 @@ export default function MeetingPage() {
     const trackKey = getTrackKey(track);
     const recorder = recorderRef.current[trackKey];
     const socket = socketMapRef.current[trackKey];
+
+    if (socket) {
+      (socket as any)._intentionalClose = true;
+    }
 
     if (recorder && recorder.state !== 'inactive') {
       recorder.stop();
@@ -1695,7 +1706,7 @@ export default function MeetingPage() {
                           </div>
 
                           {caption.finals.length > 0 && (
-                            <div>{caption.finals[caption.finals.length - 1]}</div>
+                            <div>{caption.finals.join(' ')}</div>
                           )}
 
                           {caption.interim && (

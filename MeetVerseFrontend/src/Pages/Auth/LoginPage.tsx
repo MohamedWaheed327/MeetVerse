@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { LogIn, Mail, Lock, ArrowRight, Eye, EyeOff, Video, Waves, FileText, Zap } from "lucide-react";
 import { loginUser } from "../../services/login";
@@ -11,6 +11,7 @@ import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 import { useAuth } from "../../Context/AuthContext";
 import { useGoogleAuth } from "../../utils/googleAuth";
+import { getStoredRememberMe } from "../../utils/authStorage";
 
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 48 48">
@@ -24,6 +25,7 @@ const GoogleIcon = () => (
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -31,7 +33,8 @@ export default function LoginPage() {
   const [emailError, setEmailError] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(getStoredRememberMe);
+  const resetMessage = (location.state as { message?: string } | null)?.message;
   
   const googleButtonContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -39,30 +42,33 @@ export default function LoginPage() {
     setPageTitle("Sign in");
   }, []);
 
-  const finishLogin = async (token: string) => {
-    const storage = rememberMe ? localStorage : sessionStorage;
-    storage.setItem("token", token);
-    
+  const finishLogin = async (token: string, persistSession = rememberMe) => {
     try {
+      const storage = persistSession ? localStorage : sessionStorage;
+      storage.setItem("token", token);
+
       const user = await getCurrentUser();
-      login(token, user.name, user.id, rememberMe);
-      
-      const redirectUrl = sessionStorage.getItem('redirectAfterLogin');
+      login(token, user.name, user.id, persistSession);
+
+      const redirectUrl = sessionStorage.getItem("redirectAfterLogin");
       if (redirectUrl) {
-        sessionStorage.removeItem('redirectAfterLogin');
+        sessionStorage.removeItem("redirectAfterLogin");
         navigate(redirectUrl);
       } else {
         navigate("/home");
       }
     } catch (err) {
-      storage.removeItem("token");
+      localStorage.removeItem("token");
+      sessionStorage.removeItem("token");
       throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   const { handleGoogleLoginClick } = useGoogleAuth(
     googleButtonContainerRef,
-    finishLogin,
+    (token) => finishLogin(token, true),
     (msg: string) => setError(msg || null),
     setLoading
   );
@@ -207,6 +213,12 @@ export default function LoginPage() {
                 Sign in to your MeetVerse workspace.
               </p>
             </div>
+
+            {resetMessage && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-xl text-sm mb-6 text-center font-medium">
+                {resetMessage}
+              </div>
+            )}
 
             {error && (
               <div role="alert" aria-live="polite" className="p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-sm mb-6 text-center font-medium">

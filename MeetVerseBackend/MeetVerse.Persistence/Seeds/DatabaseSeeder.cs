@@ -20,6 +20,7 @@ public class DatabaseSeeder : IDatabaseSeeder
         if (_db.Database.IsRelational())
         {
             await _db.Database.MigrateAsync();
+            await EnsurePasswordResetTableAsync();
         }
 
         if (_db.Users.Any())
@@ -50,5 +51,25 @@ public class DatabaseSeeder : IDatabaseSeeder
         _db.UserGroups.Add(new UserGroup { UserId = admin.Id, GroupId = demoGroup.Id, Role = GroupMemberRole.Owner, JoinedAt = DateTime.UtcNow });
 
         await _db.SaveChangesAsync();
+    }
+
+    private async Task EnsurePasswordResetTableAsync()
+    {
+        await _db.Database.ExecuteSqlRawAsync("""
+            IF OBJECT_ID(N'[dbo].[PasswordResetRequests]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[PasswordResetRequests] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [Email] nvarchar(256) NOT NULL,
+                    [CodeHash] nvarchar(128) NOT NULL,
+                    [ExpiresAtUtc] datetime2 NOT NULL,
+                    [CreatedAtUtc] datetime2 NOT NULL,
+                    [IsUsed] bit NOT NULL,
+                    CONSTRAINT [PK_PasswordResetRequests] PRIMARY KEY ([Id])
+                );
+                CREATE INDEX [IX_PasswordResetRequests_Email_IsUsed_ExpiresAtUtc]
+                    ON [dbo].[PasswordResetRequests] ([Email], [IsUsed], [ExpiresAtUtc]);
+            END
+            """);
     }
 }

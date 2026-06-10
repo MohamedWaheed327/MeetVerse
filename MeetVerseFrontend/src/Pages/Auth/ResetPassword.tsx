@@ -1,12 +1,13 @@
 /* eslint-disable no-unused-vars */
 import { Lock, Eye, EyeOff, LoaderPinwheel, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
+import { resetPassword as resetPasswordApi } from "../../services/resetPassword";
 
 export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
@@ -16,36 +17,46 @@ export default function ResetPassword() {
 
   const location = useLocation();
   const navigate = useNavigate();
-  const email = location.state?.email || "user@meetverse.app";
+  const email = (location.state as { email?: string; code?: string } | null)?.email;
+  const code = (location.state as { email?: string; code?: string } | null)?.code;
+
+  useEffect(() => {
+    if (!email || !code) {
+      navigate("/forgot-password", { replace: true });
+    }
+  }, [email, code, navigate]);
 
   async function handleReset(values: { password: string; rePassword: string }) {
+    if (!email || !code) return;
+
     try {
       setLoading(true);
-      // API Logic here
-      setTimeout(() => {
-        navigate("/login");
-      }, 1500);
+      setApiError(null);
+      await resetPasswordApi(email, code, values.password);
+      navigate("/login", { state: { message: "Password updated. You can sign in now." } });
     } catch (error) {
-      setApiError("Something went wrong.");
+      setApiError(error instanceof Error ? error.message : "Something went wrong.");
     } finally {
       setLoading(false);
     }
   }
 
-  let validationSchema = Yup.object().shape({
+  const validationSchema = Yup.object().shape({
     password: Yup.string()
-      .matches(/^[A-z]\w{5,10}$/, "6-10 chars starting with a letter")
+      .min(6, "At least 6 characters")
       .required("Required"),
     rePassword: Yup.string()
       .oneOf([Yup.ref("password")], "Passwords don't match")
       .required("Required"),
   });
 
-  let formik = useFormik({
+  const formik = useFormik({
     initialValues: { password: "", rePassword: "" },
     validationSchema,
     onSubmit: handleReset,
   });
+
+  if (!email || !code) return null;
 
   return (
     <>
@@ -73,6 +84,12 @@ export default function ResetPassword() {
               <span className="font-bold text-blue-600">{email}</span>
             </p>
           </div>
+
+          {apiError && (
+            <div className="p-3 mb-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-sm text-center">
+              {apiError}
+            </div>
+          )}
 
           <form onSubmit={formik.handleSubmit} className="space-y-6">
             <div className="space-y-2">

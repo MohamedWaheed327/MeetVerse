@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import OtpInput from "react-otp-input";
 import {
   Mail,
-  ShieldCheck,
   ArrowRight,
   LoaderPinwheel,
   RotateCw,
@@ -13,42 +12,70 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { motion } from "framer-motion";
 import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
+import { verifyResetCode } from "../../services/verifyResetCode";
+import { requestPasswordReset } from "../../services/forgotPassword";
 
 export default function OTPVerification() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [otp, setOtp] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const location = useLocation();
-  const email = location.state?.email || "user@meetverse.app";
+  const email = (location.state as { email?: string } | null)?.email;
   const [timer, setTimer] = useState(60);
   const [isTimerActive, setIsTimerActive] = useState(true);
 
   useEffect(() => {
-    let interval: number;
+    if (!email) {
+      navigate("/forgot-password", { replace: true });
+    }
+  }, [email, navigate]);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (isTimerActive && timer > 0) {
       interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
     }
     if (timer === 0) setIsTimerActive(false);
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [isTimerActive, timer]);
 
-  const handleResend = () => {
-    if (!isTimerActive) {
+  const handleResend = async () => {
+    if (!email || isTimerActive) return;
+
+    setResending(true);
+    setError(null);
+    try {
+      await requestPasswordReset(email);
       setOtp("");
       setTimer(60);
       setIsTimerActive(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unable to resend code.");
+    } finally {
+      setResending(false);
     }
   };
 
-  const handleVerify = () => {
-    if (otp.length === 6) {
-      setLoading(true);
-      setTimeout(() => {
-        navigate("/reset-password", { state: { email } });
-        setLoading(false);
-      }, 1000);
+  const handleVerify = async () => {
+    if (!email || otp.length !== 6) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      await verifyResetCode(email, otp);
+      navigate("/reset-password", { state: { email, code: otp } });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Verification failed.");
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (!email) return null;
 
   return (
     <>
@@ -71,11 +98,17 @@ export default function OTPVerification() {
             Verify Email
           </h1>
           <p className="text-slate-500 dark:text-[#A8B0C2] text-sm mb-10 leading-relaxed">
-            We've transmitted a 6-digit access code to <br />
+            We&apos;ve sent a 6-digit code to <br />
             <span className="font-bold text-slate-800 dark:text-blue-400">
               {email}
             </span>
           </p>
+
+          {error && (
+            <div className="p-3 mb-6 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-sm">
+              {error}
+            </div>
+          )}
 
           <div className="flex justify-center mb-10">
             <OtpInput
@@ -101,10 +134,13 @@ export default function OTPVerification() {
               </p>
             ) : (
               <button
+                type="button"
                 onClick={handleResend}
-                className="flex items-center gap-2 mx-auto text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors uppercase tracking-widest"
+                disabled={resending}
+                className="flex items-center gap-2 mx-auto text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors uppercase tracking-widest disabled:opacity-50"
               >
-                <RotateCw size={14} /> Resend code now
+                <RotateCw size={14} className={resending ? "animate-spin" : ""} />{" "}
+                Resend code now
               </button>
             )}
           </div>

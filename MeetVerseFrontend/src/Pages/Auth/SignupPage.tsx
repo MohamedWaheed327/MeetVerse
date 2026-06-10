@@ -39,18 +39,20 @@ export default function SignupPage() {
     setPageTitle("Create Account");
   }, []);
 
-  const finishLogin = async (token: string, name?: string) => {
-    localStorage.setItem("token", token);
+  const finishLogin = async (token: string) => {
     try {
+      localStorage.setItem("token", token);
       const user = await getCurrentUser();
-      login(token, user.name, user.id, false);
+      login(token, user.name, user.id, true);
     } catch {
-      login(token, name || "", "", false);
+      login(token, "", "", true);
+    } finally {
+      setLoading(false);
     }
-    
-    const redirectUrl = sessionStorage.getItem('redirectAfterLogin');
+
+    const redirectUrl = sessionStorage.getItem("redirectAfterLogin");
     if (redirectUrl) {
-      sessionStorage.removeItem('redirectAfterLogin');
+      sessionStorage.removeItem("redirectAfterLogin");
       navigate(redirectUrl);
     } else {
       navigate("/home");
@@ -97,7 +99,7 @@ export default function SignupPage() {
       const name = `${firstName.trim()} ${lastName.trim()}`.trim();
       const data = { email, password, name };
       const response = await registerUser(data);
-      await finishLogin(response.token, name);
+      await finishLogin(response.token);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
