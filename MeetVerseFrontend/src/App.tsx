@@ -17,6 +17,7 @@ import ResetPassword from "./Pages/Auth/ResetPassword";
 import OTPVerification from "./Pages/Auth/OTPVerification";
 import NotFound from "./Pages/NotFoundPage.tsx/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute";
+import GuestRoute from "./components/GuestRoute/GuestRoute";
 
 const MeetingPage = lazy(() => import("./Pages/Meetings/MeetingPage/MeetingPage"));
 const GroupDetailsPage = lazy(() => import("./Pages/Groups/GroupDetailsPage"));
@@ -36,11 +37,11 @@ export default function App() {
     <Routes>
       {/* Landing & Public Routes */}
       <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/otp-verification" element={<OTPVerification />} />
+      <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
+      <Route path="/signup" element={<GuestRoute><SignupPage /></GuestRoute>} />
+      <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
+      <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
+      <Route path="/otp-verification" element={<GuestRoute><OTPVerification /></GuestRoute>} />
 
       {/* Protected Main Routes */}
       <Route

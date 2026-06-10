@@ -1,7 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import {
+  clearAuthStorage,
+  getAuthToken,
+  getStoredRememberMe,
+  isTokenExpired,
+  persistAuth,
+  setStoredRememberMe,
+} from "../utils/authStorage";
 
 interface AuthContextType {
   isLoggedIn: boolean;
+  isInitializing: boolean;
   username: string | null;
   firstName: string | null;
   userId: string | null;
@@ -11,74 +20,48 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function isTokenExpired(token: string) {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.exp * 1000 < Date.now();
-  } catch {
-    return true; // treat malformed tokens as expired
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-    return token ? !isTokenExpired(token) : false;
-  });
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-    const storedUsername = localStorage.getItem("username") || sessionStorage.getItem("username");
-    const storedUserId = localStorage.getItem("userid") || sessionStorage.getItem("userid");
-    
-    if (token) {
-      if (isTokenExpired(token)) {
-        // Clear if expired
-        localStorage.removeItem("token");
-        localStorage.removeItem("username");
-        localStorage.removeItem("userid");
-        sessionStorage.removeItem("token");
-        sessionStorage.removeItem("username");
-        sessionStorage.removeItem("userid");
-        setIsLoggedIn(false);
-      } else {
-        setIsLoggedIn(true);
-        setUsername(storedUsername);
-        setUserId(storedUserId);
-      }
+    const token = getAuthToken();
+    const storedUsername =
+      localStorage.getItem("username") || sessionStorage.getItem("username");
+    const storedUserId =
+      localStorage.getItem("userid") || sessionStorage.getItem("userid");
+
+    if (token && !isTokenExpired(token)) {
+      setIsLoggedIn(true);
+      setUsername(storedUsername);
+      setUserId(storedUserId);
+    } else if (token) {
+      clearAuthStorage();
+      setIsLoggedIn(false);
+      setUsername(null);
+      setUserId(null);
     }
+
+    setIsInitializing(false);
   }, []);
 
-  const login = (token: string, newUsername: string, newUserId: string, rememberMe: boolean = false) => {
-    const storage = rememberMe ? localStorage : sessionStorage;
-    
-    // Clear both first to avoid stale data
-    localStorage.removeItem("token");
-    localStorage.removeItem("username");
-    localStorage.removeItem("userid");
-    sessionStorage.removeItem("token");
-    sessionStorage.removeItem("username");
-    sessionStorage.removeItem("userid");
-
-    storage.setItem("token", token);
-    storage.setItem("username", newUsername);
-    storage.setItem("userid", newUserId);
-    
+  const login = (
+    token: string,
+    newUsername: string,
+    newUserId: string,
+    rememberMe: boolean = getStoredRememberMe()
+  ) => {
+    persistAuth(token, newUsername, newUserId, rememberMe);
     setIsLoggedIn(true);
     setUsername(newUsername);
     setUserId(newUserId);
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("username");
-    localStorage.removeItem("userid");
-    sessionStorage.removeItem("token");
-    sessionStorage.removeItem("username");
-    sessionStorage.removeItem("userid");
-    
+    clearAuthStorage();
+    setStoredRememberMe(false);
     setIsLoggedIn(false);
     setUsername(null);
     setUserId(null);
@@ -88,7 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const firstName = username ? username.split(" ")[0] : null;
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, username, firstName, userId, logout, login }}>
+    <AuthContext.Provider
+      value={{ isLoggedIn, isInitializing, username, firstName, userId, logout, login }}
+    >
       {children}
     </AuthContext.Provider>
   );

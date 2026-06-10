@@ -69,7 +69,7 @@ public class DeepGramController : ControllerBase
         using var browserSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
         using var deepgramSocket = new ClientWebSocket();
         deepgramSocket.Options.SetRequestHeader("Authorization", $"Token {ApiKey}");
-        var deepgramUri = new Uri("wss://api.deepgram.com/v1/listen?model=nova-3&punctuate=true&smart_format=true&interim_results=true");
+        var deepgramUri = new Uri("wss://api.deepgram.com/v1/listen?model=nova-2&punctuate=true&smart_format=true&interim_results=true&keepalive=true");
         await deepgramSocket.ConnectAsync(deepgramUri, CancellationToken.None);
         var cts = new CancellationTokenSource();
 

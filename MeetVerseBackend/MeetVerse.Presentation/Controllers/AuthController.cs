@@ -30,17 +30,20 @@ public class AuthController : ControllerBase
     private readonly MeetVerseDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
+    private readonly IPasswordResetService _passwordResetService;
     private readonly IConfiguration _configuration;
 
     public AuthController(
         MeetVerseDbContext db,
         IPasswordHasher passwordHasher,
         ITokenService tokenService,
+        IPasswordResetService passwordResetService,
         IConfiguration configuration)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
+        _passwordResetService = passwordResetService;
         _configuration = configuration;
         // GitHub OAuth removed
     }
@@ -161,6 +164,53 @@ public class AuthController : ControllerBase
 
         var token = _tokenService.GenerateAccessToken(user);
         return new AuthResponse { Token = token };
+    }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+            return BadRequest("Email is required.");
+
+        await _passwordResetService.RequestResetAsync(request.Email);
+        return Ok(new { message = "If an account exists for this email, a reset code has been sent." });
+    }
+
+    [HttpPost("verify-reset-code")]
+    public async Task<IActionResult> VerifyResetCode(VerifyResetCodeRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Code))
+            return BadRequest("Email and code are required.");
+
+        var isValid = await _passwordResetService.VerifyCodeAsync(request.Email, request.Code);
+        if (!isValid)
+            return BadRequest("Invalid or expired verification code.");
+
+        return Ok(new { message = "Code verified." });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email) ||
+            string.IsNullOrWhiteSpace(request.Code) ||
+            string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return BadRequest("Email, code, and new password are required.");
+        }
+
+        try
+        {
+            await _passwordResetService.ResetPasswordAsync(
+                request.Email,
+                request.Code,
+                request.NewPassword);
+            return Ok(new { message = "Password updated successfully." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     // GitHub login removed; only Google login is supported.

@@ -22,6 +22,7 @@ public class MeetVerseDbContext : DbContext
     public DbSet<UserGroup> UserGroups => Set<UserGroup>();
     public DbSet<GroupMessage> GroupMessages => Set<GroupMessage>();
     public DbSet<JoinGroupRequest> JoinGroupRequests => Set<JoinGroupRequest>();
+    public DbSet<PasswordResetRequest> PasswordResetRequests => Set<PasswordResetRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
