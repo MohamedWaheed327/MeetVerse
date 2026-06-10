@@ -14,7 +14,6 @@ import { buildParticipantsList } from "./buildParticipantsList";
 import { getAudioPublications, getCameraPublications, getScreenSharePublications } from "./getParticipantPublications";
 import { getParticipantDisplayName } from "./getParticipantDisplayName";
 import { getActiveScreenShare } from "./getActiveScreenShare";
-import { createProcessedMicTrack } from "./NoiseCancellation/createProcessedMicTrack";
 import { getPreferredParticipantVideoPublication } from "./getPreferredParticipantVideoPublication";
 import { attachScreenShareTrackToArea, removeScreenShareElement } from "./screenShare";
 import { attachCameraTrackToElement, removeCameraElement } from "./attachAndRemoveCameraElement";
@@ -27,7 +26,7 @@ import { handleSendMessage } from "./MeetingControls/sendMeetingChatMessage";
 import { toggleScreenShare } from "./MeetingControls/toggleScreenShare";
 import { toggleCamera } from "./MeetingControls/toggleCamera";
 import { handleLeaveMeeting } from "./MeetingControls/leaveMeeting";
-import { toggleMic } from "./MeetingControls/toggleMic";
+import { publishMicTrack, toggleMic, toggleNoiseCancellation } from "./MeetingControls/toggleMic";
 import { useParticipants } from "./MeetingControls/useParticipants";
 import { SOCKET_EVENTS, parseMeetingEventPayload } from "./MeetingControls/socketEvents";
 import WhiteboardPanel from "./Whiteboard/WhiteboardPanel";
@@ -137,6 +136,7 @@ export default function MeetingPage() {
 
   const [muted, setMuted] = useState(state?.muteMic ?? true);
   const [cameraOff, setCameraOff] = useState(state?.cameraOff ?? true);
+  const [noiseCancellationOn, setNoiseCancellationOn] = useState(true);
   const [screenShareOff, setScreenShareOff] = useState(true);
   const [screenShareOwner, setScreenShareOwner] = useState("");
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -246,7 +246,7 @@ export default function MeetingPage() {
   const screenShareContainerRef = useRef<HTMLDivElement | null>(null);
   const hasShownSelfShareToast = useRef(false);
   const cleanupRef = useRef<null | (() => Promise<void>)>(null);
-  
+
   const isTogglingCameraRef = useRef(false);
   const isTogglingMicRef = useRef(false);
   const isTogglingScreenShareRef = useRef(false);
@@ -441,7 +441,7 @@ export default function MeetingPage() {
 
         delete socketMapRef.current[trackKey];
         delete recorderRef.current[trackKey];
-        
+
         // Auto-reconnect if it dropped unexpectedly
         if (!(socket as any)._intentionalClose) {
           setTimeout(() => {
@@ -642,14 +642,14 @@ export default function MeetingPage() {
   // ── Broadcast media state when mic or camera state changes ──
   useEffect(() => {
     if (!meetingId || meeting_chat_connection.state !== "Connected") return;
-    
+
     meeting_chat_connection.invoke(
       "SendMeetingEvent",
       meetingId,
       "participant:media-state",
-      JSON.stringify({ 
-        isMicMuted: muted, 
-        isCameraOff: cameraOff 
+      JSON.stringify({
+        isMicMuted: muted,
+        isCameraOff: cameraOff
       })
     ).catch((err) => console.error("Failed to broadcast media state:", err));
   }, [muted, cameraOff, meetingId]);
@@ -737,7 +737,7 @@ export default function MeetingPage() {
           setIsWhiteboardOpen(payload.isOpen);
           setWhiteboardOwnerName(payload.ownerName || "");
           setWhiteboardOwnerId(payload.ownerId || "");
-          
+
           showToast(
             payload.isOpen
               ? `${data.senderName || "A participant"} opened the collaborative whiteboard 🎨`
@@ -755,12 +755,12 @@ export default function MeetingPage() {
               "SendMeetingEvent",
               meetingId,
               "whiteboard:toggle",
-              JSON.stringify({ 
-                isOpen: true, 
+              JSON.stringify({
+                isOpen: true,
                 ownerName: whiteboardOwnerName || localStorage.getItem("username") || sessionStorage.getItem("username") || "Someone",
                 ownerId: whiteboardOwnerId || currentUserId
               })
-            ).catch(() => {});
+            ).catch(() => { });
           }
         }
       }
@@ -787,7 +787,7 @@ export default function MeetingPage() {
           if (!isHost && meetingInfo && meetingInfo.hostId && meetingInfo.hostId === currentUserId) {
             setIsHost(true);
           }
-        } catch (e) {}
+        } catch (e) { }
       });
     }
   }, [meetingId]);
@@ -921,18 +921,8 @@ export default function MeetingPage() {
 
         await newRoom.connect(getLiveKitUrl(), token);
 
-        if (muted) {
-          // await newRoom.localParticipant.setMicrophoneEnabled(false);
-        }
-        else {
-          console.log("here");
-
-          const { localAudioTrack, cleanup } = await createProcessedMicTrack();
-          cleanupRef.current = cleanup;
-          await newRoom.localParticipant.publishTrack(localAudioTrack, {
-            source: Track.Source.Microphone,
-            name: 'processed-mic',
-          });
+        if (!muted) {
+          await publishMicTrack(roomRef, cleanupRef, noiseCancellationOn);
         }
 
         // await newRoom.localParticipant.setMicrophoneEnabled(!muted);
@@ -966,7 +956,7 @@ export default function MeetingPage() {
   loadChatHistoryEffect(meetingId, setIsLoading, setMessages);
   subscripeToSingnalREffect(meetingId, setMessages)
 
-  
+
   // Auto-scroll handled inside new scroll container effects
 
   return (
@@ -1017,9 +1007,9 @@ export default function MeetingPage() {
                 {/* Whiteboard Panel */}
                 <div className="relative rounded-[2.5rem] border-2 border-white/5 dark:border-[#2A2E3B] overflow-hidden shadow-xl min-h-[300px]">
                   {isJoinedInDatabase ? (
-                    <WhiteboardPanel 
-                      meetingId={meetingId ?? ""} 
-                      ref={whiteboardRef} 
+                    <WhiteboardPanel
+                      meetingId={meetingId ?? ""}
+                      ref={whiteboardRef}
                       isOwner={whiteboardOwnerId === (localStorage.getItem("userid") || sessionStorage.getItem("userid"))}
                       ownerName={whiteboardOwnerName}
                     />
@@ -1029,7 +1019,7 @@ export default function MeetingPage() {
                       <p className="text-slate-400 font-medium">Connecting to whiteboard...</p>
                     </div>
                   )}
-                  
+
                   <div className="absolute top-5 left-5 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/10 z-20">
                     <span className="text-xs font-semibold text-white tracking-wide">
                       Collaborative Whiteboard
@@ -1044,12 +1034,11 @@ export default function MeetingPage() {
                     <motion.div
                       key={user.id}
                       layout
-                      className={`relative rounded-[2rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden min-h-[180px] ${
-                        user.handRaised
+                      className={`relative rounded-[2rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden min-h-[180px] ${user.handRaised
                           ? "border-amber-500 shadow-[0_0_35px_rgba(245,158,11,0.55)] ring-4 ring-amber-500/30"
                           : user.isSpeaking
-                          ? "border-blue-500/80 shadow-[0_0_30px_rgba(59,130,246,0.4)] ring-4 ring-blue-500/20"
-                          : "border-white/5 dark:border-[#2A2E3B]"
+                            ? "border-blue-500/80 shadow-[0_0_30px_rgba(59,130,246,0.4)] ring-4 ring-blue-500/20"
+                            : "border-white/5 dark:border-[#2A2E3B]"
                         } ${user.hasVideo
                           ? "bg-black"
                           : "bg-gradient-to-br from-[#0f1117] to-[#1a1d2e]"
@@ -1139,12 +1128,11 @@ export default function MeetingPage() {
                     <motion.div
                       key={user.id}
                       layout
-                      className={`relative rounded-[2rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden min-h-[180px] ${
-                        user.handRaised
+                      className={`relative rounded-[2rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden min-h-[180px] ${user.handRaised
                           ? "border-amber-500 shadow-[0_0_35px_rgba(245,158,11,0.55)] ring-4 ring-amber-500/30"
                           : user.isSpeaking
-                          ? "border-blue-500/80 shadow-[0_0_30px_rgba(59,130,246,0.4)] ring-4 ring-blue-500/20"
-                          : "border-white/5 dark:border-[#2A2E3B]"
+                            ? "border-blue-500/80 shadow-[0_0_30px_rgba(59,130,246,0.4)] ring-4 ring-blue-500/20"
+                            : "border-white/5 dark:border-[#2A2E3B]"
                         } ${user.hasVideo
                           ? "bg-black"
                           : "bg-gradient-to-br from-[#0f1117] to-[#1a1d2e]"
@@ -1238,12 +1226,11 @@ export default function MeetingPage() {
                     <motion.div
                       key={user.id}
                       layout
-                      className={`relative rounded-[2.5rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden ${
-                        user.handRaised
+                      className={`relative rounded-[2.5rem] flex items-center justify-center border-2 transition-all shadow-xl overflow-hidden ${user.handRaised
                           ? "border-amber-500 shadow-[0_0_35px_rgba(245,158,11,0.55)] ring-4 ring-amber-500/30"
                           : user.isSpeaking
-                          ? "border-blue-500/80 shadow-[0_0_30px_rgba(59,130,246,0.4)] ring-4 ring-blue-500/20"
-                          : "border-white/5 dark:border-[#2A2E3B]"
+                            ? "border-blue-500/80 shadow-[0_0_30px_rgba(59,130,246,0.4)] ring-4 ring-blue-500/20"
+                            : "border-white/5 dark:border-[#2A2E3B]"
                         } ${user.hasVideo
                           ? "bg-black"
                           : "bg-gradient-to-br from-[#0f1117] to-[#1a1d2e]"
@@ -1345,12 +1332,11 @@ export default function MeetingPage() {
         >
           {/* ── Media Controls Group ── */}
           <button
-            onClick={() => toggleMic(roomRef, isTogglingMicRef, setMuted, cleanupRef)}
-            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
-              muted
+            onClick={() => toggleMic(roomRef, isTogglingMicRef, setMuted, cleanupRef, noiseCancellationOn)}
+            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${muted
                 ? "bg-red-500/20 text-red-400 dark:text-red-400 ring-1 ring-red-500/30"
                 : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
-            }`}
+              }`}
             aria-label={muted ? "Unmute Microphone" : "Mute Microphone"}
             data-tooltip={muted ? "Unmute" : "Mute"}
           >
@@ -1359,11 +1345,10 @@ export default function MeetingPage() {
 
           <button
             onClick={() => toggleCamera(roomRef, isTogglingCameraRef, setCameraOff)}
-            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
-              cameraOff
+            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${cameraOff
                 ? "bg-red-500/20 text-red-400 dark:text-red-400 ring-1 ring-red-500/30"
                 : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
-            }`}
+              }`}
             aria-label={cameraOff ? "Turn On Camera" : "Turn Off Camera"}
             data-tooltip={cameraOff ? "Start Video" : "Stop Video"}
           >
@@ -1372,11 +1357,10 @@ export default function MeetingPage() {
 
           <button
             onClick={() => toggleScreenShare(roomRef, isTogglingScreenShareRef, setScreenShareOff)}
-            className={`hidden sm:flex p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
-              !screenShareOff
+            className={`hidden sm:flex p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${!screenShareOff
                 ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30"
                 : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
-            }`}
+              }`}
             aria-label={screenShareOff ? "Share Screen" : "Stop Sharing"}
             data-tooltip={screenShareOff ? "Share Screen" : "Stop Sharing"}
           >
@@ -1388,9 +1372,13 @@ export default function MeetingPage() {
 
           {/* ── Tools Group ── */}
           <button
-            className="hidden sm:flex p-3 rounded-xl text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10 transition-all duration-200 hover:scale-105"
-            aria-label="Noise Suppression"
-            data-tooltip="Noise Suppression"
+            onClick={() => toggleNoiseCancellation(roomRef, cleanupRef, noiseCancellationOn, setNoiseCancellationOn, setMuted)}
+            className={`hidden sm:flex p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${noiseCancellationOn
+                ? "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30"
+                : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
+              }`}
+            aria-label={noiseCancellationOn ? "Disable Noise Cancellation" : "Enable Noise Cancellation"}
+            data-tooltip={noiseCancellationOn ? "Disable Noise Cancellation" : "Enable Noise Cancellation"}
           >
             <Waves size={20} />
           </button>
@@ -1399,31 +1387,30 @@ export default function MeetingPage() {
             onClick={() => {
               const nextState = !isWhiteboardOpen;
               setIsWhiteboardOpen(nextState);
-              
+
               const myUserId = localStorage.getItem("userid") || sessionStorage.getItem("userid") || "";
               const myUsername = localStorage.getItem("username") || sessionStorage.getItem("username") || "Someone";
-              
+
               setWhiteboardOwnerId(nextState ? myUserId : "");
               setWhiteboardOwnerName(nextState ? myUsername : "");
-              
+
               if (meetingId && meeting_chat_connection.state === "Connected") {
                 meeting_chat_connection.invoke(
                   "SendMeetingEvent",
                   meetingId,
                   "whiteboard:toggle",
-                  JSON.stringify({ 
-                    isOpen: nextState, 
-                    ownerName: myUsername, 
-                    ownerId: myUserId 
+                  JSON.stringify({
+                    isOpen: nextState,
+                    ownerName: myUsername,
+                    ownerId: myUserId
                   })
                 ).catch((err) => console.error("Failed to broadcast whiteboard state:", err));
               }
             }}
-            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
-              isWhiteboardOpen
+            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${isWhiteboardOpen
                 ? "bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/30"
                 : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
-            }`}
+              }`}
             aria-label={isWhiteboardOpen ? "Close Whiteboard" : "Open Whiteboard"}
             data-tooltip={isWhiteboardOpen ? "Close Whiteboard" : "Whiteboard"}
           >
@@ -1432,11 +1419,10 @@ export default function MeetingPage() {
 
           <button
             onClick={() => toggleTranscript()}
-            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
-              isCaptionsOn
+            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${isCaptionsOn
                 ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30"
                 : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
-            }`}
+              }`}
             aria-label={isCaptionsOn ? "Turn Off Captions" : "Turn On Captions"}
             data-tooltip={isCaptionsOn ? "Captions Off" : "Captions"}
           >
@@ -1459,7 +1445,7 @@ export default function MeetingPage() {
           <div className="w-px h-6 mx-1" style={{ background: 'var(--control-divider)' }} />
 
           {/* ── Interaction Group ── */}
-          <InteractionBar 
+          <InteractionBar
             participants={participants}
             toggleRaiseHand={toggleRaiseHand}
             isLocalHandRaised={isLocalHandRaised}
@@ -1495,11 +1481,10 @@ export default function MeetingPage() {
 
           <button
             onClick={() => setIsChatOpen((prev) => !prev)}
-            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
-              isChatOpen
+            className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${isChatOpen
                 ? "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30"
                 : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
-            }`}
+              }`}
             aria-label={isChatOpen ? "Close Chat" : "Open Chat"}
             data-tooltip={isChatOpen ? "Close Chat" : "Chat"}
           >
@@ -1549,7 +1534,7 @@ export default function MeetingPage() {
                   background: rgba(255, 255, 255, 0.25);
                 }
               `}</style>
-              
+
               <motion.aside
                 initial={{ x: "100%", opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
@@ -1575,7 +1560,7 @@ export default function MeetingPage() {
                 </div>
 
                 {/* Messages scroll area */}
-                <div 
+                <div
                   ref={scrollContainerRef}
                   onScroll={handleScroll}
                   className="chat-messages flex-1 overflow-y-auto p-4 space-y-4 relative"
@@ -1602,7 +1587,7 @@ export default function MeetingPage() {
                     /* 3. Message Grouping */
                     groupMessages(messages).map((group, groupIdx) => {
                       const isGroupMe = group.senderId === (localStorage.getItem("userid") || sessionStorage.getItem("userid"));
-                      
+
                       return (
                         <div key={groupIdx} className={`flex flex-col ${isGroupMe ? "items-end" : "items-start"} mt-4 first:mt-0`}>
                           {/* Sender Name above group */}
@@ -1623,7 +1608,7 @@ export default function MeetingPage() {
                             <div className={`flex flex-col gap-1 flex-1 ${isGroupMe ? "items-end" : "items-start"}`}>
                               {group.messages.map((msg, msgIdx) => {
                                 const isFirst = msgIdx === 0;
-                                const formattedTime = msg.sentAt 
+                                const formattedTime = msg.sentAt
                                   ? new Date(msg.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
                                   : new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
 
@@ -1640,8 +1625,8 @@ export default function MeetingPage() {
                                       <div
                                         dir="auto"
                                         className={`px-4 py-2.5 text-sm break-words transition-all duration-200 shadow-sm
-                                          ${isGroupMe 
-                                            ? "bg-blue-600 text-white rounded-2xl rounded-tr-sm" 
+                                          ${isGroupMe
+                                            ? "bg-blue-600 text-white rounded-2xl rounded-tr-sm"
                                             : "bg-slate-100 text-slate-800 dark:bg-white/8 dark:text-white/90 rounded-2xl rounded-tl-sm"
                                           }
                                           ${!isFirst && isGroupMe ? "!rounded-tr-md" : ""}
@@ -1671,7 +1656,7 @@ export default function MeetingPage() {
 
                 {/* Floating New Message Pill */}
                 {showNewMessagePill && (
-                  <div 
+                  <div
                     onClick={scrollToBottom}
                     className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold rounded-full px-3 py-1.5 cursor-pointer shadow-lg z-30 flex items-center gap-1 select-none animate-bounce"
                   >
@@ -1725,7 +1710,7 @@ export default function MeetingPage() {
                 {/* 5. Input Area */}
                 <div className="p-3 bg-white dark:bg-[#0f1117]/95 border-t border-slate-200 dark:border-white/8 shrink-0 flex flex-col gap-2 relative">
                   <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 flex items-center gap-2 mx-1 transition-colors duration-200">
-                    
+
                     {/* Emoji Picker */}
                     <div className="relative flex items-center shrink-0">
                       <button
