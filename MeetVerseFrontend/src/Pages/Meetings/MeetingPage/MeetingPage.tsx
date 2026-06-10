@@ -910,19 +910,21 @@ export default function MeetingPage() {
 
         await newRoom.connect(getLiveKitUrl(), token);
 
-        // if (muted) {
-        //   // await newRoom.localParticipant.setMicrophoneEnabled(false);
-        // }
-        // else {
-        //   const { localAudioTrack, cleanup } = await createProcessedMicTrack();
-        //   cleanupRef.current = cleanup;
-        //   await newRoom.localParticipant.publishTrack(localAudioTrack, {
-        //     source: Track.Source.Microphone,
-        //     name: 'processed-mic',
-        //   });
-        // }
+        if (muted) {
+          // await newRoom.localParticipant.setMicrophoneEnabled(false);
+        }
+        else {
+          console.log("here");
 
-        await newRoom.localParticipant.setMicrophoneEnabled(!muted);
+          const { localAudioTrack, cleanup } = await createProcessedMicTrack();
+          cleanupRef.current = cleanup;
+          await newRoom.localParticipant.publishTrack(localAudioTrack, {
+            source: Track.Source.Microphone,
+            name: 'processed-mic',
+          });
+        }
+
+        // await newRoom.localParticipant.setMicrophoneEnabled(!muted);
         await newRoom.localParticipant.setCameraEnabled(!cameraOff);
 
         syncParticipants(newRoom);
@@ -1332,7 +1334,7 @@ export default function MeetingPage() {
         >
           {/* ── Media Controls Group ── */}
           <button
-            onClick={() => toggleMic(roomRef, isTogglingMicRef, setMuted)}
+            onClick={() => toggleMic(roomRef, isTogglingMicRef, setMuted, cleanupRef)}
             className={`p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
               muted
                 ? "bg-red-500/20 text-red-400 dark:text-red-400 ring-1 ring-red-500/30"
