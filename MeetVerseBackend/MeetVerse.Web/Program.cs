@@ -3,6 +3,7 @@ using MeetVerse.Presentation.Hubs;
 using MeetVerse.Web.Extensions;
 using MeetVerse.Web.Middleware;
 using Microsoft.OpenApi;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,9 +39,12 @@ builder.Services.AddControllers()
 
 var app = builder.Build();
 
-// Seed database
+// Seed and migrate database
 using (var scope = app.Services.CreateScope())
 {
+    var dbContext = scope.ServiceProvider.GetRequiredService<MeetVerse.Persistence.Data.MeetVerseDbContext>();
+    await dbContext.Database.MigrateAsync();
+
     var seeder = scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>();
     await seeder.SeedAsync();
 }
