@@ -25,6 +25,20 @@ builder.Services.AddSwaggerGen(options =>
     {
         [new OpenApiSecuritySchemeReference("bearer", document)] = []
     });
+
+    // Resiliency: Use fully qualified names to prevent schema naming collisions
+    options.CustomSchemaIds(type => type.FullName);
+
+    // Resiliency: Gracefully handle duplicate routes by picking the first one
+    options.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
+
+    // Resiliency: Safely load XML documentation if it exists
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (System.IO.File.Exists(xmlPath))
+    {
+        options.IncludeXmlComments(xmlPath);
+    }
 });
 
 // Register all application services via extension methods
