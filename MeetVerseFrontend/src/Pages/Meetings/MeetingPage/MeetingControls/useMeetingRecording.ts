@@ -1,10 +1,25 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 export const useMeetingRecording = () => {
   const [isRecordingScreen, setIsRecordingScreen] = useState<boolean>(false);
   const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    return () => {
+      // Force stop recording on unmount
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      // Guarantee all tracks are stopped to release camera/mic/screen
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, []);
 
   const startRecording = async () => {
     try {
@@ -12,6 +27,7 @@ export const useMeetingRecording = () => {
         video: true,
         audio: true
       });
+      streamRef.current = stream;
       const options = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
           ? { mimeType: 'video/webm;codecs=vp9' }
           : { mimeType: 'video/webm' };
@@ -47,11 +63,15 @@ export const useMeetingRecording = () => {
     }
   };
 
-  const stopRecording = () => {
+  const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
-  };
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
 
   const clearRecording = useCallback(() => {
     setRecordingBlob(null);

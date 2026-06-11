@@ -16,7 +16,7 @@ export const buildParticipantsList = (liveRoom: Room) => {
 
     const localUser = {
         id: localParticipant.identity,
-        name: `${localParticipant.name || "You"} (You)`,
+        name: localParticipant.name || "You",
         initial: localParticipant.name?.charAt(0)?.toUpperCase() || "Y",
         color: colorPool[0],
         isSpeaking: localParticipant.isSpeaking || false,

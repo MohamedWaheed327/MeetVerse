@@ -4,15 +4,19 @@ using System.Text.Json;
 using System.Net.WebSockets;
 using System.Text;
 
+using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Authorization;
+
 namespace MeetVerse.Presentation.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class DeepGramController : ControllerBase
 {
-    private const string ApiKey = "12ef85ffc9976ee8b61c1bffe65bbea7c1e74b8e";
+    private readonly IConfiguration _config;
 
-    public DeepGramController() { }
+    public DeepGramController(IConfiguration config) { _config = config; }
 
     static string? SimplifyDeepgramMessage(string rawJson)
     {
@@ -57,6 +61,7 @@ public class DeepGramController : ControllerBase
         }
     }
 
+    [AllowAnonymous]
     [HttpGet("/ws/transcribe")]
     public async Task Transcripe()
     {
@@ -68,7 +73,7 @@ public class DeepGramController : ControllerBase
         }
         using var browserSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
         using var deepgramSocket = new ClientWebSocket();
-        deepgramSocket.Options.SetRequestHeader("Authorization", $"Token {ApiKey}");
+        deepgramSocket.Options.SetRequestHeader("Authorization", $"Token {_config["Deepgram:ApiKey"]}");
         var deepgramUri = new Uri("wss://api.deepgram.com/v1/listen?model=nova-2&punctuate=true&smart_format=true&interim_results=true&keepalive=true");
         await deepgramSocket.ConnectAsync(deepgramUri, CancellationToken.None);
         var cts = new CancellationTokenSource();

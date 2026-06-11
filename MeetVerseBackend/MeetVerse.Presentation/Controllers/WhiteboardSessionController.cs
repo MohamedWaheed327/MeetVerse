@@ -7,10 +7,13 @@ using MeetVerse.Persistence.Data;
 using MeetVerse.Shared.DTOs.Whiteboard;
 using MeetVerse.Presentation.Hubs;
 
+using Microsoft.AspNetCore.Authorization;
+
 namespace MeetVerse.Presentation.Controllers;
 
 [ApiController]
 [Route("api/whiteboard/sessions/{sessionId:guid}")]
+[Authorize]
 public class WhiteboardSessionController : ControllerBase
 {
     private readonly MeetVerseDbContext _db;

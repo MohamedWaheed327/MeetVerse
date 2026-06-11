@@ -138,11 +138,15 @@ export default function MeetingPage() {
 
   const [muted, setMuted] = useState(state?.muteMic ?? true);
   const [cameraOff, setCameraOff] = useState(state?.cameraOff ?? true);
-  const [noiseCancellationOn, setNoiseCancellationOn] = useState(true);
+  const [noiseCancellationOn, setNoiseCancellationOn] = useState(false);
   const [screenShareOff, setScreenShareOff] = useState(true);
   const [screenShareOwner, setScreenShareOwner] = useState("");
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCaptionsOn, setIsCaptionsOn] = useState(false);
+  const isCaptionsOnRef = useRef(false);
+  useEffect(() => {
+    isCaptionsOnRef.current = isCaptionsOn;
+  }, [isCaptionsOn]);
   const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
   const [whiteboardOwnerName, setWhiteboardOwnerName] = useState("");
   const [whiteboardOwnerId, setWhiteboardOwnerId] = useState("");
@@ -500,7 +504,7 @@ export default function MeetingPage() {
     if (!roomRef.current) return;
 
     if (isCaptionsOn) {
-      const allParticipants = roomRef.current.remoteParticipants;
+      const allParticipants = [roomRef.current.localParticipant, ...Array.from(roomRef.current.remoteParticipants.values())];
       allParticipants.forEach((participant) => {
         const micPub = participant.getTrackPublication(Track.Source.Microphone);
         if (micPub?.track) {
@@ -516,13 +520,14 @@ export default function MeetingPage() {
     // Ensure chat is visible so transcript appears inside the chat window
     setIsChatOpen(true);
 
-    roomRef.current.remoteParticipants.forEach((participant) => {
+    const allParticipants = [roomRef.current.localParticipant, ...Array.from(roomRef.current.remoteParticipants.values())];
+    allParticipants.forEach((participant) => {
       const micPub = participant.getTrackPublication(Track.Source.Microphone);
       if (micPub?.track && !micPub.track.isMuted) {
         startTranscriping(
           micPub.track,
           participant.identity,
-          getParticipantDisplayName(participant, false)
+          getParticipantDisplayName(participant, participant === roomRef.current!.localParticipant)
         );
       }
     });
@@ -814,6 +819,8 @@ export default function MeetingPage() {
   }, [meetingId]);
 
   useEffect(() => {
+    if (!isJoinedInDatabase) return;
+
     let cancelled = false;
 
     const joinRoom = async () => {
@@ -827,7 +834,7 @@ export default function MeetingPage() {
           console.log("trackSubscribed:", participant.identity, track.kind, publication?.source);
 
           if (publication.source == Track.Source.Microphone) {
-            if (isCaptionsOn) {
+            if (isCaptionsOnRef.current) {
               startTranscriping(
                 track,
                 participant.identity,
@@ -857,7 +864,7 @@ export default function MeetingPage() {
           }
 
           if (publication.source == Track.Source.Microphone) {
-            if (isCaptionsOn) stopTranscriping(track);
+            if (isCaptionsOnRef.current) stopTranscriping(track);
             removeAudioElement(participant.identity, audioRefs);
           }
 
@@ -908,6 +915,15 @@ export default function MeetingPage() {
             ensureScreenShareAttached(newRoom);
             return;
           }
+          if (publication.source === Track.Source.Microphone) {
+            if (isCaptionsOnRef.current && publication.track) {
+              startTranscriping(
+                publication.track,
+                newRoom.localParticipant.identity,
+                getParticipantDisplayName(newRoom.localParticipant, true)
+              );
+            }
+          }
           scheduleSyncParticipants(newRoom);
         };
 
@@ -917,6 +933,11 @@ export default function MeetingPage() {
             setScreenShareOff(true);
             setScreenShareOwner("");
             return;
+          }
+          if (publication.source === Track.Source.Microphone) {
+            if (isCaptionsOnRef.current && publication.track) {
+              stopTranscriping(publication.track);
+            }
           }
           scheduleSyncParticipants(newRoom);
         };
@@ -943,7 +964,13 @@ export default function MeetingPage() {
         await newRoom.connect(getLiveKitUrl(), token);
 
         if (!muted) {
-          await publishMicTrack(roomRef, cleanupRef, noiseCancellationOn);
+          try {
+            await publishMicTrack(roomRef, cleanupRef, noiseCancellationOn);
+          } catch (micErr) {
+            console.warn("⚠️ AI Audio Shield failed to connect, falling back to standard mic.", micErr);
+            setNoiseCancellationOn(false); // Update state so badge hides
+            await newRoom.localParticipant.setMicrophoneEnabled(true);
+          }
         }
 
         // await newRoom.localParticipant.setMicrophoneEnabled(!muted);
@@ -971,7 +998,7 @@ export default function MeetingPage() {
       });
       handleLeaveMeeting(roomRef, clearScheduledRenderSync, audioRefs, videoRefs, screenShareContainerRef);
     };
-  }, [meetingId]);
+  }, [meetingId, isJoinedInDatabase]);
 
 
   loadChatHistoryEffect(meetingId, setIsLoading, setMessages);
@@ -1013,12 +1040,14 @@ export default function MeetingPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-3 bg-slate-900/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
-              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981] animate-pulse" />
-              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest hidden sm:block">
-                AI Audio Shield Active
-              </span>
-            </div>
+            {noiseCancellationOn && (
+              <div className="flex items-center gap-3 bg-slate-900/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981] animate-pulse" />
+                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest hidden sm:block">
+                  AI Audio Shield Active
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Video / Screen Share / Whiteboard Layout */}
@@ -1097,7 +1126,7 @@ export default function MeetingPage() {
                             }`}
                         />
                         <span className="text-[10px] font-bold text-white max-w-[80px] truncate">
-                          {user.name} {user.isLocal ? "(You)" : ""}
+                          {user.name}
                         </span>
                         {!user.hasMic && (
                           <MicOff size={11} className="text-red-400 shrink-0" />
@@ -1191,7 +1220,7 @@ export default function MeetingPage() {
                             }`}
                         />
                         <span className="text-[10px] font-bold text-white max-w-[80px] truncate">
-                          {user.name} {user.isLocal ? "(You)" : ""}
+                          {user.name}
                         </span>
                         {!user.hasMic && (
                           <MicOff size={11} className="text-red-400 shrink-0" />
@@ -1289,7 +1318,7 @@ export default function MeetingPage() {
                             }`}
                         />
                         <span className="text-xs font-semibold text-white tracking-wide">
-                          {user.name} {user.isLocal ? "(You)" : ""}
+                          {user.name}
                         </span>
                         {!user.hasMic && (
                           <MicOff size={14} className="text-red-400 shrink-0" />

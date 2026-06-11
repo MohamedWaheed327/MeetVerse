@@ -7,10 +7,14 @@ using MeetVerse.Persistence.Data;
 using MeetVerse.Shared.Configuration;
 using Microsoft.Extensions.Options;
 
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+
 namespace MeetVerse.Presentation.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class LiveKitController : ControllerBase
 {
     private readonly LiveKitSettings _liveKitSettings;
@@ -28,15 +32,30 @@ public class LiveKitController : ControllerBase
     }
 
     [HttpGet("token")]
-    public IActionResult GetToken([FromQuery] string username, [FromQuery] string room, [FromQuery] string displayName, [FromQuery] string? avatarUrl)
+    public async Task<IActionResult> GetToken([FromQuery] string username, [FromQuery] string room, [FromQuery] string displayName, [FromQuery] string? avatarUrl)
     {
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(room))
             return BadRequest("username and room are required");
+
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(sub, out var userId)) return Unauthorized();
+
+        if (Guid.TryParse(room, out var meetingId))
+        {
+            var isHost = await _db.Meetings.AnyAsync(m => m.Id == meetingId && m.HostId == userId);
+            if (!isHost)
+            {
+                var isParticipant = await _db.MeetingParticipants.AnyAsync(mp => mp.MeetingId == meetingId && mp.UserId == userId);
+                if (!isParticipant) return Forbid("You are not authorized to join this meeting room.");
+            }
+        }
+
         var token = _liveKitTokenService.CreateToken(username, room, displayName, avatarUrl);
         return Ok(new { token });
     }
 
     [HttpPost("webhook")]
+    [AllowAnonymous]
     public async Task<IActionResult> ReceiveWebhook()
     {
         var authHeader = Request.Headers["Authorization"].ToString();
