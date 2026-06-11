@@ -70,6 +70,7 @@ public class MeetingsController : ControllerBase
             .OrderByDescending(m => m.ScheduledStart)
             .Select(m => new MeetingResponse
             {
+                Id = m.Id, Title = m.Title,
                 HostId = m.HostId, HostName = m.Host.Name, HasPassword = m.Password != null,
                 Description = m.Description, ScheduledStart = m.ScheduledStart, ScheduledEnd = m.ScheduledEnd,
                 Status = m.Status, CreatedAt = m.CreatedAt
