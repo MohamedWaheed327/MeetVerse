@@ -1334,7 +1334,7 @@ export default function MeetingPage() {
 
         {/* ═══════════ Unified Frosted-Glass Control Bar ═══════════ */}
         <div
-          className="control-bar-enter fixed bottom-6 left-1/2 z-50 flex items-center gap-1 px-3 py-2 rounded-full backdrop-blur-xl border shadow-2xl"
+          className="control-bar-enter fixed bottom-6 left-1/2 z-50 flex items-center gap-1 px-3 py-2 rounded-full backdrop-blur-xl border shadow-2xl max-w-[95vw] overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           style={{
             background: 'var(--control-bar-bg)',
             borderColor: 'var(--control-bar-border)',
