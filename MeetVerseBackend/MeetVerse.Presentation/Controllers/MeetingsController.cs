@@ -51,6 +51,7 @@ public class MeetingsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         return await _db.UserGroups
+            .AsNoTracking()
             .Where(ug => ug.UserId == userId || ug.GroupId == new Guid("3fa85f64-5717-4562-b3fc-2c963f66afa6"))
             .Select(ug => new GroupResponse
             {
@@ -63,13 +64,15 @@ public class MeetingsController : ControllerBase
 
     private async Task<IEnumerable<MeetingResponse>> GetGroupMeetingsInternal(Guid groupId)
     {
-        return await _db.Meetings.Where(m => m.GroupId == groupId)
+        return await _db.Meetings
+            .AsNoTracking()
+            .Where(m => m.GroupId == groupId)
             .OrderByDescending(m => m.ScheduledStart)
             .Select(m => new MeetingResponse
             {
-                Id = m.Id, Title = m.Title, Description = m.Description,
-                ScheduledStart = m.ScheduledStart, ScheduledEnd = m.ScheduledEnd,
-                Status = m.Status, CreatedAt = m.CreatedAt, HostId = m.HostId, HostName = m.Host.Name
+                HostId = m.HostId, HostName = m.Host.Name, HasPassword = m.Password != null,
+                Description = m.Description, ScheduledStart = m.ScheduledStart, ScheduledEnd = m.ScheduledEnd,
+                Status = m.Status, CreatedAt = m.CreatedAt
             }).ToListAsync();
     }
 
@@ -111,6 +114,7 @@ public class MeetingsController : ControllerBase
             GroupId = creatMeetingRequest.GroupId ?? new Guid(CreateMeetingRequest.GlobalGroupId),
             Title = creatMeetingRequest.Title, Description = creatMeetingRequest.Description,
             ScheduledStart = creatMeetingRequest.ScheduledStart, ScheduledEnd = creatMeetingRequest.ScheduledEnd,
+            Password = creatMeetingRequest.SecurePassword ? creatMeetingRequest.Password : null
         };
         _db.Meetings.Add(meeting);
         var participant = new MeetingParticipant
@@ -131,7 +135,17 @@ public class MeetingsController : ControllerBase
         if (userId is null) return Unauthorized();
         var meetingId = joinMeetingRequest.MeetingId;
         var meeting = await _db.Meetings.FirstOrDefaultAsync(m => m.Id == meetingId);
-        if (!await IsInGroupAsync(meeting!.GroupId!.Value)) return NotFound();
+        if (meeting == null) return NotFound();
+        if (!await IsInGroupAsync(meeting.GroupId!.Value)) return NotFound();
+
+        // Password Check
+        if (meeting.Password != null && meeting.HostId != userId)
+        {
+            if (joinMeetingRequest.Password != meeting.Password)
+            {
+                return Unauthorized("Invalid meeting password");
+            }
+        }
         var participant = new MeetingParticipant
         {
             Id = Guid.NewGuid(), MeetingId = meetingId, Meeting = meeting,
@@ -225,7 +239,9 @@ public class MeetingsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
-        var chat = await _db.ChatMessages.Where(msg => msg.MeetingId == meetingId).Select(cm => new ChatMessageResponse
+        var chat = await _db.ChatMessages
+            .AsNoTracking()
+            .Where(msg => msg.MeetingId == meetingId).Select(cm => new ChatMessageResponse
         {
             Id = cm.Id, MeetingId = cm.MeetingId, SenderId = cm.SenderId,
             SenderName = cm.Sender!.Name!, Content = cm.Content, SentAt = cm.SentAt
@@ -238,7 +254,9 @@ public class MeetingsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
-        var participants = await _db.MeetingParticipants.Where(p => p.MeetingId == meetingId).Select(p => new
+        var participants = await _db.MeetingParticipants
+            .AsNoTracking()
+            .Where(p => p.MeetingId == meetingId).Select(p => new
         {
             p.Id, p.MeetingId, p.UserId, p.Role, p.User.Name
         }).ToListAsync();

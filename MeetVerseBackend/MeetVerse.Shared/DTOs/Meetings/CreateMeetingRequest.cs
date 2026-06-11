@@ -8,4 +8,6 @@ public class CreateMeetingRequest
     public DateTime ScheduledStart { get; set; }
     public DateTime? ScheduledEnd { get; set; }
     public Guid? GroupId { get; set; } = new Guid(GlobalGroupId);
+    public bool SecurePassword { get; set; }
+    public string? Password { get; set; }
 }

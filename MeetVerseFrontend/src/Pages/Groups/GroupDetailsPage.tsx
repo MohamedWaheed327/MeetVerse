@@ -19,6 +19,7 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getGroup, GroupDetails } from "../../services/getGroup";
 import { updateGroup } from "../../services/updateGroup";
+import { deleteGroup } from "../../services/deleteGroup";
 import { removeGroupMember } from "../../services/removeGroupMember";
 import { getGroupMembers } from "../../services/getGroupMembers";
 import { GetGroupChat } from "../../services/getGroupChat";
@@ -247,6 +248,34 @@ export default function GroupDetailsPage() {
     return true;
   };
 
+  const handleLeaveSpace = async () => {
+    if (!groupId || !currentUserId) return;
+    
+    if (isGroupOwner) {
+      if (window.confirm("You are the owner of this space. Leaving will permanently delete this space and all its history for everyone. Are you sure you want to delete this space?")) {
+        try {
+          await deleteGroup(groupId);
+          showToast("Space deleted successfully.", "success");
+          navigate("/groups");
+        } catch (err) {
+          console.error(err);
+          showToast("Failed to delete space.", "error");
+        }
+      }
+    } else {
+      if (window.confirm("Are you sure you want to leave this space? You will need an invite to rejoin.")) {
+        try {
+          await removeGroupMember(groupId, currentUserId);
+          showToast("You have left the space.", "success");
+          navigate("/groups");
+        } catch (err) {
+          console.error(err);
+          showToast("Failed to leave space.", "error");
+        }
+      }
+    }
+  };
+
   return (
     // نخلي الصفحة كلها بارتفاع الشاشة عشان الاسكرول يبقى جوه الكونتينت مش البودي
     <div className="h-screen bg-slate-50 dark:bg-[#0D0F16] text-slate-900 dark:text-[#F1F5F9] transition-colors duration-300 flex flex-col">
@@ -435,9 +464,12 @@ export default function GroupDetailsPage() {
                 </div>
               </LiquidMetalButton>
 
-              <button className="w-full py-3 text-[10px] sm:text-[11px] text-red-500 dark:text-red-400 font-black uppercase tracking-[0.22em] hover:bg-red-50 dark:hover:bg-red-900/10 rounded-2xl transition-all flex items-center justify-center gap-1.5">
+              <button 
+                onClick={handleLeaveSpace}
+                className="w-full py-3 text-[10px] sm:text-[11px] text-red-500 dark:text-red-400 font-black uppercase tracking-[0.22em] hover:bg-red-50 dark:hover:bg-red-900/10 rounded-2xl transition-all flex items-center justify-center gap-1.5"
+              >
                 <LogOut size={14} />
-                Leave Space
+                {isGroupOwner ? "Delete Space" : "Leave Space"}
               </button>
             </div>
           </aside>

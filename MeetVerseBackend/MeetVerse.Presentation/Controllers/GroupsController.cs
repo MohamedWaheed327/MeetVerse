@@ -45,6 +45,7 @@ public class GroupsController : ControllerBase
         if (userId is null) return Unauthorized();
 
         var groups = await _db.UserGroups
+            .AsNoTracking()
             .Where(ug => ug.UserId == userId)
             .Select(ug => new GroupResponse
             {
@@ -113,6 +114,7 @@ public class GroupsController : ControllerBase
         if (!await IsMember(id, userId.Value)) return NotFound();
 
         var group = await _db.Groups
+            .AsNoTracking()
             .Where(g => g.Id == id)
             .Select(g => new GroupResponse
             {
@@ -172,6 +174,7 @@ public class GroupsController : ControllerBase
         if (!await IsMember(id, userId.Value)) return NotFound();
 
         var members = await _db.UserGroups
+            .AsNoTracking()
             .Where(ug => ug.GroupId == id)
             .Select(ug => new GroupMemberResponse
             {
@@ -292,6 +295,7 @@ public class GroupsController : ControllerBase
         if (!await IsMember(id, userId.Value)) return NotFound();
 
         var meetings = await _db.Meetings
+            .AsNoTracking()
             .Where(m => m.GroupId == id)
             .OrderByDescending(m => m.ScheduledStart)
             .Select(m => new
@@ -360,6 +364,7 @@ public class GroupsController : ControllerBase
 
         pageSize = Math.Clamp(pageSize, 1, 100);
         var messages = await _db.GroupMessages
+            .AsNoTracking()
             .Where(gm => gm.GroupId == id && gm.DeletedAt == null)
             .OrderByDescending(gm => gm.SentAt)
             .Skip((page - 1) * pageSize)
@@ -459,6 +464,7 @@ public class GroupsController : ControllerBase
         if (!await CanManageGroup(groupId, userId.Value)) return Forbid();
 
         var res = await _db.JoinGroupRequests
+            .AsNoTracking()
             .Where(jgr => jgr.GroupId == groupId)
             .Select((jgr) => new GroupRequestsResponse { SenderId = jgr.UserId, SenderName = jgr.User.Name!, SentAt = DateTime.UtcNow, SenderEmail = jgr.User.Email })
             .ToListAsync();
