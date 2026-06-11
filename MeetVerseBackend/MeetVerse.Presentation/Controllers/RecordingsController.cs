@@ -19,23 +19,29 @@ public class RecordingsController : ControllerBase
     }
 
     [HttpPost("upload-to-drive")]
-    public async Task<IActionResult> UploadToDrive([FromForm] IFormFile file, [FromForm] string googleAccessToken, CancellationToken ct)
+    public async Task<IActionResult> UploadToDrive([FromForm] UploadToDriveRequestDto request, CancellationToken ct)
     {
-        if (file == null || file.Length == 0)
+        if (request.File == null || request.File.Length == 0)
         {
             return BadRequest("No recording file was provided.");
         }
 
-        if (string.IsNullOrWhiteSpace(googleAccessToken))
+        if (string.IsNullOrWhiteSpace(request.GoogleAccessToken))
         {
             return BadRequest("Google access token is required.");
         }
 
-        await using var stream = file.OpenReadStream();
-        var result = await _googleDriveService.UploadAsync(stream, file.FileName, file.ContentType, googleAccessToken, ct);
+        await using var stream = request.File.OpenReadStream();
+        var result = await _googleDriveService.UploadAsync(stream, request.File.FileName, request.File.ContentType, request.GoogleAccessToken, ct);
 
         var response = new UploadToDriveResponse(result.DriveFileId, result.WebViewLink, result.FileName);
 
         return Ok(response);
     }
+}
+
+public class UploadToDriveRequestDto
+{
+    public IFormFile File { get; set; } = null!;
+    public string GoogleAccessToken { get; set; } = string.Empty;
 }
