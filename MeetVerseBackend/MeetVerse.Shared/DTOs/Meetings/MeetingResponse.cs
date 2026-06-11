@@ -16,4 +16,5 @@ public class MeetingResponse
     public DateTime CreatedAt { get; set; }
     public Guid HostId { get; set; }
     public string? HostName { get; set; }
+    public bool HasPassword { get; set; }
 }

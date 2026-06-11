@@ -147,6 +147,9 @@ export default function MeetingPage() {
   const [whiteboardOwnerName, setWhiteboardOwnerName] = useState("");
   const [whiteboardOwnerId, setWhiteboardOwnerId] = useState("");
   const [isJoinedInDatabase, setIsJoinedInDatabase] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [meetingPassword, setMeetingPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -630,18 +633,25 @@ export default function MeetingPage() {
 
   // ── Register participant in database when they enter the page ──
   useEffect(() => {
-    if (meetingId) {
-      api.post("/meetings/join", { meetingId })
+    if (meetingId && !showPasswordModal && !isJoinedInDatabase) {
+      api.post("/meetings/join", { meetingId, password: meetingPassword })
         .then(() => {
           console.log("Successfully joined meeting in database");
           setIsJoinedInDatabase(true);
+          setShowPasswordModal(false);
+          setPasswordError("");
         })
         .catch((err) => {
-          console.log("Already joined or failed to register participant:", err);
-          setIsJoinedInDatabase(true);
+          if (err.response?.status === 401 && err.response?.data === "Invalid meeting password") {
+            setShowPasswordModal(true);
+            if (meetingPassword) setPasswordError("Incorrect password. Please try again.");
+          } else {
+            console.log("Already joined or failed to register participant:", err);
+            setIsJoinedInDatabase(true);
+          }
         });
     }
-  }, [meetingId]);
+  }, [meetingId, meetingPassword, showPasswordModal, isJoinedInDatabase]);
 
   // ── Sync video elements when whiteboard is toggled ──
   useEffect(() => {
@@ -1918,6 +1928,66 @@ export default function MeetingPage() {
         recordingBlob={recordingBlob}
         meetingId={meetingId || "local"}
       />
+
+      {/* Password Lock Modal */}
+      <AnimatePresence>
+        {showPasswordModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-gradient-to-br from-[#0f1117] to-[#1a1d2e] border border-slate-200 dark:border-[#2A2E3B] rounded-[2.5rem] p-8 md:p-10 shadow-2xl max-w-md w-full mx-4 text-center"
+            >
+              <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-blue-500">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              </div>
+              <h2 className="text-2xl font-black mb-2 text-slate-900 dark:text-white tracking-tight">Meeting Locked</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">
+                This meeting requires a secure password to join.
+              </p>
+              
+              <div className="relative mb-6">
+                <input
+                  type="password"
+                  value={meetingPassword}
+                  onChange={(e) => setMeetingPassword(e.target.value)}
+                  placeholder="Enter Password"
+                  className="w-full bg-[#0D0F16] border border-slate-200 dark:border-[#2A2E3B] rounded-2xl py-4 px-5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setShowPasswordModal(false); // will re-trigger useEffect
+                    }
+                  }}
+                />
+                {passwordError && (
+                  <p className="text-red-400 text-xs mt-2 text-left">{passwordError}</p>
+                )}
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => navigate("/meetings")}
+                  className="flex-1 py-4 bg-transparent border border-slate-200 dark:border-[#2A2E3B] hover:bg-white/5 rounded-2xl font-bold text-sm transition-all active:scale-95 text-slate-900 dark:text-white"
+                >
+                  Go Back
+                </button>
+                <button
+                  onClick={() => setShowPasswordModal(false)} // re-triggers join attempt
+                  className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-sm shadow-xl shadow-blue-900/20 transition-all active:scale-95"
+                >
+                  Join
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

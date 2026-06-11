@@ -18,6 +18,8 @@ public class Meeting
 
     public MeetingStatus Status { get; set; } = MeetingStatus.Scheduled;
 
+    public string? Password { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<MeetingParticipant> Participants { get; set; } = new List<MeetingParticipant>();

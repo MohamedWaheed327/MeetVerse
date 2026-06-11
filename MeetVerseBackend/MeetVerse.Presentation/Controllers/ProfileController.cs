@@ -50,7 +50,7 @@ public class ProfileController : ControllerBase
     public async Task<ActionResult<UserProfileDto>> GetCurrentUser()
     {
         var userId = GetUserId();
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
         if (user == null) return NotFound("User not found.");
 
         var dto = _mapper.Map<UserProfileDto>(user);
