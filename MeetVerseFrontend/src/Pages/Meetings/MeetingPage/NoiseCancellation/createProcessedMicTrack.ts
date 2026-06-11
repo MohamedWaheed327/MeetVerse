@@ -61,7 +61,7 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
     // 6. Output node (THIS is what LiveKit uses)
     const destination = audioContext.createMediaStreamDestination();
     const outputGain = audioContext.createGain();
-    outputGain.gain.value = 3;
+    outputGain.gain.value = 1.8;
 
     // 7. Send frames to backend
     processor.port.onmessage = (event) => {
