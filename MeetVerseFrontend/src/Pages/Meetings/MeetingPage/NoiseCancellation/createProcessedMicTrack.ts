@@ -9,7 +9,7 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
     console.log('[NC] init');
 
     // Match the backend model: 16 STFT frames with n_fft=512, hop_length=160.
-    const FRAME_SAMPLES = 512;
+    const FRAME_SAMPLES = 500;
     const wsUrl = (import.meta.env.VITE_FASTAPI_WS_URL || '').replace(/\/$/, '');
     const socketUrl = wsUrl
         ? `${wsUrl}/ws/audio`
