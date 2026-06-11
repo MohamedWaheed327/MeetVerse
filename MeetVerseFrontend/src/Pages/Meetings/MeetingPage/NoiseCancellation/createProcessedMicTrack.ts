@@ -8,11 +8,18 @@ export type ProcessedAudioResources = {
 export async function createProcessedMicTrack(): Promise<ProcessedAudioResources> {
     console.log('[NC] init');
 
+    // Match the backend model: 16 STFT frames with n_fft=512, hop_length=160.
+    const FRAME_SAMPLES = 512;
+    const wsUrl = (import.meta.env.VITE_FASTAPI_WS_URL || '').replace(/\/$/, '');
+    const socketUrl = wsUrl
+        ? `${wsUrl}/ws/audio`
+        : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/audio`;
+
     // 1. Mic
     const micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
+            echoCancellation: true,
+            noiseSuppression: true,
             autoGainControl: false,
             channelCount: 1,
         },
@@ -29,7 +36,7 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
     await audioContext.audioWorklet.addModule('/noiseCancellationWorklet.js');
 
     // 4. FastAPI WebSocket
-    const socket = new WebSocket('wss://8000-01kjk67evz2j6dzddj9wk33yyc.cloudspaces.litng.ai/ws/audio');
+    const socket = new WebSocket(socketUrl);
     socket.binaryType = 'arraybuffer';
 
     await new Promise<void>((resolve, reject) => {
@@ -47,7 +54,7 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
         numberOfOutputs: 1,
         outputChannelCount: [1],
         processorOptions: {
-            frameSize: 160 * 4,
+            frameSize: FRAME_SAMPLES,
         },
     });
 
@@ -65,7 +72,10 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
 
     // 8. Receive processed audio
     socket.onmessage = (event) => {
+        if (!(event.data instanceof ArrayBuffer)) return;
+
         const samples = new Float32Array(event.data);
+        if (!samples.length) return;
 
         processor.port.postMessage({
             type: 'processed',

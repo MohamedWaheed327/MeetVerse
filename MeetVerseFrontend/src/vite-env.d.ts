@@ -5,6 +5,7 @@ interface ImportMetaEnv {
   readonly VITE_BACKEND_PROD: string;
   readonly VITE_LIVEKIT_DEV: string;
   readonly VITE_LIVEKIT_PROD: string;
+  readonly VITE_FASTAPI_WS_URL?: string;
   readonly VITE_GOOGLE_CLIENT_ID: string;
 }
 
@@ -30,10 +31,10 @@ interface Window {
             theme?: "outline" | "filled_blue" | "filled_black";
             size?: "large" | "medium" | "small";
             text?:
-              | "signin_with"
-              | "signup_with"
-              | "continue_with"
-              | "signin";
+            | "signin_with"
+            | "signup_with"
+            | "continue_with"
+            | "signin";
             shape?: "rectangular" | "pill" | "circle" | "square";
             width?: number;
           }
