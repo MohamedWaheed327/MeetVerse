@@ -1,6 +1,6 @@
 import Navbar from "../../../components/LandingComponents/Navbar/Navbar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, MessageSquare, Waves, X, Send, ShieldCheck, Type, PenTool, Hand, FileDown, Link, Share2, Smile } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, MessageSquare, Waves, X, Send, ShieldCheck, Type, PenTool, Hand, FileDown, Link, Share2, Smile, Disc } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Participant, RemoteTrackPublication, Room, RoomEvent, Track, TrackPublication, VideoQuality } from "livekit-client";
@@ -38,6 +38,8 @@ import { leaveMeetingAPI } from "../../../services/leaveMeetingAPI";
 import InteractionBar from "./MeetingControls/InteractionBar";
 import { meetingLinkService } from "../../../services/meetingLinkService";
 import api from "../../../services/api";
+import { useMeetingRecording } from "./MeetingControls/useMeetingRecording";
+import { PostRecordingModal } from "./MeetingControls/PostRecordingModal";
 
 function getLiveKitUrl(): string {
   const preferred = import.meta.env.DEV
@@ -164,6 +166,15 @@ export default function MeetingPage() {
   const prevMessagesLengthRef = useRef(messages.length);
 
   const [showBlockerModal, setShowBlockerModal] = useState(false);
+
+  const { isRecordingScreen, recordingBlob, startRecording, stopRecording, clearRecording } = useMeetingRecording();
+  const [isRecordingModalOpen, setIsRecordingModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (recordingBlob) {
+      setIsRecordingModalOpen(true);
+    }
+  }, [recordingBlob]);
 
   // Intercept browser back button
   useEffect(() => {
@@ -1367,6 +1378,19 @@ export default function MeetingPage() {
             <MonitorUp size={20} />
           </button>
 
+          <button
+            onClick={isRecordingScreen ? stopRecording : startRecording}
+            className={`hidden sm:flex p-3 rounded-xl transition-all duration-200 active:scale-90 hover:scale-105 ${
+              isRecordingScreen
+                ? "bg-red-500/20 text-red-500 ring-1 ring-red-500/30 animate-pulse"
+                : "text-slate-600 dark:text-white/80 hover:bg-black/5 dark:hover:bg-white/10"
+            }`}
+            aria-label={isRecordingScreen ? "Stop Recording" : "Start Recording"}
+            data-tooltip={isRecordingScreen ? "Stop Recording" : "Start Recording"}
+          >
+            <Disc size={20} />
+          </button>
+
           {/* ── Divider ── */}
           <div className="w-px h-6 mx-1" style={{ background: 'var(--control-divider)' }} />
 
@@ -1883,6 +1907,17 @@ export default function MeetingPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Conditionally rendered post-meeting modal */}
+      <PostRecordingModal 
+        isOpen={isRecordingModalOpen}
+        onClose={() => {
+          setIsRecordingModalOpen(false);
+          clearRecording();
+        }}
+        recordingBlob={recordingBlob}
+        meetingId={meetingId || "local"}
+      />
 
     </div>
   );
