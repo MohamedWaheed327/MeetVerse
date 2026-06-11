@@ -12,6 +12,7 @@ using MeetVerse.Services.Implementations.LiveKit;
 using MeetVerse.Services.Implementations.Whiteboard;
 using MeetVerse.Services.Implementations.Profile;
 using MeetVerse.Services.Implementations.Email;
+using MeetVerse.Services.Implementations.GoogleDrive;
 using MeetVerse.Shared.Configuration;
 
 namespace MeetVerse.Web.Extensions;
@@ -50,6 +51,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IAudioSummarizationService, StubAudioSummarizationService>();
         services.AddScoped<IImageStorageService, LocalImageStorageService>();
         services.AddScoped<IImageResolver, ImageResolver>();
+        services.AddScoped<IGoogleDriveService, GoogleDriveService>();
 
         // Background Services
         services.AddHostedService<MeetingProcessingWorker>();
