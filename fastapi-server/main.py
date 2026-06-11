@@ -50,23 +50,40 @@ def encode_audio(wav: np.ndarray):
 # FAST SAFE INFERENCE WRAPPER
 # ----------------------------
 async def run_inference(wav_tensor, state: SessionState):
-    """
-    Runs torch inference in a background thread
-    so WebSocket event loop is NEVER blocked.
-    """
 
     def _infer():
-        with torch.no_grad():
-            return enhance_waveform_streaming(
-                noisy_wav=wav_tensor,
-                model=model,
-                transform=transform,
-                chunk_frames=16,
-                h=state.h
+        with torch.inference_mode():
+
+            noisy_spec = transform.audio_to_spectrogram(
+                wav_tensor
             )
 
-    enhanced_wav, _, new_h = await asyncio.to_thread(_infer)
-    return enhanced_wav, new_h
+            mask, new_h = model(
+                noisy_spec,
+                state.h
+            )
+
+            enhanced_spec = transform.apply_mask(
+                noisy_spec,
+                mask
+            )
+
+            enhanced_wav = transform.spectrogram_to_audio(
+                enhanced_spec,
+                target_num_samples=wav_tensor.shape[-1]
+            )
+
+            return enhanced_wav, new_h
+
+    enhanced_wav, new_h = await asyncio.to_thread(_infer)
+
+    state.h = (
+        new_h.detach()
+        if new_h is not None
+        else None
+    )
+
+    return enhanced_wav, state.h
 
 
 x = 1
@@ -117,7 +134,12 @@ async def audio_ws(websocket: WebSocket):
                 .cpu()
                 .numpy()
             )
-
+           
+            input_np = wav.squeeze(0).detach().cpu().numpy()
+            output_np = enhanced_wav.squeeze(0).detach().cpu().numpy()
+            diff = np.mean(np.abs(input_np - output_np))
+            print(f"[DIFF L1] {diff:.6f}")
+            
             await websocket.send_bytes(encode_audio(output))
 
     except WebSocketDisconnect:
