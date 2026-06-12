@@ -8,7 +8,7 @@ export type ProcessedAudioResources = {
 export async function createProcessedMicTrack(): Promise<ProcessedAudioResources> {
     console.log('[NC] init');
 
-    const FRAME_SAMPLES = 128;
+    const FRAME_SAMPLES = 160;
 
     const wsUrl = (
         import.meta.env.VITE_FASTAPI_WS_URL || ''
