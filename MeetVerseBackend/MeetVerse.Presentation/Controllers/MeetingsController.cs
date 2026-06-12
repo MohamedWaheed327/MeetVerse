@@ -272,10 +272,44 @@ public class MeetingsController : ControllerBase
         var meeting = await _db.Meetings.FirstOrDefaultAsync(m => m.Id == id);
         if (meeting == null) return NotFound();
         
-        // Optional: Ensure only host can update
+        // Ensure only host can update
         if (meeting.HostId != userId) return Forbid();
         
         meeting.Title = request.Title;
+        await _db.SaveChangesAsync();
+        
+        return Ok();
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult> DeleteMeeting(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+        
+        var meeting = await _db.Meetings.FirstOrDefaultAsync(m => m.Id == id);
+        if (meeting == null) return NotFound();
+        
+        if (meeting.HostId != userId) return Forbid();
+        
+        _db.Meetings.Remove(meeting);
+        await _db.SaveChangesAsync();
+        
+        return Ok();
+    }
+
+    [HttpPatch("{id:guid}/start-now")]
+    public async Task<ActionResult> StartMeetingNow(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+        
+        var meeting = await _db.Meetings.FirstOrDefaultAsync(m => m.Id == id);
+        if (meeting == null) return NotFound();
+        
+        if (meeting.HostId != userId) return Forbid();
+        
+        meeting.ScheduledStart = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         
         return Ok();

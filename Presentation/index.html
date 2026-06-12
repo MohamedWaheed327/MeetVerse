@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>MeetVerse Presentation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reset.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/blood.min.css" id="theme">
+    <style>
+        /* Custom Styling to match the MeetVerse brand */
+        :root {
+            --brand-navy: #0b1c4a;
+            --brand-cream: #fcf9eb;
+            --brand-blue: #2352f0;
+            --brand-purple: #8b3cff;
+        }
+        body {
+            background-color: var(--brand-cream);
+        }
+        .reveal .slides section,
+        .reveal .slides section>section {
+            background-color: var(--brand-cream);
+            color: var(--brand-navy);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100%;
+        }
+        .reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+            color: var(--brand-navy);
+            font-weight: 700;
+            text-transform: none;
+        }
+        .reveal h1 { font-size: 2.5em; }
+        .reveal h2 { font-size: 2em; margin-bottom: 20px; }
+        .gradient-text {
+            background: linear-gradient(90deg, #1fa2ff, #12d8fa, #a6ffcb);
+            background: linear-gradient(90deg, var(--brand-blue), var(--brand-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .slide-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            margin: 20px;
+            text-align: left;
+        }
+        .reveal ul {
+            display: block;
+            margin-left: 10%;
+        }
+        .reveal li {
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+        .header-bar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--brand-navy);
+            padding-bottom: 10px;
+        }
+        .faculty-logo {
+            font-size: 0.5em;
+            font-weight: bold;
+        }
+        .title-slide-bg {
+            background: linear-gradient(135deg, var(--brand-navy) 0%, #1a365d 50%, var(--brand-cream) 50%, var(--brand-cream) 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            
+<section data-auto-animate>
+    <div class="h-full w-full flex flex-col items-center justify-center relative title-slide-bg">
+        <div class="absolute top-4 left-4 text-left text-sm font-bold text-white max-w-[200px]">
+            Faculty of Computers & Artificial Intelligence<br>Benha University
+        </div>
+        <h1 class="text-white text-7xl font-bold mb-4">Meet<span class="text-purple-400">Verse</span></h1>
+        <h3 class="text-gray-200 text-3xl mb-12">Online Meeting Platform <span class="text-purple-300">Noise cancellation supported</span></h3>
+        
+        <div class="bg-white text-[#0b1c4a] rounded-full px-8 py-2 font-bold mb-8">
+            UNDER THE SUPERVISION:
+        </div>
+        
+        <div class="text-left w-full max-w-md bg-white/10 p-6 rounded-xl backdrop-blur-sm border border-white/20">
+            <p class="text-xl border-b border-white/30 pb-2 mb-2 font-semibold">Prof. Mohamed Taha</p>
+            <p class="text-xl font-semibold">Eng. Mohamed Ibrahim</p>
+        </div>
+    </div>
+</section>
+\n
+<section data-auto-animate>
+    <div class="header-bar">
+        <div class="faculty-logo">Benha University</div>
+        <div class="text-sm font-bold text-[#0b1c4a]">MeetVerse Team</div>
+    </div>
+    <div class="flex flex-col items-center justify-center h-full pt-16">
+        <div class="w-full bg-[#0b1c4a] text-white py-6 mb-12">
+            <h2 class="text-white !mb-0 text-5xl text-left pl-12 font-bold">MEET OUR TEAM</h2>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-8 w-4/5">
+            <div class="flex items-center gap-4 bg-white p-4 rounded-full shadow-md transform transition hover:scale-105">
+                <div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold">1</div>
+                <div class="text-xl font-semibold">Ahmed Rizk Ali</div>
+            </div>
+            <div class="flex items-center gap-4 bg-white p-4 rounded-full shadow-md transform transition hover:scale-105">
+                <div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold">5</div>
+                <div class="text-xl font-semibold">Mohamed Warith Ibrahim</div>
+            </div>
+            <div class="flex items-center gap-4 bg-white p-4 rounded-full shadow-md transform transition hover:scale-105">
+                <div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold">2</div>
+                <div class="text-xl font-semibold">Hamza Ahmed Ali</div>
+            </div>
+            <div class="flex items-center gap-4 bg-white p-4 rounded-full shadow-md transform transition hover:scale-105">
+                <div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold">6</div>
+                <div class="text-xl font-semibold">Mohamed Waheed Saeed</div>
+            </div>
+            <div class="flex items-center gap-4 bg-white p-4 rounded-full shadow-md transform transition hover:scale-105">
+                <div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold">3</div>
+                <div class="text-xl font-semibold">Mohamed Thaer Mohamed</div>
+            </div>
+            <div class="flex items-center gap-4 bg-white p-4 rounded-full shadow-md transform transition hover:scale-105">
+                <div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold">7</div>
+                <div class="text-xl font-semibold">Youssef Ramadan Abdulmoez</div>
+            </div>
+            <div class="flex items-center gap-4 bg-white p-4 rounded-full shadow-md transform transition hover:scale-105">
+                <div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold">4</div>
+                <div class="text-xl font-semibold">Mohamed Adel Qassem</div>
+            </div>
+        </div>
+    </div>
+</section>
+\n
+<section data-auto-animate>
+    <div class="flex flex-col items-center justify-center h-full pt-16">
+        <div class="bg-[#0b1c4a] text-white py-4 px-20 rounded-full mb-12 shadow-lg">
+            <h2 class="text-white !mb-0 text-5xl font-bold">Table of Contents</h2>
+        </div>
+        
+        <div class="flex justify-between w-4/5 gap-12">
+            <div class="flex flex-col gap-6 w-1/2">
+                <div class="flex items-center gap-4"><div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl shrink-0">1</div><div class="text-2xl">Introduction</div></div>
+                <div class="flex items-center gap-4"><div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl shrink-0">2</div><div class="text-2xl">Problem Definition</div></div>
+                <div class="flex items-center gap-4"><div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl shrink-0">3</div><div class="text-2xl">Solution</div></div>
+                <div class="flex items-center gap-4"><div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl shrink-0">4</div><div class="text-2xl">Features</div></div>
+                <div class="flex items-center gap-4"><div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl shrink-0">5</div><div class="text-2xl">System Analysis & Design</div></div>
+            </div>
+            
+            <div class="w-2 bg-[#0b1c4a] rounded-full"></div>
+            
+            <div class="flex flex-col gap-6 w-1/2 pl-6">
+                <div class="flex items-center gap-4"><div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl shrink-0">6</div><div class="text-2xl">Ai Models</div></div>
+                <div class="flex items-center gap-4"><div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl shrink-0">7</div><div class="text-2xl">Testing</div></div>
+                <div class="flex items-center gap-4"><div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl shrink-0">8</div><div class="text-2xl">Website UI</div></div>
+                <div class="flex items-center gap-4"><div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl shrink-0">9</div><div class="text-2xl">Back-End</div></div>
+                <div class="flex items-center gap-4"><div class="bg-[#0b1c4a] text-white rounded-full w-12 h-12 flex items-center justify-center text-xl shrink-0">10</div><div class="text-2xl">What Next.... ?</div></div>
+            </div>
+        </div>
+    </div>
+</section>
+\n<section>
+    <section data-auto-animate>
+        <h2>1. Introduction</h2>
+        <div class="slide-card">
+            <h3 class="gradient-text">Welcome to MeetVerse</h3>
+            <p>A modern, high-performance web application tailored to redefine the virtual meeting experience.</p>
+            <ul>
+                <li>Seamless Audio & Video Integration</li>
+                <li>Built for professionals, students, and educators</li>
+                <li>Engineered with state-of-the-art web technologies</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>1. Introduction</h2>
+        <div class="slide-card">
+            <h3 class="gradient-text">Our Vision</h3>
+            <p>To eliminate the friction of remote communication by providing an environment that is as clear, natural, and productive as an in-person meeting.</p>
+            <p>We aim to connect the world, without the noise.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>1. Introduction</h2>
+        <div class="slide-card">
+            <h3 class="gradient-text">Our Mission</h3>
+            <p>Develop a scalable, secure, and user-centric platform that actively combats the primary disruptions found in traditional communication tools.</p>
+            <ul>
+                <li>Focus on reliability and low-latency.</li>
+                <li>Implement cutting-edge AI for practical use-cases.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>1. Introduction</h2>
+        <div class="slide-card">
+            <h3 class="gradient-text">Project Scope</h3>
+            <p>MeetVerse encompasses a full-stack solution including:</p>
+            <div class="flex justify-around mt-8 text-center font-bold">
+                <div class="p-4 bg-gray-100 rounded-lg w-1/3 mx-2">Frontend<br><span class="text-sm font-normal">React, TypeScript, Vite</span></div>
+                <div class="p-4 bg-gray-100 rounded-lg w-1/3 mx-2">Backend<br><span class="text-sm font-normal">ASP.NET Core, SignalR</span></div>
+                <div class="p-4 bg-gray-100 rounded-lg w-1/3 mx-2">AI Microservice<br><span class="text-sm font-normal">Python, FastAPI, Deepgram</span></div>
+            </div>
+        </div>
+    </section>
+</section>\n<section>
+    <section data-auto-animate>
+        <h2>2. Problem Definition</h2>
+        <div class="slide-card bg-red-50 border-l-4 border-red-500">
+            <h3 class="text-red-700">The Flaws of Remote Meetings</h3>
+            <p>Despite rapid advancements in software, remote workers and students continuously face severe disruptions during online meetings.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>2. Problem Definition</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">1. Background Noise</h3>
+            <p>Dogs barking, traffic, construction, and keyboard typing ruin meeting clarity and professionalism.</p>
+            <ul>
+                <li>Causes fatigue for listeners.</li>
+                <li>Distracts from the core message.</li>
+                <li>Current solutions are often paid plugins or computationally heavy.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>2. Problem Definition</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">2. Unreliable Transcriptions</h3>
+            <p>Many meetings are lost to time because manual note-taking is inefficient, and built-in transcriptions are inaccurate.</p>
+            <ul>
+                <li>Missing context for those who couldn't attend.</li>
+                <li>Lack of speaker diarization (who said what?).</li>
+                <li>Poor handling of different accents.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>2. Problem Definition</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">3. Fragmented Collaboration</h3>
+            <p>Users must juggle multiple apps: one for video, one for whiteboard, one for file sharing.</p>
+            <ul>
+                <li>Decreases productivity.</li>
+                <li>Causes "context switching" fatigue.</li>
+                <li>Difficult to synchronize all participants on a single workflow.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>2. Problem Definition</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">4. Poor Scalability</h3>
+            <p>Legacy systems struggle with bandwidth management when participant counts increase, leading to frozen videos and robotic audio.</p>
+        </div>
+    </section>
+</section>\n<section>
+    <section data-auto-animate>
+        <h2>3. Solution</h2>
+        <div class="slide-card bg-green-50 border-l-4 border-green-500">
+            <h3 class="text-green-700">MeetVerse: The Unified Hub</h3>
+            <p>An all-in-one, intelligent platform designed from the ground up to solve modern meeting fatigue.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>3. Solution</h2>
+        <div class="slide-card">
+            <h3 class="gradient-text">1. AI Audio Shield</h3>
+            <p>We implemented a dedicated Python/FastAPI microservice running an advanced PyTorch model.</p>
+            <ul>
+                <li>Processes audio streams in real-time.</li>
+                <li>Isolates human voices and suppresses background noise automatically.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>3. Solution</h2>
+        <div class="slide-card">
+            <h3 class="gradient-text">2. High-Fidelity Transcriptions</h3>
+            <p>Integrated with the Deepgram API via secure backend controllers.</p>
+            <ul>
+                <li>Incredibly fast and accurate Speech-to-Text.</li>
+                <li>Speaker identification included.</li>
+                <li>Captions rendered dynamically on the frontend.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>3. Solution</h2>
+        <div class="slide-card">
+            <h3 class="gradient-text">3. Unified Collaboration Tools</h3>
+            <p>Built-in interactive tools directly inside the meeting view.</p>
+            <ul>
+                <li>Real-time synchronized Whiteboard.</li>
+                <li>Seamless Screen Sharing.</li>
+                <li>Live Chat and Hand-Raising features.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>3. Solution</h2>
+        <div class="slide-card">
+            <h3 class="gradient-text">4. WebRTC via LiveKit</h3>
+            <p>We abandoned legacy peer-to-peer mesh networks in favor of an SFU (Selective Forwarding Unit) architecture.</p>
+            <ul>
+                <li>Handles hundreds of participants efficiently.</li>
+                <li>Dynamically scales video quality based on bandwidth.</li>
+            </ul>
+        </div>
+    </section>
+</section>\n<section>
+    <section data-auto-animate>
+        <h2>4. Features</h2>
+        <div class="grid grid-cols-2 gap-4">
+            <div class="bg-blue-100 p-6 rounded-xl text-center">🎥 Video Conferencing</div>
+            <div class="bg-blue-100 p-6 rounded-xl text-center">🛡️ AI Audio Shield</div>
+            <div class="bg-blue-100 p-6 rounded-xl text-center">📝 Live Transcription</div>
+            <div class="bg-blue-100 p-6 rounded-xl text-center">🖍️ Whiteboard</div>
+            <div class="bg-blue-100 p-6 rounded-xl text-center">💻 Screen Share</div>
+            <div class="bg-blue-100 p-6 rounded-xl text-center">☁️ Google Drive Export</div>
+            <div class="bg-blue-100 p-6 rounded-xl text-center">💬 Real-time Chat</div>
+            <div class="bg-blue-100 p-6 rounded-xl text-center">🔒 Secure JWT Auth</div>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>4. Features</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">🎥 Video Conferencing</h3>
+            <p>Crystal clear video utilizing the LiveKit SFU infrastructure. Features dynamic tile layouts that automatically adjust based on participant count.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>4. Features</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">🛡️ AI Audio Shield</h3>
+            <p>A toggleable noise-cancellation system. When active, raw mic data is sent via WebSocket to our Python server, processed by a PyTorch model, and returned as a clean audio stream.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>4. Features</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">📝 Live Transcription & Captions</h3>
+            <p>Provides live closed captions for all speakers. Crucial for accessibility and ensuring no details are missed in noisy environments.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>4. Features</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">🖍️ Synchronized Whiteboard</h3>
+            <p>Powered by React Flow / Custom Canvas, users can draw, erase, and map ideas in real-time. State is synced perfectly using ASP.NET SignalR Hubs.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>4. Features</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">💻 Screen Share</h3>
+            <p>Users can present their entire screen, a specific window, or a browser tab. The screen share gets priority rendering in the main viewing grid.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>4. Features</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">☁️ Google Drive Export & Cloud Recordings</h3>
+            <p>Meeting recordings and transcripts are securely stored and can be instantly exported directly to the user's Google Drive via our integrated API.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>4. Features</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">💬 Real-time Chat & Secure Auth</h3>
+            <p>Fast, persistent chat powered by SignalR. The entire application is secured with ASP.NET Identity and JSON Web Tokens (JWT) for authentication.</p>
+        </div>
+    </section>
+</section>\n<section>
+    <section data-auto-animate>
+        <h2>5. System Analysis & Design</h2>
+        <div class="slide-card">
+            <h3 class="gradient-text">Clean Architecture Approach</h3>
+            <p>The backend was strictly designed using Clean Architecture principles to ensure scalability, testability, and separation of concerns.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>5. System Analysis & Design</h2>
+        <div class="slide-card text-center flex flex-col items-center">
+            <h3 class="gradient-text mb-6">The 4 Layers</h3>
+            <div class="w-3/4 bg-blue-900 text-white p-3 rounded-lg mb-2">Web Presentation Layer (Controllers)</div>
+            <div class="w-3/4 bg-blue-700 text-white p-3 rounded-lg mb-2">Application Layer (Interfaces, DTOs, Logic)</div>
+            <div class="w-3/4 bg-blue-500 text-white p-3 rounded-lg mb-2">Domain Layer (Entities, Value Objects)</div>
+            <div class="w-3/4 bg-blue-300 text-[#0b1c4a] p-3 rounded-lg">Infrastructure Layer (EF Core, DbContext)</div>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>5. System Analysis & Design</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Domain-Driven Design (DDD)</h3>
+            <ul>
+                <li>Entities encapsulate their own business logic.</li>
+                <li>Rich domain models prevent "anemic" classes.</li>
+                <li>Repositories handle data access abstraction.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>5. System Analysis & Design</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Database Schema Highlights</h3>
+            <p>We utilized PostgreSQL via Entity Framework Core.</p>
+            <ul>
+                <li><strong>Users:</strong> Managed by ASP.NET Identity.</li>
+                <li><strong>Meetings:</strong> Hosts, Passwords, Schedules, Status.</li>
+                <li><strong>Recordings & Transcripts:</strong> 1-to-Many relationships for meeting assets.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>5. System Analysis & Design</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Real-Time Infrastructure</h3>
+            <p>We deployed dual real-time systems to handle different requirements:</p>
+            <ul>
+                <li><strong>LiveKit (WebRTC):</strong> Handles heavy audio/video streaming via UDP/TCP.</li>
+                <li><strong>SignalR (WebSockets):</strong> Handles lightweight control messages (Chat, Hand Raises, Whiteboard Sync).</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>5. System Analysis & Design</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">UML & Diagrams</h3>
+            <p>Comprehensive Use Case Diagrams, Sequence Diagrams, and ERDs were crafted to ensure the team stayed aligned during the development lifecycle.</p>
+        </div>
+    </section>
+</section>\n<section>
+    <section data-auto-animate>
+        <h2>6. AI Models</h2>
+        <div class="slide-card bg-purple-50 border-l-4 border-purple-500">
+            <h3 class="text-purple-700">Intelligence at the Core</h3>
+            <p>MeetVerse isn't just a communication tool; it actively improves the communication medium using artificial intelligence.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>6. AI Models</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">The Audio Shield Microservice</h3>
+            <p>A standalone Python application built with FastAPI to ensure non-blocking, high-throughput asynchronous processing.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>6. AI Models</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">PyTorch Noise Suppression</h3>
+            <p>We integrated a Deep Learning model trained on massive datasets of human speech and environmental noise.</p>
+            <ul>
+                <li>Accepts raw PCM audio streams via WebSocket.</li>
+                <li>Applies a mask to filter out non-human frequencies.</li>
+                <li>Returns cleaned audio with near-zero perceived latency.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>6. AI Models</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Deepgram Speech-to-Text</h3>
+            <p>We bypassed standard transcription APIs in favor of Deepgram's neural network-based architecture.</p>
+            <ul>
+                <li>Achieves sub-second transcription speeds.</li>
+                <li>Highly accurate punctuation and casing.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>6. AI Models</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Handling Race Conditions</h3>
+            <p>AI processing introduces latency. We engineered robust state-management in React to ensure the UI gracefully handles AI connection delays, falling back to standard audio if the AI server is unreachable.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>6. AI Models</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Future AI Integration</h3>
+            <p>The microservice architecture allows us to easily hot-swap models in the future, opening doors for Real-time Translation and meeting summarization.</p>
+        </div>
+    </section>
+</section>\n<section>
+    <section data-auto-animate>
+        <h2>7. Testing</h2>
+        <div class="slide-card">
+            <h3 class="gradient-text">Ensuring Reliability</h3>
+            <p>A platform designed for enterprise communication cannot fail during critical moments. We implemented rigorous testing protocols.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>7. Testing</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Backend Unit Testing</h3>
+            <p>We wrote comprehensive tests for the Application layer (Services) using xUnit and Moq.</p>
+            <ul>
+                <li>Mocking the Database Context to test business logic in isolation.</li>
+                <li>Verifying JWT token generation and validation.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>7. Testing</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Integration & API Testing</h3>
+            <p>Controllers were tested using Postman and Swagger.</p>
+            <ul>
+                <li>Verified endpoint security (Authorize attributes).</li>
+                <li>Tested the upload flows to Google Drive for large files.</li>
+                <li>Handled 400/404/500 edge cases gracefully.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>7. Testing</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Frontend Component Testing</h3>
+            <p>React components were rigorously tested for state memory leaks, especially surrounding the <code>MediaRecorder</code> and WebSocket listeners.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>7. Testing</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">End-to-End QA Audit</h3>
+            <p>Before release, we performed a deep-dive QA audit.</p>
+            <ul>
+                <li>Resolved a critical race condition during initial meeting join.</li>
+                <li>Secured LiveKit tokens strictly behind authorized endpoints.</li>
+                <li>Removed hardcoded keys, migrating entirely to secure AppSettings.</li>
+            </ul>
+        </div>
+    </section>
+</section>\n<section>
+    <section data-auto-animate>
+        <h2>8. Website UI</h2>
+        <div class="slide-card">
+            <h3 class="gradient-text">Modern, Engaging Design</h3>
+            <p>The user interface is the bridge to our powerful backend. It needed to be intuitive, beautiful, and completely responsive.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>8. Website UI</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Tailwind CSS Framework</h3>
+            <p>We utilized Tailwind CSS to build a highly customized design system without writing thousands of lines of fragile CSS.</p>
+            <ul>
+                <li>Consistent spacing and typography.</li>
+                <li>Beautiful glass-morphism effects (backdrop-blur).</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>8. Website UI</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Dynamic Grids & Layouts</h3>
+            <p>The meeting room dynamically adjusts based on the participant count and active features (like Screen Share or Whiteboard).</p>
+            <p class="text-sm mt-4 italic text-gray-500">CSS Grid handles complex responsive resizing flawlessly.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>8. Website UI</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Micro-Animations</h3>
+            <p>We implemented Framer Motion and CSS transitions for micro-interactions.</p>
+            <ul>
+                <li>Pulsing active speaker indicators.</li>
+                <li>Smooth modal pop-ups.</li>
+                <li>Hover states for buttons to provide tactile feedback.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>8. Website UI</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Toast Notifications</h3>
+            <p>A custom global Context provides non-intrusive toast notifications for events like "Hand Raised" or "User Joined," keeping the UI clean but informative.</p>
+        </div>
+    </section>
+</section>\n<section>
+    <section data-auto-animate>
+        <h2>9. Back-End</h2>
+        <div class="slide-card">
+            <h3 class="gradient-text">The Engine of MeetVerse</h3>
+            <p>Robust, scalable, and heavily optimized ASP.NET Core 8 Web API.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>9. Back-End</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">ASP.NET Identity & JWT</h3>
+            <p>Authentication is handled securely. Passwords are hashed, and stateless JWTs are issued for high-performance API authorization.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>9. Back-End</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Dependency Injection</h3>
+            <p>Our entire backend relies heavily on the built-in IoC container.</p>
+            <ul>
+                <li>Services like <code>GoogleDriveService</code> and <code>EmailService</code> are injected where needed.</li>
+                <li>Promotes loose coupling and easier testing.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>9. Back-End</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Exception Handling Middleware</h3>
+            <p>We implemented a global exception handler. Instead of crashing or leaking stack traces to the client, it returns standardized, predictable JSON error responses.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>9. Back-End</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Database Migrations</h3>
+            <p>Entity Framework Core Code-First migrations allow us to track database schema changes iteratively alongside our Git commits, ensuring perfect sync between code and database.</p>
+        </div>
+    </section>
+</section>\n<section>
+    <section data-auto-animate>
+        <h2>10. What Next.... ?</h2>
+        <div class="slide-card bg-indigo-50 border-l-4 border-indigo-500">
+            <h3 class="text-indigo-700">The Future of MeetVerse</h3>
+            <p>Our architecture allows for infinite expansion. We have a clear roadmap ahead.</p>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <h2>10. What Next.... ?</h2>
+        <div class="slide-card">
+            <h3 class="text-[#0b1c4a]">Roadmap</h3>
+            <ul>
+                <li><strong>Mobile Applications:</strong> Using React Native or Flutter, connecting to our existing APIs.</li>
+                <li><strong>AI Summarization:</strong> Integrating LLMs to provide a 1-paragraph summary of 1-hour meetings automatically.</li>
+                <li><strong>Real-time Translation:</strong> Translating the live captions into different languages for international teams.</li>
+            </ul>
+        </div>
+    </section>
+    <section data-auto-animate>
+        <div class="h-full w-full flex flex-col items-center justify-center">
+            <h1 class="text-7xl font-bold mb-8 gradient-text text-transparent bg-clip-text">Thank You!</h1>
+            <p class="text-3xl text-[#0b1c4a]">Are there any questions?</p>
+            <div class="mt-12 opacity-50 font-bold text-[#0b1c4a]">
+                MeetVerse 2026
+            </div>
+        </div>
+    </section>
+</section>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            transition: 'slide',
+            backgroundTransition: 'fade',
+            slideNumber: 'c/t',
+            autoAnimateEasing: 'ease-out',
+            autoAnimateDuration: 0.8,
+            width: 1200,
+            height: 800,
+            margin: 0.1,
+            minScale: 0.2,
+            maxScale: 2.0
+        });
+    </script>
+</body>
+</html>

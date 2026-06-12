@@ -26,19 +26,19 @@ export default function Navbar() {
   const closeMobile = () => setMobileMenuOpen(false);
 
   const linkClasses =
-    "text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 cursor-pointer px-2 py-1 rounded-md";
+    "text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 cursor-pointer px-2 py-1 rounded-md relative group";
   const activeClasses =
-    "text-blue-600 dark:text-blue-400 font-bold border-b-2 border-blue-600 dark:border-blue-400 pb-1";
+    "text-blue-600 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r dark:from-purple-500 dark:to-blue-500 font-bold after:content-[''] after:absolute after:-bottom-1 after:left-0 after:w-full after:h-[2px] after:bg-gradient-to-r after:from-purple-500 after:to-blue-500";
   const inactiveClasses =
-    "text-gray-600 dark:text-[#A8B0C2] hover:text-blue-600 dark:hover:text-blue-400";
+    "text-gray-600 dark:text-[#A8B0C2] hover:text-blue-600 dark:hover:text-[#F1F5F9]";
 
   const isActiveSection = (hash: string) => location.hash === hash;
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/75 dark:bg-[#0D0F16]/75 backdrop-blur-xl border-b border-white/60 dark:border-[#2A2E3B] transition-colors duration-300 shadow-sm">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/75 dark:bg-[#0f0f13]/80 backdrop-blur-xl border-b border-white/60 dark:border-white/5 transition-colors duration-300 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <Link to={isLoggedIn ? "/home" : "/"} onClick={closeMobile}>
+          <Link to={isLoggedIn ? "/home" : "/"} onClick={closeMobile} className="transform scale-110 origin-left transition-transform duration-300">
             <Logo />
           </Link>
 
