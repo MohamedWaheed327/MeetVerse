@@ -9,7 +9,7 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
     console.log('[NC] init');
 
     // Match the backend model: 16 STFT frames with n_fft=512, hop_length=160.
-    const FRAME_SAMPLES = 512; // 16 cuncks, 160 (hop) * 16 (frames) + 512 (FFT) - 160 (hop)
+    const FRAME_SAMPLES = 1024; // 16 cuncks, 160 (hop) * 16 (frames) + 512 (FFT) - 160 (hop)
     // const FRAME_SAMPLES = 1632; // 8 chuncks
     const wsUrl = (import.meta.env.VITE_FASTAPI_WS_URL || '').replace(/\/$/, '');
     const socketUrl = wsUrl
@@ -61,8 +61,8 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
 
     // 6. Output node (THIS is what LiveKit uses)
     const destination = audioContext.createMediaStreamDestination();
-    const outputGain = audioContext.createGain();
-    outputGain.gain.value = 1.8;
+    // const outputGain = audioContext.createGain();
+    // outputGain.gain.value = 1.8;
 
     // 7. Send frames to backend
     processor.port.onmessage = (event) => {
@@ -88,8 +88,8 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
 
     // 9. Audio graph
     source.connect(processor);
-    processor.connect(outputGain);
-    outputGain.connect(destination);
+    // processor.connect(outputGain);
+    // outputGain.connect(destination);
 
     const processedTrack = destination.stream.getAudioTracks()[0];
     const localAudioTrack = new LocalAudioTrack(processedTrack);
@@ -100,7 +100,7 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
     const cleanup = async () => {
         try { socket.close(); } catch { }
         try { processor.disconnect(); } catch { }
-        try { outputGain.disconnect(); } catch { }
+        // try { outputGain.disconnect(); } catch { }
         try { source.disconnect(); } catch { }
         try { rawTrack.stop(); } catch { }
         try { processedTrack.stop(); } catch { }
