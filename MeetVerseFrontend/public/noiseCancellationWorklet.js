@@ -2,7 +2,7 @@ class NoiseCancelProcessor extends AudioWorkletProcessor {
     constructor(options) {
         super();
 
-        this.frameSize = options.processorOptions?.frameSize || 240;
+        this.frameSize = options.processorOptions?.frameSize || 160;
 
         this.buffer = new Float32Array(this.frameSize);
         this.index = 0;
