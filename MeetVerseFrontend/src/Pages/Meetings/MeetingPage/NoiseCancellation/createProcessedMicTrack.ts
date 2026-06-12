@@ -69,7 +69,9 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
         const data = event.data;
 
         if (data?.type === 'frame') {
+            const t = performance.now();
             socket.send(data.samples); // Float32 PCM
+            console.log(performance.now() - t);
         }
     };
 
