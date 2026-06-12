@@ -44,14 +44,10 @@ class NoiseCancelProcessor extends AudioWorkletProcessor {
                 this.index = 0;
             }
         }
-
+        
         // 2. Output audio
         for (let i = 0; i < outputChannel.length; i++) {
-            if (this.outputBuffer && this.outputIndex < this.outputBuffer.length) {
-                outputChannel[i] = this.outputBuffer[this.outputIndex++];
-            } else {
-                outputChannel[i] = 0; // safe silence (NO raw leak)
-            }
+            outputChannel[i] = inputChannel[i];
         }
 
         return true;
