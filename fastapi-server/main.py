@@ -3,6 +3,8 @@ import torch
 import numpy as np
 import asyncio
 import uuid
+import os
+import soundfile as sf
 
 from inference_model import (
     load_model,
@@ -26,11 +28,23 @@ transform = SpectrogramTransform(
 )
 
 # ----------------------------
+# Recordings Directory
+# ----------------------------
+RECORDINGS_DIR = "recordings"
+os.makedirs(RECORDINGS_DIR, exist_ok=True)
+
+# ----------------------------
 # SESSION STATE PER USER
 # ----------------------------
 class SessionState:
     def __init__(self):
         self.h = None
+
+        # raw audio received from client
+        self.input_chunks = []
+
+        # enhanced audio returned by model
+        self.output_chunks = []
 
 
 sessions = {}
@@ -46,16 +60,79 @@ def encode_audio(wav: np.ndarray):
     return wav.astype(np.float32).tobytes()
 
 
+def save_session_audio(user_id: str, state: SessionState):
+    try:
+
+        # ----------------------------
+        # SAVE INPUT
+        # ----------------------------
+        if state.input_chunks:
+
+            input_audio = np.concatenate(
+                state.input_chunks
+            )
+
+            input_file = os.path.join(
+                RECORDINGS_DIR,
+                f"{user_id}_input.wav"
+            )
+
+            sf.write(
+                input_file,
+                input_audio,
+                16000
+            )
+
+            print(
+                f"Saved input audio: {input_file}"
+            )
+
+        # ----------------------------
+        # SAVE OUTPUT
+        # ----------------------------
+        if state.output_chunks:
+
+            output_audio = np.concatenate(
+                state.output_chunks
+            )
+
+            output_file = os.path.join(
+                RECORDINGS_DIR,
+                f"{user_id}_output.wav"
+            )
+
+            sf.write(
+                output_file,
+                output_audio,
+                16000
+            )
+
+            print(
+                f"Saved output audio: {output_file}"
+            )
+
+    except Exception as e:
+        print(
+            f"Failed saving audio for {user_id}: {e}"
+        )
+
+
 # ----------------------------
 # FAST SAFE INFERENCE WRAPPER
 # ----------------------------
-async def run_inference(wav_tensor, state: SessionState):
+async def run_inference(
+    wav_tensor,
+    state: SessionState
+):
 
     def _infer():
+
         with torch.inference_mode():
 
-            noisy_spec = transform.audio_to_spectrogram(
-                wav_tensor
+            noisy_spec = (
+                transform.audio_to_spectrogram(
+                    wav_tensor
+                )
             )
 
             mask, new_h = model(
@@ -63,19 +140,25 @@ async def run_inference(wav_tensor, state: SessionState):
                 state.h
             )
 
-            enhanced_spec = transform.apply_mask(
-                noisy_spec,
-                mask
+            enhanced_spec = (
+                transform.apply_mask(
+                    noisy_spec,
+                    mask
+                )
             )
 
-            enhanced_wav = transform.spectrogram_to_audio(
-                enhanced_spec,
-                target_num_samples=wav_tensor.shape[-1]
+            enhanced_wav = (
+                transform.spectrogram_to_audio(
+                    enhanced_spec,
+                    target_num_samples=wav_tensor.shape[-1]
+                )
             )
 
             return enhanced_wav, new_h
 
-    enhanced_wav, new_h = await asyncio.to_thread(_infer)
+    enhanced_wav, new_h = (
+        await asyncio.to_thread(_infer)
+    )
 
     state.h = (
         new_h.detach()
@@ -86,31 +169,44 @@ async def run_inference(wav_tensor, state: SessionState):
     return enhanced_wav, state.h
 
 
-x = 1
 # ----------------------------
 # WEBSOCKET ENDPOINT
 # ----------------------------
 @app.websocket("/ws/audio")
-async def audio_ws(websocket: WebSocket):
+async def audio_ws(
+    websocket: WebSocket
+):
+
     await websocket.accept()
 
     user_id = str(uuid.uuid4())
+
     sessions[user_id] = SessionState()
     state = sessions[user_id]
 
-    print(f"Client connected: {user_id}")
+    print(
+        f"Client connected: {user_id}"
+    )
 
     try:
-        while True:
-            # ----------------------------
-            # 1. RECEIVE AUDIO
-            # ----------------------------
-            audio_bytes = await websocket.receive_bytes()
 
-            wav = decode_audio(audio_bytes)
-            # global x
-            # print(f"{x} [RECV] user={user_id} bytes={len(audio_bytes)} samples={len(wav)}")
-            # x += 1
+        while True:
+
+            # ----------------------------
+            # RECEIVE AUDIO
+            # ----------------------------
+            audio_bytes = (
+                await websocket.receive_bytes()
+            )
+
+            wav = decode_audio(
+                audio_bytes
+            )
+
+            # Save incoming audio
+            state.input_chunks.append(
+                wav.copy()
+            )
 
             wav = torch.tensor(
                 wav,
@@ -119,13 +215,19 @@ async def audio_ws(websocket: WebSocket):
             ).unsqueeze(0)
 
             # ----------------------------
-            # 2. RUN INFERENCE (NON-BLOCKING)
+            # INFERENCE
             # ----------------------------
-            enhanced_wav, new_h = await run_inference(wav, state)
+            enhanced_wav, new_h = (
+                await run_inference(
+                    wav,
+                    state
+                )
+            )
+
             state.h = new_h
 
             # ----------------------------
-            # 3. SEND RESULT
+            # CONVERT OUTPUT
             # ----------------------------
             output = (
                 enhanced_wav
@@ -134,21 +236,69 @@ async def audio_ws(websocket: WebSocket):
                 .cpu()
                 .numpy()
             )
-           
-            input_np = wav.squeeze(0).detach().cpu().numpy()
-            output_np = enhanced_wav.squeeze(0).detach().cpu().numpy()
-            diff = np.mean(np.abs(input_np - output_np))
-            print(f"[DIFF L1] {diff:.6f}")
-            
-            await websocket.send_bytes(encode_audio(output))
+
+            # Save enhanced audio
+            state.output_chunks.append(
+                output.copy()
+            )
+
+            # Debug difference
+            input_np = (
+                wav
+                .squeeze(0)
+                .detach()
+                .cpu()
+                .numpy()
+            )
+
+            diff = np.mean(
+                np.abs(
+                    input_np - output
+                )
+            )
+
+            print(
+                f"[DIFF L1] {diff:.6f}"
+            )
+
+            # ----------------------------
+            # SEND RESULT
+            # ----------------------------
+            await websocket.send_bytes(
+                encode_audio(output)
+            )
 
     except WebSocketDisconnect:
-        print(f"Disconnected: {user_id}")
-        sessions.pop(user_id, None)
+
+        print(
+            f"Disconnected: {user_id}"
+        )
+
+        save_session_audio(
+            user_id,
+            state
+        )
+
+        sessions.pop(
+            user_id,
+            None
+        )
 
     except Exception as e:
-        print(f"Error: {e}")
-        sessions.pop(user_id, None)
+
+        print(
+            f"Error: {e}"
+        )
+
+        save_session_audio(
+            user_id,
+            state
+        )
+
+        sessions.pop(
+            user_id,
+            None
+        )
 
 
 # ----------------------------
@@ -156,6 +306,10 @@ async def audio_ws(websocket: WebSocket):
 # ----------------------------
 @app.get("/")
 def root():
-    return {"status": "running"}
+    return {
+        "status": "running"
+    }
 
+
+# Run:
 # uvicorn main:app --host 0.0.0.0 --port 8000
