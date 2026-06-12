@@ -2,20 +2,30 @@ class NoiseCancelProcessor extends AudioWorkletProcessor {
     constructor(options) {
         super();
 
-        this.frameSize = options.processorOptions?.frameSize;
+        this.frameSize = options.processorOptions?.frameSize ?? 1024;
 
-        this.buffer = new Float32Array(this.frameSize);
-        this.index = 0;
+        // Capture buffer
+        this.captureBuffer = new Float32Array(this.frameSize);
+        this.captureIndex = 0;
 
-        this.outputBuffer = null;
-        this.outputIndex = 0;
+        // Playback queue
+        this.outputQueue = [];
+        this.currentChunk = null;
+        this.currentChunkIndex = 0;
 
         this.port.onmessage = (event) => {
             const data = event.data;
 
             if (data?.type === 'processed') {
-                this.outputBuffer = new Float32Array(data.samples);
-                this.outputIndex = 0;
+                const chunk = new Float32Array(data.samples);
+
+                // FIFO queue
+                this.outputQueue.push(chunk);
+
+                // Prevent runaway memory if something goes wrong
+                if (this.outputQueue.length > 50) {
+                    this.outputQueue.shift();
+                }
             }
         };
     }
@@ -24,34 +34,66 @@ class NoiseCancelProcessor extends AudioWorkletProcessor {
         const input = inputs[0];
         const output = outputs[0];
 
-        if (!input?.[0] || !output?.[0]) return true;
+        if (!input?.[0] || !output?.[0]) {
+            return true;
+        }
 
         const inputChannel = input[0];
         const outputChannel = output[0];
 
-        // 1. Fill frame
+        // =========================
+        // CAPTURE
+        // =========================
+
         for (let i = 0; i < inputChannel.length; i++) {
-            this.buffer[this.index++] = inputChannel[i];
+            this.captureBuffer[this.captureIndex++] = inputChannel[i];
 
-            if (this.index === this.frameSize) {
-                const copy = new Float32Array(this.buffer);
+            if (this.captureIndex >= this.frameSize) {
+                const frame = new Float32Array(this.captureBuffer);
 
-                this.port.postMessage({
-                    type: 'frame',
-                    samples: copy.buffer,
-                }, [copy.buffer]);
+                this.port.postMessage(
+                    {
+                        type: 'frame',
+                        samples: frame.buffer,
+                    },
+                    [frame.buffer]
+                );
 
-                this.index = 0;
+                this.captureIndex = 0;
             }
         }
-        
-        // 2. Output audio
+
+        // =========================
+        // PLAYBACK
+        // =========================
+
         for (let i = 0; i < outputChannel.length; i++) {
-            outputChannel[i] = inputChannel[i];
+
+            if (
+                this.currentChunk === null ||
+                this.currentChunkIndex >= this.currentChunk.length
+            ) {
+                if (this.outputQueue.length > 0) {
+                    this.currentChunk = this.outputQueue.shift();
+                    this.currentChunkIndex = 0;
+                } else {
+                    this.currentChunk = null;
+                }
+            }
+
+            if (this.currentChunk) {
+                outputChannel[i] =
+                    this.currentChunk[this.currentChunkIndex++];
+            } else {
+                outputChannel[i] = 0;
+            }
         }
 
         return true;
     }
 }
 
-registerProcessor('noise-cancel-processor', NoiseCancelProcessor);
+registerProcessor(
+    'noise-cancel-processor',
+    NoiseCancelProcessor
+);

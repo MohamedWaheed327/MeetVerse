@@ -8,15 +8,20 @@ export type ProcessedAudioResources = {
 export async function createProcessedMicTrack(): Promise<ProcessedAudioResources> {
     console.log('[NC] init');
 
-    // Match the backend model: 16 STFT frames with n_fft=512, hop_length=160.
-    const FRAME_SAMPLES = 512; // 16 cuncks, 160 (hop) * 16 (frames) + 512 (FFT) - 160 (hop)
-    // const FRAME_SAMPLES = 1632; // 8 chuncks
-    const wsUrl = (import.meta.env.VITE_FASTAPI_WS_URL || '').replace(/\/$/, '');
+    const FRAME_SAMPLES = 1024;
+
+    const wsUrl = (
+        import.meta.env.VITE_FASTAPI_WS_URL || ''
+    ).replace(/\/$/, '');
+
     const socketUrl = wsUrl
         ? `${wsUrl}/ws/audio`
         : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/audio`;
 
-    // 1. Mic
+    // =========================
+    // MIC
+    // =========================
+
     const micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
             echoCancellation: true,
@@ -29,84 +34,143 @@ export async function createProcessedMicTrack(): Promise<ProcessedAudioResources
 
     const rawTrack = micStream.getAudioTracks()[0];
 
-    // 2. Audio context (must match processing rate)
-    const audioContext = new AudioContext({ sampleRate: 16000 });
+    // =========================
+    // AUDIO CONTEXT
+    // =========================
+
+    const audioContext = new AudioContext({
+        sampleRate: 16000,
+    });
+
     await audioContext.resume();
 
-    // 3. Load worklet
-    await audioContext.audioWorklet.addModule('/noiseCancellationWorklet.js');
+    console.log(
+        '[NC] actual sample rate:',
+        audioContext.sampleRate
+    );
 
-    // 4. FastAPI WebSocket
+    await audioContext.audioWorklet.addModule(
+        '/noiseCancellationWorklet.js'
+    );
+
+    // =========================
+    // WEBSOCKET
+    // =========================
+
     const socket = new WebSocket(socketUrl);
     socket.binaryType = 'arraybuffer';
 
     await new Promise<void>((resolve, reject) => {
         socket.onopen = () => resolve();
-        socket.onerror = () => reject(new Error('WebSocket failed'));
+        socket.onerror = () =>
+            reject(new Error('WebSocket failed'));
     });
 
     console.log('[NC] websocket connected');
 
-    // 5. Worklet
-    const source = audioContext.createMediaStreamSource(micStream);
+    // =========================
+    // AUDIO GRAPH
+    // =========================
 
-    const processor = new AudioWorkletNode(audioContext, 'noise-cancel-processor', {
-        numberOfInputs: 1,
-        numberOfOutputs: 1,
-        outputChannelCount: [1],
-        processorOptions: {
-            frameSize: FRAME_SAMPLES,
-        },
-    });
+    const source =
+        audioContext.createMediaStreamSource(micStream);
 
-    // 6. Output node (THIS is what LiveKit uses)
-    const destination = audioContext.createMediaStreamDestination();
+    const processor = new AudioWorkletNode(
+        audioContext,
+        'noise-cancel-processor',
+        {
+            numberOfInputs: 1,
+            numberOfOutputs: 1,
+            outputChannelCount: [1],
+            processorOptions: {
+                frameSize: FRAME_SAMPLES,
+            },
+        }
+    );
+
     const outputGain = audioContext.createGain();
-    outputGain.gain.value = 1.8;
+    outputGain.gain.value = 1.0;
 
-    // 7. Send frames to backend
+    const destination =
+        audioContext.createMediaStreamDestination();
+
+    // =========================
+    // SEND TO SERVER
+    // =========================
+
     processor.port.onmessage = (event) => {
         const data = event.data;
 
-        if (data?.type === 'frame') {
-            const t = performance.now();
-            socket.send(data.samples); // Float32 PCM
-            console.log(performance.now() - t);
+        if (
+            data?.type === 'frame' &&
+            socket.readyState === WebSocket.OPEN
+        ) {
+            socket.send(data.samples);
         }
     };
 
-    // 8. Receive processed audio
+    // =========================
+    // RECEIVE FROM SERVER
+    // =========================
+
     socket.onmessage = (event) => {
-        if (!(event.data instanceof ArrayBuffer)) return;
+        if (!(event.data instanceof ArrayBuffer)) {
+            return;
+        }
 
-        const samples = new Float32Array(event.data);
-        if (!samples.length) return;
-
-        processor.port.postMessage({
-            type: 'processed',
-            samples: samples.buffer,
-        }, [samples.buffer]);
+        processor.port.postMessage(
+            {
+                type: 'processed',
+                samples: event.data,
+            },
+            [event.data]
+        );
     };
 
-    // 9. Audio graph
+    // =========================
+    // CONNECT GRAPH
+    // =========================
+
     source.connect(processor);
     processor.connect(outputGain);
     outputGain.connect(destination);
 
-    const processedTrack = destination.stream.getAudioTracks()[0];
-    const localAudioTrack = new LocalAudioTrack(processedTrack);
+    const processedTrack =
+        destination.stream.getAudioTracks()[0];
+
+    const localAudioTrack =
+        new LocalAudioTrack(processedTrack);
 
     console.log('[NC] track ready');
 
-    // 10. Cleanup
     const cleanup = async () => {
-        try { socket.close(); } catch { }
-        try { processor.disconnect(); } catch { }
-        try { outputGain.disconnect(); } catch { }
-        try { source.disconnect(); } catch { }
-        try { rawTrack.stop(); } catch { }
-        try { processedTrack.stop(); } catch { }
-        try { await audioContext.close(); } catch { }
+        try {
+            socket.close();
+        } catch { }
+
+        try {
+            processor.disconnect();
+        } catch { }
+
+        try {
+            outputGain.disconnect();
+        } catch { }
+
+        try {
+            source.disconnect();
+        } catch { }
+
+        try {
+            rawTrack.stop();
+        } catch { }
+
+        try {
+            processedTrack.stop();
+        } catch { }
+
+        try {
+            await audioContext.close();
+        } catch { }
     };
 
     return {
