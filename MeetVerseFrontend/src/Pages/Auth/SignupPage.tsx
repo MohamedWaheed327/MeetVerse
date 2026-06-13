@@ -10,6 +10,7 @@ import DarkMode from "../../components/LandingComponents/Navbar/DarkMode";
 import { useGoogleAuth } from "../../utils/googleAuth";
 import { useAuth } from "../../Context/AuthContext";
 import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
+import { TermsModal } from "../../components/ui/TermsModal";
 
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 48 48">
@@ -32,6 +33,8 @@ export default function SignupPage() {
   const [emailError, setEmailError] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isAgreed, setIsAgreed] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
   
   const googleButtonContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -404,13 +407,15 @@ export default function SignupPage() {
                   <input
                     type="checkbox"
                     required
+                    checked={isAgreed}
+                    onChange={(e) => setIsAgreed(e.target.checked)}
                     className="appearance-none w-4 h-4 rounded border border-slate-300 dark:border-white/20 bg-slate-50 dark:bg-white/5 checked:bg-blue-600 checked:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all cursor-pointer relative after:content-[''] after:absolute after:hidden checked:after:block after:left-[4px] after:top-[1px] after:w-[6px] after:h-[10px] after:border-r-2 after:border-b-2 after:border-white after:rotate-45"
                   />
                   <span className="text-sm text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200 transition-colors">
                     I agree to the{" "}
-                    <a href="#" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 font-bold hover:underline transition-all">
+                    <button type="button" onClick={() => setIsTermsOpen(true)} className="text-blue-600 dark:text-blue-400 font-bold hover:underline transition-all focus:outline-none">
                       Terms & Privacy
-                    </a>
+                    </button>
                   </span>
                 </label>
               </div>
@@ -418,9 +423,9 @@ export default function SignupPage() {
               {/* Submit CTA */}
               <LiquidMetalButton
                 type="submit"
-                disabled={loading}
+                disabled={loading || !isAgreed}
                 width="full"
-                className="w-full flex items-center justify-center gap-2"
+                className={`w-full flex items-center justify-center gap-2 ${!isAgreed ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {loading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin relative z-10" />
@@ -439,6 +444,7 @@ export default function SignupPage() {
           </div>
         </div>
       </div>
+      <TermsModal isOpen={isTermsOpen} onClose={() => setIsTermsOpen(false)} />
     </div>
   );
 }

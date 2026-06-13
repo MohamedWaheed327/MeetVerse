@@ -1,8 +1,8 @@
 import api from "./api";
 
-export const createGroup = async (name: string, description: string, isPublic: boolean, coverColor: string) => {
+export const getMeetingHistory = async () => {
     try {
-        const response = await api.post("/groups", { name, description, isPublic, coverColor });
+        const response = await api.get("/meetings/history");
         return response.data;
     } catch (error: unknown) {
         if (error instanceof Error) {

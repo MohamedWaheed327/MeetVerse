@@ -47,46 +47,30 @@ public class MeetingsController : ControllerBase
         return userGroup != null;
     }
 
-    private async Task<IEnumerable<GroupResponse>> GetMyGroupsInternal()
-    {
-        var userId = GetCurrentUserId();
-        return await _db.UserGroups
-            .AsNoTracking()
-            .Where(ug => ug.UserId == userId || ug.GroupId == new Guid("3fa85f64-5717-4562-b3fc-2c963f66afa6"))
-            .Select(ug => new GroupResponse
-            {
-                Id = ug.Group.Id, Name = ug.Group.Name, Description = ug.Group.Description,
-                CreatedById = ug.Group.CreatedById, CreatedByName = ug.Group.CreatedBy.Name,
-                CreatedAt = ug.Group.CreatedAt, MemberCount = ug.Group.UserGroups.Count,
-                CurrentUserRole = ug.Role.ToString()
-            }).ToListAsync();
-    }
-
-    private async Task<IEnumerable<MeetingResponse>> GetGroupMeetingsInternal(Guid groupId)
-    {
-        return await _db.Meetings
-            .AsNoTracking()
-            .Where(m => m.GroupId == groupId)
-            .OrderByDescending(m => m.ScheduledStart)
-            .Select(m => new MeetingResponse
-            {
-                Id = m.Id, Title = m.Title,
-                HostId = m.HostId, HostName = m.Host.Name, HasPassword = m.Password != null,
-                Description = m.Description, ScheduledStart = m.ScheduledStart, ScheduledEnd = m.ScheduledEnd,
-                Status = m.Status, CreatedAt = m.CreatedAt
-            }).ToListAsync();
-    }
-
     [HttpGet("live-meetings")]
     public async Task<ActionResult<ICollection<MeetingResponse>>> GetLiveMeetings()
     {
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
-        List<MeetingResponse> meetings = [];
-        foreach (var group in await GetMyGroupsInternal())
-            foreach (var meeting in await GetGroupMeetingsInternal(group.Id))
-                if (meeting.ScheduledStart <= DateTime.UtcNow && DateTime.UtcNow <= meeting.ScheduledEnd)
-                    meetings.Add(meeting);
+
+        var meetings = await _db.Meetings
+            .AsNoTracking()
+            .Where(m => 
+                (m.GroupId == null && m.HostId == userId) || 
+                (m.GroupId != null && m.Group!.UserGroups.Any(ug => ug.UserId == userId))
+            )
+            .Where(m => m.ScheduledStart <= DateTime.UtcNow && (m.ScheduledEnd == null || DateTime.UtcNow <= m.ScheduledEnd))
+            .OrderByDescending(m => m.ScheduledStart)
+            .Select(m => new MeetingResponse
+            {
+                Id = m.Id, Title = m.Title, HostId = m.HostId, HostName = m.Host.Name,
+                HasPassword = m.Password != null, Description = m.Description,
+                ScheduledStart = m.ScheduledStart, ScheduledEnd = m.ScheduledEnd,
+                Status = m.Status, CreatedAt = m.CreatedAt,
+                GroupId = m.GroupId, GroupName = m.Group != null ? m.Group.Name : null
+            })
+            .ToListAsync();
+
         return meetings;
     }
 
@@ -95,24 +79,84 @@ public class MeetingsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
-        List<MeetingResponse> meetings = [];
-        foreach (var group in await GetMyGroupsInternal())
-            foreach (var meeting in await GetGroupMeetingsInternal(group.Id))
-                if (meeting.ScheduledEnd.HasValue == false || DateTime.UtcNow < meeting.ScheduledEnd)
-                    meetings.Add(meeting);
+
+        var meetings = await _db.Meetings
+            .AsNoTracking()
+            .Where(m => 
+                (m.GroupId == null && m.HostId == userId) || 
+                (m.GroupId != null && m.Group!.UserGroups.Any(ug => ug.UserId == userId))
+            )
+            .Where(m => m.ScheduledEnd == null || DateTime.UtcNow < m.ScheduledEnd)
+            .OrderByDescending(m => m.ScheduledStart)
+            .Select(m => new MeetingResponse
+            {
+                Id = m.Id, Title = m.Title, HostId = m.HostId, HostName = m.Host.Name,
+                HasPassword = m.Password != null, Description = m.Description,
+                ScheduledStart = m.ScheduledStart, ScheduledEnd = m.ScheduledEnd,
+                Status = m.Status, CreatedAt = m.CreatedAt,
+                GroupId = m.GroupId, GroupName = m.Group != null ? m.Group.Name : null
+            })
+            .ToListAsync();
+
         return meetings;
+    }
+
+    [HttpGet("history")]
+    public async Task<ActionResult<ICollection<MeetingResponse>>> GetMeetingHistory()
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var query = from m in _db.Meetings
+                    join g in _db.Groups on m.GroupId equals g.Id into groups
+                    from g in groups.DefaultIfEmpty()
+                    join host in _db.Users on m.HostId equals host.Id
+                    where (
+                            // Private meetings where user is host
+                            (m.GroupId == null && m.HostId == userId)
+                            ||
+                            // Group meetings where user is a member
+                            (m.GroupId != null && _db.UserGroups.Any(u => u.GroupId == g.Id && u.UserId == userId))
+                          )
+                          &&
+                          // Only include ended or past meetings
+                          (m.Status == MeetVerse.Domain.Enums.MeetingStatus.Ended || (m.ScheduledEnd != null && DateTime.UtcNow >= m.ScheduledEnd))
+                    orderby m.ScheduledStart descending
+                    select new MeetingResponse
+                    {
+                        Id = m.Id,
+                        Title = m.Title,
+                        HostId = m.HostId,
+                        HostName = host.Name,
+                        HasPassword = m.Password != null,
+                        Description = m.Description,
+                        ScheduledStart = m.ScheduledStart,
+                        ScheduledEnd = m.ScheduledEnd,
+                        Status = m.Status,
+                        CreatedAt = m.CreatedAt,
+                        GroupId = m.GroupId,
+                        GroupName = g != null ? g.Name : null
+                    };
+
+        var meetings = await query.ToListAsync();
+        return Ok(meetings);
     }
 
     [HttpPost("create")]
     public async Task<ActionResult> CreateMeeting(CreateMeetingRequest creatMeetingRequest)
     {
+        if (creatMeetingRequest.ScheduledStart < DateTime.UtcNow.AddMinutes(-1))
+        {
+            return BadRequest("Cannot schedule a meeting in the past.");
+        }
+
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
         User x = (await _db.Users.FirstOrDefaultAsync(user => user.Id == userId!.Value))!;
         Meeting meeting = new Meeting
         {
             Id = Guid.NewGuid(), HostId = userId!.Value, Host = x,
-            GroupId = creatMeetingRequest.GroupId ?? new Guid(CreateMeetingRequest.GlobalGroupId),
+            GroupId = creatMeetingRequest.GroupId,
             Title = creatMeetingRequest.Title, Description = creatMeetingRequest.Description,
             ScheduledStart = creatMeetingRequest.ScheduledStart, ScheduledEnd = creatMeetingRequest.ScheduledEnd,
             Password = creatMeetingRequest.SecurePassword ? creatMeetingRequest.Password : null
@@ -128,6 +172,45 @@ public class MeetingsController : ControllerBase
         return Ok(meeting.Id);
     }
 
+    [HttpPatch("{meetingId}")]
+    public async Task<ActionResult> UpdateMeeting(Guid meetingId, [FromBody] UpdateMeetingRequest request)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var meeting = await _db.Meetings.FirstOrDefaultAsync(m => m.Id == meetingId);
+        if (meeting == null) return NotFound();
+
+        // 2. Role-Based Authorization: Only the Host can modify
+        if (meeting.HostId != userId)
+        {
+            return StatusCode(403, "Only the meeting owner can modify this meeting.");
+        }
+
+        // Handle partial updates properly
+        if (!string.IsNullOrWhiteSpace(request.Title))
+        {
+            meeting.Title = request.Title;
+        }
+        
+        if (request.Description != null)
+        {
+            meeting.Description = request.Description;
+        }
+
+        if (request.ScheduledStart.HasValue)
+        {
+            if (request.ScheduledStart.Value < DateTime.UtcNow.AddMinutes(-1))
+            {
+                return BadRequest("Cannot schedule a meeting in the past.");
+            }
+            meeting.ScheduledStart = request.ScheduledStart.Value;
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok();
+    }
+
 
     [HttpPost("join")]
     public async Task<ActionResult> JoinMeeting(JoinMeetingRequest joinMeetingRequest)
@@ -137,7 +220,16 @@ public class MeetingsController : ControllerBase
         var meetingId = joinMeetingRequest.MeetingId;
         var meeting = await _db.Meetings.FirstOrDefaultAsync(m => m.Id == meetingId);
         if (meeting == null) return NotFound();
-        if (!await IsInGroupAsync(meeting.GroupId!.Value)) return NotFound();
+        
+        if (meeting.GroupId != null)
+        {
+            if (!await IsInGroupAsync(meeting.GroupId.Value)) return NotFound();
+        }
+        else
+        {
+            // Private meeting: Only the host can join directly (others need an invite link/password check which is handled below, but let's allow them if they have the link and we're not enforcing strict invites yet).
+            // Actually, the previous logic just checked IsInGroupAsync. For private meetings, we should just let them proceed to the password check.
+        }
 
         // Password Check
         if (meeting.Password != null && meeting.HostId != userId)
@@ -178,7 +270,8 @@ public class MeetingsController : ControllerBase
             return BadRequest();
 
         var meeting = await _db.Meetings.FirstOrDefaultAsync(m => m.Id == meetingId);
-        if (meeting == null || !await IsInGroupAsync(meeting.GroupId!.Value)) return NotFound();
+        if (meeting == null) return NotFound();
+        if (meeting.GroupId != null && !await IsInGroupAsync(meeting.GroupId.Value)) return NotFound();
 
         try
         {

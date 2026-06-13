@@ -6,7 +6,18 @@ export async function requestJoinGroup(groupId: string) {
         return response.data;
     } catch (error: any) {
         if (error.response && error.response.data) {
-            throw new Error(typeof error.response.data === 'string' ? error.response.data : error.response.data.message || "Failed to join");
+            const data = error.response.data;
+            let errorMessage = "Failed to join";
+            if (typeof data === 'string') {
+                errorMessage = data;
+            } else if (data.message) {
+                errorMessage = data.message;
+            } else if (data.detail) {
+                errorMessage = data.detail;
+            } else if (data.title) {
+                errorMessage = data.title;
+            }
+            throw new Error(errorMessage);
         } else if (error instanceof Error) {
             throw new Error(error.message);
         } else {

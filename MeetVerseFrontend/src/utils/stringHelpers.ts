@@ -24,9 +24,9 @@ export const tailwindGradientMap: Record<string, string> = {
   "slate-gray": "from-slate-500 to-gray-600"
 };
 
-export const getGroupGradient = (title: string, coverGradient?: string | null) => {
-  if (coverGradient && tailwindGradientMap[coverGradient]) {
-    return tailwindGradientMap[coverGradient];
+export const getGroupGradient = (title: string, coverColor?: string | null) => {
+  if (coverColor && tailwindGradientMap[coverColor]) {
+    return tailwindGradientMap[coverColor];
   }
   return getAvatarGradient(title);
 };

@@ -17,4 +17,6 @@ public class MeetingResponse
     public Guid HostId { get; set; }
     public string? HostName { get; set; }
     public bool HasPassword { get; set; }
+    public Guid? GroupId { get; set; }
+    public string? GroupName { get; set; }
 }

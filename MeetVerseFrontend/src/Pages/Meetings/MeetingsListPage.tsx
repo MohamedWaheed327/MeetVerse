@@ -18,11 +18,15 @@ type Meeting = {
   isLive: boolean;
   description: string;
   hostId: string;
+  groupId?: string;
+  groupName?: string;
 };
 
 const formatMeetingDate = (isoString: string) => {
   if (!isoString) return "";
-  const date = new Date(isoString);
+  // Ensure the date is treated as UTC if it's missing the 'Z' suffix
+  const dateStr = isoString.endsWith('Z') ? isoString : `${isoString}Z`;
+  const date = new Date(dateStr);
   const now = new Date();
   
   const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
@@ -38,8 +42,8 @@ const formatMeetingDate = (isoString: string) => {
   if (isYesterday) return `Yesterday at ${timeStr}`;
   
   const dateOptions: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
-  const dateStr = new Intl.DateTimeFormat('en-US', dateOptions).format(date);
-  return `${dateStr} · ${timeStr}`;
+  const dateStrFormatted = new Intl.DateTimeFormat('en-US', dateOptions).format(date);
+  return `${dateStrFormatted} · ${timeStr}`;
 };
 
 const getMeetingDuration = (startStr: string, endStr: string) => {
@@ -65,7 +69,6 @@ export default function MeetingsListPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [filter, setFilter] = useState<"all" | "live" | "upcoming" | "past">("all");
   
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [dropdownOpenId, setDropdownOpenId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -77,8 +80,15 @@ export default function MeetingsListPage() {
   useEffect(() => {
     setPageTitle("My Meetings");
   }, []);
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
   const [editTitle, setEditTitle] = useState("");
-  const [isSavingTitle, setIsSavingTitle] = useState(false);
+  const [editDescription, setEditDescription] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editTime, setEditTime] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editError, setEditError] = useState("");
 
   useEffect(() => {
     const loadMeetings = async () => {
@@ -95,32 +105,58 @@ export default function MeetingsListPage() {
     loadMeetings();
   }, []);
 
-  const saveTitle = async (id: string, oldTitle: string) => {
-    if (!editTitle.trim() || editTitle === oldTitle) {
-      setEditingId(null);
+  const openEditModal = (m: Meeting) => {
+    setDropdownOpenId(null);
+    setEditingMeeting(m);
+    setEditTitle(m.title);
+    setEditDescription(m.description || "");
+    const dateObj = new Date(m.scheduledStart);
+    setEditDate(dateObj.getFullYear() + "-" + String(dateObj.getMonth() + 1).padStart(2, '0') + "-" + String(dateObj.getDate()).padStart(2, '0'));
+    setEditTime(String(dateObj.getHours()).padStart(2, '0') + ":" + String(dateObj.getMinutes()).padStart(2, '0'));
+    setEditError("");
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateMeeting = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMeeting) return;
+    
+    if (!editTitle.trim()) {
+      setEditError("Title cannot be empty");
+      return;
+    }
+
+    const scheduledStart = new Date(`${editDate}T${editTime || '00:00'}`);
+    const now = new Date();
+    // Allow saving if the meeting is currently live, or if the scheduled start is in the future
+    if (!editingMeeting.isLive && scheduledStart < now) {
+      setEditError("Cannot schedule a meeting in the past");
       return;
     }
     
-    setIsSavingTitle(true);
-    setMeetings(prev => prev.map(m => m.meetingId === id ? { ...m, title: editTitle } : m));
+    setIsSubmitting(true);
+    setEditError("");
     
     try {
-      await api.patch(`/meetings/${id}/title`, { title: editTitle });
-      showToast("Meeting renamed successfully", "success");
+      await api.patch(`/meetings/${editingMeeting.meetingId}`, {
+        title: editTitle,
+        description: editDescription,
+        scheduledStart: scheduledStart.toISOString()
+      });
+      setMeetings(prev => prev.map(m => m.meetingId === editingMeeting.meetingId ? { 
+        ...m, 
+        title: editTitle, 
+        description: editDescription,
+        scheduledStart: scheduledStart.toISOString()
+      } : m));
+      showToast("Meeting updated successfully", "success");
+      setIsEditModalOpen(false);
+      setEditingMeeting(null);
     } catch (err) {
-      setMeetings(prev => prev.map(m => m.meetingId === id ? { ...m, title: oldTitle } : m));
-      showToast("Failed to rename meeting", "error");
+      setEditError("Failed to update meeting");
+      showToast("Failed to update meeting", "error");
     } finally {
-      setIsSavingTitle(false);
-      setEditingId(null);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent, id: string, oldTitle: string) => {
-    if (e.key === "Enter") {
-      saveTitle(id, oldTitle);
-    } else if (e.key === "Escape") {
-      setEditingId(null);
+      setIsSubmitting(false);
     }
   };
 
@@ -151,11 +187,14 @@ export default function MeetingsListPage() {
 
   const visibleMeetings = meetings.filter(m => {
     const isHost = m.hostId === userId;
-    const meetingDate = new Date(m.scheduledStart);
-    const isThisWeek = meetingDate >= now && meetingDate < weekFromNow;
+    const isGroupMeeting = !!m.groupId;
     
-    // Only show meeting if user is host or if it's scheduled for this week
-    return isHost || isThisWeek;
+    // Always show if user is host, or if it's a group meeting, or if it's currently live
+    if (isHost || isGroupMeeting || m.isLive) return true;
+
+    // Otherwise, check if it's scheduled for this week
+    const meetingDate = new Date(m.scheduledStart);
+    return meetingDate >= now && meetingDate < weekFromNow;
   });
 
   const liveCount = visibleMeetings.filter(m => m.isLive).length;
@@ -221,8 +260,8 @@ export default function MeetingsListPage() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="bg-white dark:bg-[#1a1a24] border border-slate-200 dark:border-white/10 p-4 rounded-[999px] flex flex-col xl:flex-row xl:items-center justify-between gap-4 shadow-sm">
-          <div className="flex flex-col md:flex-row items-center gap-4 w-full">
-            <div className="relative w-full md:w-96">
+          <div className="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto xl:flex-1">
+            <div className="relative w-full md:w-96 shrink-0">
               <Search className="absolute left-4 top-3.5 text-slate-400" size={18} />
               <input className="w-full bg-slate-50 dark:bg-[#0f0f13] border border-slate-100 dark:border-white/10 rounded-full py-3 pl-12 pr-4 text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all duration-200 ease-in-out" placeholder="Search meetings..." />
             </div>
@@ -232,7 +271,7 @@ export default function MeetingsListPage() {
                 <button 
                   key={f}
                   onClick={() => setFilter(f as any)}
-                  className={`px-5 py-2.5 rounded-full text-xs font-bold capitalize transition-all duration-200 ease-in-out whitespace-nowrap ${filter === f ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-md shadow-purple-500/20" : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10"}`}
+                  className={`px-5 py-2.5 rounded-full text-xs font-bold capitalize transition-all duration-200 ease-in-out whitespace-nowrap shrink-0 ${filter === f ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-md shadow-purple-500/20" : "bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10"}`}
                 >
                   {f}
                 </button>
@@ -240,12 +279,10 @@ export default function MeetingsListPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-start xl:justify-end gap-3 text-xs font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap px-2 w-full xl:w-auto overflow-x-auto hide-scrollbar">
-            <span className="flex items-center gap-1.5"><Calendar size={14} className="text-blue-500"/> {upcomingCount} Upcoming</span>
-            <span className="text-slate-300 dark:text-slate-700">·</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"/> {liveCount} Live Now</span>
-            <span className="text-slate-300 dark:text-slate-700">·</span>
-            <span className="flex items-center gap-1.5"><Clock size={14} className="text-emerald-500"/> {thisWeekCount} This Week</span>
+          <div className="flex items-center gap-3 text-xs font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap px-2 shrink-0 overflow-x-auto hide-scrollbar">
+            <span className="flex items-center gap-1.5 shrink-0"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"/> {liveCount} Live Now</span>
+            <span className="text-slate-300 dark:text-slate-700 shrink-0">·</span>
+            <span className="flex items-center gap-1.5 shrink-0"><Clock size={14} className="text-emerald-500"/> {thisWeekCount} This Week</span>
           </div>
         </motion.div>
 
@@ -293,34 +330,20 @@ export default function MeetingsListPage() {
 
                         <div className="space-y-1.5 w-full">
                           <div className="flex flex-wrap items-center gap-3">
-                            {editingId === m.meetingId ? (
-                              <div className="flex items-center gap-2">
-                                <input 
-                                  type="text" 
-                                  autoFocus
-                                  value={editTitle}
-                                  onChange={(e) => setEditTitle(e.target.value)}
-                                  onBlur={() => saveTitle(m.meetingId, m.title)}
-                                  onKeyDown={(e) => handleKeyDown(e, m.meetingId, m.title)}
-                                  className="bg-slate-100 dark:bg-[#0D0F16] border border-blue-500 rounded-lg px-3 py-1 text-lg font-bold outline-none"
-                                />
-                                {isSavingTitle && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
-                              </div>
+                            <div className="flex items-center gap-2">
+                              <h3 className={`text-[17px] font-[600] leading-tight transition-colors duration-200 ${m.title === "Instant Meeting" ? "italic text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white group-hover:text-blue-400"}`}>
+                                {m.title}
+                              </h3>
+                            </div>
+
+                            {m.groupName ? (
+                              <span className="flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-[10px] font-bold uppercase tracking-wider rounded-md">
+                                {m.groupName.toUpperCase()} IS HOSTING
+                              </span>
                             ) : (
-                              <div className="flex items-center gap-2">
-                                <h3 className={`text-[17px] font-[600] leading-tight transition-colors duration-200 ${m.title === "Instant Meeting" ? "italic text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white group-hover:text-blue-400"}`}>
-                                  {m.title}
-                                </h3>
-                                {m.hostId === userId && (
-                                  <button 
-                                    onClick={() => { setEditingId(m.meetingId); setEditTitle(m.title); }}
-                                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 transition-all"
-                                    title="Rename Meeting"
-                                  >
-                                    <Pencil size={14} />
-                                  </button>
-                                )}
-                              </div>
+                              <span className="flex items-center gap-1.5 px-2.5 py-0.5 bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/20 text-[10px] font-bold uppercase tracking-wider rounded-md">
+                                PRIVATE MEETING
+                              </span>
                             )}
 
                             {m.isLive && (
@@ -379,7 +402,7 @@ export default function MeetingsListPage() {
                                 e.stopPropagation();
                                 setDropdownOpenId(dropdownOpenId === m.meetingId ? null : m.meetingId);
                               }}
-                              className="opacity-0 group-hover:opacity-100 p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 transition-all"
+                              className="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 transition-all shadow-sm"
                             >
                               <MoreHorizontal size={18} />
                             </button>
@@ -387,16 +410,16 @@ export default function MeetingsListPage() {
                             {dropdownOpenId === m.meetingId && (
                               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#1a1d2e] border border-slate-200 dark:border-[#2A2E3B] rounded-xl shadow-xl z-50 py-1" onClick={e => e.stopPropagation()}>
                                 <button 
-                                  onClick={() => { setDropdownOpenId(null); deleteMeeting(m.meetingId); }}
-                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                                  onClick={() => openEditModal(m)}
+                                  className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors font-medium"
                                 >
-                                  Cancel Scheduling
+                                  Edit Details
                                 </button>
                                 <button 
                                   onClick={() => { setDropdownOpenId(null); deleteMeeting(m.meetingId); }}
-                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors font-medium"
                                 >
-                                  Clear Meeting
+                                  {new Date(m.scheduledStart) > now && !m.isLive ? 'Cancel Scheduling' : 'Delete Meeting'}
                                 </button>
                               </div>
                             )}
@@ -426,6 +449,101 @@ export default function MeetingsListPage() {
           })}
         </div>
       </div>
+      
+      {/* Edit Modal Overlay */}
+      {isEditModalOpen && editingMeeting && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-[#1a1a24] rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-200 dark:border-white/10"
+          >
+            <h2 className="text-xl font-bold mb-4 text-slate-900 dark:text-white">Edit Meeting Details</h2>
+            
+            <form onSubmit={handleUpdateMeeting} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
+                <input 
+                  type="text" 
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-[#0f0f13] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  placeholder="Meeting Title"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
+                <textarea 
+                  value={editDescription}
+                  onChange={e => setEditDescription(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-[#0f0f13] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all min-h-[100px]"
+                  placeholder="Meeting Description (optional)"
+                />
+              </div>
+
+              {!editingMeeting?.isLive && (
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Date</label>
+                    <input 
+                      type="date" 
+                      value={editDate}
+                      onChange={e => setEditDate(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-[#0f0f13] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                      required
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Time</label>
+                    <input 
+                      type="time" 
+                      value={editTime}
+                      onChange={e => setEditTime(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-[#0f0f13] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              {editError && <p className="text-red-500 text-sm font-medium">{editError}</p>}
+
+              <div className="flex flex-col gap-3 pt-2">
+                <div className="flex gap-3">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="flex-1 px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={isSubmitting}
+                    className="flex-1 px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-all flex justify-center items-center gap-2 disabled:opacity-70"
+                  >
+                    {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                    {isSubmitting ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+                
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    deleteMeeting(editingMeeting!.meetingId);
+                  }}
+                  className="w-full px-4 py-2 rounded-xl border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                >
+                  {new Date(editingMeeting?.scheduledStart || new Date()) > new Date() && !editingMeeting?.isLive ? 'Cancel Scheduling' : 'Delete Meeting'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

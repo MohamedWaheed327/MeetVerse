@@ -36,6 +36,7 @@ import { useAuth } from "../../Context/AuthContext";
 import { useToast } from "../../Context/ToastContext";
 import type { GroupMember } from "../../services/getGroupMembers";
 import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
+import { createMeeting } from "../../services/createMeeting";
 
 type GroupChat = {
   id: string;
@@ -59,7 +60,8 @@ export default function GroupDetailsPage() {
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [groupChat, setGroupChat] = useState<GroupChat[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [joinRequestsCount, setJoinRequestsCount] = useState(0);
+  const [joinRequestsCount, setJoinRequestsCount] = useState<number>(0);
+  const [isStartingMeeting, setIsStartingMeeting] = useState(false);
   const [isChatOpenMobile, setIsChatOpenMobile] = useState(false);
   const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -122,7 +124,7 @@ export default function GroupDetailsPage() {
         addRecentSpace({
           id: details.id,
           name: details.name,
-          gradient: details.coverGradient
+          gradient: details.coverColor
         });
       } catch (err) {
         console.error(err);
@@ -130,6 +132,29 @@ export default function GroupDetailsPage() {
     };
     if (groupId) loadGroupDetails();
   }, [groupId]);
+
+  const handleStartInstantMeeting = async () => {
+    if (!groupId) return;
+    setIsStartingMeeting(true);
+    try {
+      const now = new Date();
+      // Format expected by createMeeting
+      const dateStr = now.toISOString().split('T')[0];
+      const timeStr = now.toTimeString().split(' ')[0].substring(0, 5);
+      
+      const newMeetingId = await createMeeting({
+        title: "Instant Group Meeting",
+        date: dateStr,
+        time: timeStr,
+        groupId: groupId,
+        scheduledStart: new Date(now.getTime() + 5000).toISOString() // Start in 5 seconds to bypass past-validation
+      });
+      navigate(`/meetings/${newMeetingId}`);
+    } catch (err) {
+      showToast("Failed to create instant meeting", "error");
+      setIsStartingMeeting(false);
+    }
+  };
 
   const handleUpdateGroup = async () => {
     if (!editName.trim()) return;
@@ -443,13 +468,14 @@ export default function GroupDetailsPage() {
               )}
 
               <LiquidMetalButton
-                onClick={() => navigate(`/meetings/create?groupId=${groupId}`)}
+                onClick={handleStartInstantMeeting}
+                disabled={isStartingMeeting}
                 width="full"
                 className="w-full flex items-center justify-between"
               >
                 <div className="flex flex-col items-start relative z-10 text-left">
                   <span className="text-xs sm:text-sm font-bold">
-                    Start Meeting
+                    {isStartingMeeting ? "Starting..." : "Start Meeting"}
                   </span>
                   <span className="hidden sm:inline text-[10px] text-blue-100">
                     Create an instant video session for this space.

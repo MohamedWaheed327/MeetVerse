@@ -46,7 +46,7 @@ public class LiveKitController : ControllerBase
             if (!isHost)
             {
                 var isParticipant = await _db.MeetingParticipants.AnyAsync(mp => mp.MeetingId == meetingId && mp.UserId == userId);
-                if (!isParticipant) return Forbid("You are not authorized to join this meeting room.");
+                if (!isParticipant) return StatusCode(403, "You are not authorized to join this meeting room.");
             }
         }
 

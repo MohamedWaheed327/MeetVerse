@@ -111,12 +111,17 @@ export default function CreateMeetingPage() {
         newErrors.date = "Date is required";
         firstErrorField = firstErrorField || 'date';
       } else {
-        const selectedDate = new Date(formData.date);
+        const selectedDate = new Date(`${formData.date}T${formData.time || '00:00'}`);
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (selectedDate < today) {
-          newErrors.date = "Date cannot be in the past";
+        if (selectedDate < today && formData.time) {
+          newErrors.date = "Cannot schedule a meeting in the past";
           firstErrorField = firstErrorField || 'date';
+        } else if (selectedDate < today && !formData.time) {
+          today.setHours(0, 0, 0, 0);
+          if (selectedDate < today) {
+            newErrors.date = "Date cannot be in the past";
+            firstErrorField = firstErrorField || 'date';
+          }
         }
       }
       
@@ -367,6 +372,7 @@ export default function CreateMeetingPage() {
                         name="date"
                         value={formData.date}
                         onChange={handleChange}
+                        min={new Date().toISOString().split('T')[0]}
                         className="w-full bg-transparent px-4 pb-2 pt-6 text-sm outline-none dark:[color-scheme:dark]"
                       />
                     </div>
@@ -380,6 +386,7 @@ export default function CreateMeetingPage() {
                         name="time"
                         value={formData.time}
                         onChange={handleChange}
+                        min={formData.date === new Date().toISOString().split('T')[0] ? new Date().toTimeString().slice(0, 5) : undefined}
                         className="w-full bg-transparent px-4 pb-2 pt-6 text-sm outline-none dark:[color-scheme:dark]"
                       />
                     </div>

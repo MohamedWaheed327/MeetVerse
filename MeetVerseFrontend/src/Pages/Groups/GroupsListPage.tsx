@@ -13,7 +13,16 @@ type Group = {
   memberCount: number;
   currentUserRole: string;
   description: string;
-  coverGradient?: string;
+  coverColor?: string;
+};
+
+const coverStyles: Record<string, string> = {
+  "blue": "from-blue-500 to-violet-500",
+  "green": "from-emerald-400 to-teal-500",
+  "red": "from-rose-500 to-orange-500",
+  "cyan": "from-indigo-500 to-cyan-500",
+  "pink": "from-fuchsia-500 to-pink-500",
+  "yellow": "from-amber-400 to-yellow-500"
 };
 
 export default function GroupsListPage() {
@@ -129,7 +138,7 @@ export default function GroupsListPage() {
                 className="group flex flex-col bg-white dark:bg-[#181B26] border border-slate-200 dark:border-[#2A2E3B] rounded-[2rem] overflow-hidden hover:border-blue-500 transition-all shadow-sm hover:shadow-xl relative"
               >
                 {/* Gradient Banner */}
-                <div className={`h-24 w-full bg-gradient-to-br ${g.coverGradient || 'from-slate-200 to-slate-300 dark:from-[#2A2E3B] dark:to-[#131520]'} relative`}>
+                <div className={`h-24 w-full bg-gradient-to-br ${g.coverColor && coverStyles[g.coverColor] ? coverStyles[g.coverColor] : 'from-slate-200 to-slate-300 dark:from-[#2A2E3B] dark:to-[#131520]'} relative`}>
                   <div className="absolute top-4 right-4 bg-black/30 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1.5 text-white text-[10px] font-bold uppercase tracking-widest border border-white/20">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                     {g.currentUserRole}

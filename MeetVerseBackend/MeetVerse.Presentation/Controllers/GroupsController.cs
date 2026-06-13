@@ -57,7 +57,7 @@ public class GroupsController : ControllerBase
                 CreatedAt = ug.Group.CreatedAt,
                 MemberCount = ug.Group.UserGroups.Count,
                 CurrentUserRole = ug.Role.ToString(),
-                CoverGradient = ug.Group.CoverGradient,
+                CoverColor = ug.Group.CoverColor,
                 IsPublic = ug.Group.IsPublic
             })
             .ToListAsync();
@@ -75,7 +75,7 @@ public class GroupsController : ControllerBase
             Id = Guid.NewGuid(),
             Name = request.Name.Trim(),
             Description = request.Description?.Trim(),
-            CoverGradient = request.CoverGradient,
+            CoverColor = request.CoverColor,
             IsPublic = request.IsPublic,
             CreatedById = userId.Value,
             CreatedAt = DateTime.UtcNow
@@ -101,7 +101,7 @@ public class GroupsController : ControllerBase
             CreatedAt = group.CreatedAt,
             MemberCount = 1,
             CurrentUserRole = GroupMemberRole.Owner.ToString(),
-            CoverGradient = group.CoverGradient,
+            CoverColor = group.CoverColor,
             IsPublic = group.IsPublic
         });
     }
@@ -126,7 +126,7 @@ public class GroupsController : ControllerBase
                 CreatedAt = g.CreatedAt,
                 MemberCount = g.UserGroups.Count,
                 CurrentUserRole = g.UserGroups.Where(ug => ug.UserId == userId).Select(ug => ug.Role.ToString()).FirstOrDefault(),
-                CoverGradient = g.CoverGradient,
+                CoverColor = g.CoverColor,
                 IsPublic = g.IsPublic
             })
             .FirstOrDefaultAsync();
@@ -419,40 +419,58 @@ public class GroupsController : ControllerBase
     [HttpPost("{groupId:guid}/requests")]
     public async Task<ActionResult> RequestJoinGroup(Guid groupId)
     {
-        var userId = GetCurrentUserId();
-        if (userId is null) return Unauthorized();
-        var group = await _db.Groups.FirstOrDefaultAsync(g => g.Id == groupId);
-        if (group is null) return NotFound();
-
-        if (await _db.UserGroups.AnyAsync(ug => ug.GroupId == groupId && ug.UserId == userId))
+        try
         {
-            return BadRequest("User is already a member");
-        }
+            var userId = GetCurrentUserId();
+            if (userId is null) return Unauthorized();
 
-        if (group.IsPublic)
-        {
-            _db.UserGroups.Add(new UserGroup
+            if (!await _db.Users.AnyAsync(u => u.Id == userId.Value))
             {
-                UserId = userId.Value,
-                GroupId = groupId,
-                Role = GroupMemberRole.Member,
-                JoinedAt = DateTime.UtcNow
-            });
-        }
-        else
-        {
-            var joinRequest = new JoinGroupRequest
+                return Unauthorized(new { message = "Your session is invalid or your account was deleted. Please log out and log back in." });
+            }
+
+            var group = await _db.Groups.FirstOrDefaultAsync(g => g.Id == groupId);
+            if (group is null) return NotFound(new { message = "Space not found. Please verify the Space ID." });
+
+            if (await _db.UserGroups.AnyAsync(ug => ug.GroupId == groupId && ug.UserId == userId))
             {
-                Id = Guid.NewGuid(),
-                UserId = userId.Value,
-                GroupId = groupId
-            };
-            _db.JoinGroupRequests.Add(joinRequest);
+                return BadRequest(new { message = "You are already a member of this space." });
+            }
+
+            if (group.IsPublic)
+            {
+                _db.UserGroups.Add(new UserGroup
+                {
+                    UserId = userId.Value,
+                    GroupId = groupId,
+                    Role = GroupMemberRole.Member,
+                    JoinedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                if (await _db.JoinGroupRequests.AnyAsync(r => r.GroupId == groupId && r.UserId == userId))
+                {
+                    return BadRequest(new { message = "You have already sent a join request to this space." });
+                }
+
+                var joinRequest = new JoinGroupRequest
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId.Value,
+                    GroupId = groupId
+                };
+                _db.JoinGroupRequests.Add(joinRequest);
+            }
+
+            await _db.SaveChangesAsync();
+
+            return Ok();
         }
-
-        await _db.SaveChangesAsync();
-
-        return Ok();
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Internal Server Error: {ex.Message}. Inner: {ex.InnerException?.Message}" });
+        }
     }
 
     [HttpGet("{groupId:guid}/requests")]

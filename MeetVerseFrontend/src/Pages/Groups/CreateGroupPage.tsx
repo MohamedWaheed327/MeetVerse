@@ -18,12 +18,12 @@ import Logo from "../../components/Shared/Logo";
 import { LiquidMetalButton } from "../../components/ui/LiquidMetalButton";
 
 const GRADIENT_OPTIONS = [
-  { id: "blue-violet", class: "from-blue-500 to-violet-500" },
-  { id: "emerald-teal", class: "from-emerald-400 to-teal-500" },
-  { id: "rose-orange", class: "from-rose-500 to-orange-500" },
-  { id: "indigo-cyan", class: "from-indigo-500 to-cyan-500" },
-  { id: "fuchsia-pink", class: "from-fuchsia-500 to-pink-500" },
-  { id: "amber-yellow", class: "from-amber-400 to-yellow-500" }
+  { id: "blue", class: "from-blue-500 to-violet-500" },
+  { id: "green", class: "from-emerald-400 to-teal-500" },
+  { id: "red", class: "from-rose-500 to-orange-500" },
+  { id: "cyan", class: "from-indigo-500 to-cyan-500" },
+  { id: "pink", class: "from-fuchsia-500 to-pink-500" },
+  { id: "yellow", class: "from-amber-400 to-yellow-500" }
 ];
 
 export default function CreateGroupPage() {
@@ -33,7 +33,7 @@ export default function CreateGroupPage() {
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [isPublic, setIsPublic] = useState(true);
-  const [coverGradient, setCoverGradient] = useState(GRADIENT_OPTIONS[0].id);
+  const [coverColor, setCoverColor] = useState(GRADIENT_OPTIONS[0].id);
   const [isCreating, setIsCreating] = useState(false);
   
   const [errors, setErrors] = useState<{ name?: string; description?: string }>({});
@@ -75,7 +75,7 @@ export default function CreateGroupPage() {
     
     setIsCreating(true);
     try {
-      await createGroup(groupName, groupDescription, isPublic, coverGradient);
+      await createGroup(groupName, groupDescription, isPublic, coverColor);
       showToast("Space created successfully!", "success");
       navigate("/groups");
     } catch (error) {
@@ -220,10 +220,10 @@ export default function CreateGroupPage() {
                       <button
                         key={grad.id}
                         type="button"
-                        onClick={() => setCoverGradient(grad.id)}
+                        onClick={() => setCoverColor(grad.id)}
                         className={`relative aspect-square rounded-full bg-gradient-to-br ${grad.class} transition-all duration-200 hover:scale-110 active:scale-95`}
                       >
-                        {coverGradient === grad.id && (
+                        {coverColor === grad.id && (
                           <div className="absolute inset-0 rounded-full ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-[#181B26] flex items-center justify-center">
                             <div className="w-2 h-2 bg-white rounded-full shadow-sm" />
                           </div>
