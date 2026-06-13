@@ -40,8 +40,6 @@ class SessionState:
     def __init__(self):
         self.h = None
 
-        self.queue = np.zeros(2912 * 2, dtype=np.float32)
-
         # raw audio received from client
         self.input_chunks = []
 
@@ -123,9 +121,6 @@ async def run_inference(wav_tensor,state: SessionState):
 
             enhanced_spec = transform.apply_mask(noisy_spec, mask)
 
-            # enhanced_spec = noisy_spec
-            # new_h = state.h
-
             enhanced_wav = transform.spectrogram_to_audio(enhanced_spec, target_num_samples=wav_tensor.shape[-1]) # ISTFT
 
             return enhanced_wav, new_h
@@ -149,21 +144,28 @@ async def audio_ws(websocket: WebSocket):
 
     print(f"Client connected: {user_id}" )
 
+    cnt = 0
+    total_audio_bytes = bytearray()
+    
     try:
         while True:
             # ----------------------------
             # RECEIVE AUDIO
             # ----------------------------
             audio_bytes = await websocket.receive_bytes()
-
-            wav = decode_audio(audio_bytes) # 160 sample
+            total_audio_bytes.extend(audio_bytes)
             
-            # print(len(audio_bytes), wav.shape)
-            # state.queue = np.concatenate([state.queue[len(wav):], wav])
-            # wav = np.asarray(state.queue, dtype=np.float32)
+            cnt += 1
+            if cnt < 8:
+                continue
+            else:
+                audio_bytes = bytes(total_audio_bytes)
+                total_audio_bytes = bytearray()
+                cnt = 0
+            wav = decode_audio(audio_bytes) # 160 * 8 sample
 
             # Save incoming audio
-            state.input_chunks.append(wav.copy())
+            # state.input_chunks.append(wav.copy())
 
             wav = torch.tensor(
                 wav,
@@ -181,10 +183,9 @@ async def audio_ws(websocket: WebSocket):
             # CONVERT OUTPUT
             # ----------------------------
             output = enhanced_wav.squeeze(0).detach().cpu().numpy()
-            # output = output[-160:]
 
             # Save enhanced audio
-            state.output_chunks.append(output.copy())
+            # state.output_chunks.append(output.copy())
 
             # ----------------------------
             # SEND RESULT
@@ -193,12 +194,12 @@ async def audio_ws(websocket: WebSocket):
 
     except WebSocketDisconnect:
         print(f"Disconnected: {user_id}")
-        save_session_audio(user_id, state)
+        # save_session_audio(user_id, state)
         sessions.pop(user_id, None)
 
     except Exception as e:
         print(f"Error: {e}")
-        save_session_audio(user_id, state)
+        # save_session_audio(user_id, state)
         sessions.pop(user_id, None)
 
 # ----------------------------
