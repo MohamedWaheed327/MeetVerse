@@ -14,54 +14,6 @@ FREQ_BINS=256
 
 DETACH_EVERY=20
 REAL_TIME_CHUNK_FRAMES=4
-TRAIN_CHUNK_FRAMES=16
-VAL_CHUNK_FRAMES=16
-train_chunk_frame_choices=[8,16]
-
-ENABLE_TRANSIENT_AUG=True
-TRANSIENT_PROB=0.15
-TRANSIENT_MAX_EVENTS=1
-TRANSIENT_SNR_RANGE=(-3,20)
-TRANSIENT_LOSS_WEIGHT=0.4
-
-NUM_WORKERS=4
-PIN_MEMORY=torch.cuda.is_available()
-USE_AMP=torch.cuda.is_available()
-
-RUN_PESQ_STOI_EVERY_EPOCH=False
-PESQ_STOI_EVERY_N_EPOCHS=2
-MAX_METRIC_BATCHES=10
-
-
-ESC50_CONTINUOUS = {
-    "rain",
-    "sea_waves",
-    "wind",
-    "thunderstorm",
-    "water_drops",
-    "pouring_water",
-    "crackling_fire",
-    "engine",
-    "vacuum_cleaner",
-    "washing_machine",
-    "train",
-    "airplane",
-    "helicopter"
-}
-
-ESC50_TRANSIENT = {
-    "door_wood_knock",
-    "glass_breaking",
-    "car_horn",
-    "siren",
-    "clock_alarm",
-    "mouse_click",
-    "keyboard_typing",
-    "can_opening",
-    "church_bells",
-    "clapping",
-    "fireworks"
-}
 
 
 def make_group_norm(channels,max_groups=8):
@@ -290,7 +242,6 @@ class SpectrogramTransform:
 
         return wav
 
-
 def load_model(device):
     model = Model(
         base=48,
@@ -299,12 +250,12 @@ def load_model(device):
         freq_bins=256
     ).to(device)
 
-    ckpt = torch.load(
-        "best_checkpoint.pth",
+    state_dict = torch.load(
+        "model_only.pth",  
         map_location=device
     )
 
-    model.load_state_dict(ckpt["model_state_dict"])
+    model.load_state_dict(state_dict)
     model.eval()
 
     return model
