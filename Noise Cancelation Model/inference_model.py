@@ -15,7 +15,6 @@ FREQ_BINS=256
 DETACH_EVERY=20
 REAL_TIME_CHUNK_FRAMES=4
 
-
 def make_group_norm(channels,max_groups=8):
     groups=min(channels,max_groups)
     while groups>1 and channels%groups!=0:
