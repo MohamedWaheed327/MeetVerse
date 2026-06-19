@@ -1,5 +1,5 @@
 https://www.kaggle.com/datasets/javohirtoshqorgonov/noise-audio-data audio 		ESC-50-master ( esc50_continuous + esc50_transient )
-https://www.kaggle.com/datasets/abdelrhamanfakhry/noise-data-set 			English dataset and demand_noises 
-https://datashare.ed.ac.uk/handle/10283/2791	
-https://www.kaggle.com/datasets/ahmedrezk14/clear-sound-train				Arabic Dataset train 
-https://www.kaggle.com/datasets/ahmedrezk14/clear-sound-val				Arabic Dataset val
+https://www.kaggle.com/datasets/abdelrhamanfakhry/noise-data-set 			        English dataset and demand_noises 
+https://datashare.ed.ac.uk/handle/10283/2791	                                English Dataset main source   
+https://www.kaggle.com/datasets/ahmedrezk14/clear-sound-train				          Arabic Dataset train   ( private Dataset ) 
+https://www.kaggle.com/datasets/ahmedrezk14/clear-sound-val				            Arabic Dataset val     ( private Dataset ) 
